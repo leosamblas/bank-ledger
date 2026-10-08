@@ -1,0 +1,188 @@
+openapi: 3.0.3
+info:
+  title: Transaction Service API
+  version: 1.0.0
+servers:
+  - url: http://localhost:8082/api/v1
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    ProblemDetail:
+      type: object
+      properties:
+        type:
+          type: string
+        title:
+          type: string
+        status:
+          type: integer
+        detail:
+          type: string
+    DepositRequest:
+      type: object
+      required: [amount]
+      properties:
+        amount:
+          type: integer
+          description: Valor em centavos
+        description:
+          type: string
+    WithdrawalRequest:
+      type: object
+      required: [amount]
+      properties:
+        amount:
+          type: integer
+          description: Valor em centavos
+        description:
+          type: string
+    TransferRequest:
+      type: object
+      required: [destinationAccountId, amount]
+      properties:
+        destinationAccountId:
+          type: string
+          format: uuid
+        amount:
+          type: integer
+          description: Valor em centavos
+        description:
+          type: string
+    TransactionResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        type:
+          type: string
+          enum: [DEPOSIT, WITHDRAWAL, TRANSFER]
+        status:
+          type: string
+          enum: [PENDING, COMPLETED, FAILED]
+        sourceAccountId:
+          type: string
+          format: uuid
+        destinationAccountId:
+          type: string
+          format: uuid
+        amount:
+          type: integer
+        currency:
+          type: string
+        failureCode:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        completedAt:
+          type: string
+          format: date-time
+
+paths:
+  /transactions/deposits:
+    post:
+      summary: Inicia um depósito
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DepositRequest'
+      responses:
+        '202':
+          description: Aceito para processamento
+          headers:
+            Location:
+              schema:
+                type: string
+        '400':
+          description: Bad Request (Missing Idempotency-Key or Invalid Amount)
+        '409':
+          description: Conflict (Idempotency in progress)
+        '422':
+          description: Unprocessable Entity (Idempotency key reused)
+  /transactions/withdrawals:
+    post:
+      summary: Inicia um saque
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WithdrawalRequest'
+      responses:
+        '202':
+          description: Aceito para processamento
+          headers:
+            Location:
+              schema:
+                type: string
+  /transactions/transfers:
+    post:
+      summary: Inicia uma transferência
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TransferRequest'
+      responses:
+        '202':
+          description: Aceito para processamento
+          headers:
+            Location:
+              schema:
+                type: string
+  /transactions/{transactionId}:
+    get:
+      summary: Consulta o status da transação
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: transactionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransactionResponse'
+        '404':
+          description: Not Found

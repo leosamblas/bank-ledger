@@ -1,0 +1,108 @@
+openapi: 3.0.3
+info:
+  title: Ledger Service API
+  version: 1.0.0
+servers:
+  - url: http://localhost:8084/internal/v1/ledger
+components:
+  schemas:
+    LedgerBalanceResponse:
+      type: object
+      properties:
+        accountId:
+          type: string
+          format: uuid
+        balance:
+          type: integer
+        lastSequence:
+          type: integer
+        status:
+          type: string
+    JournalEntry:
+      type: object
+      properties:
+        accountId:
+          type: string
+          format: uuid
+        direction:
+          type: string
+        amount:
+          type: integer
+        balanceAfter:
+          type: integer
+        sequence:
+          type: integer
+    JournalResponse:
+      type: object
+      properties:
+        journalId:
+          type: string
+          format: uuid
+        transactionId:
+          type: string
+          format: uuid
+        type:
+          type: string
+        status:
+          type: string
+        totalAmount:
+          type: integer
+        entries:
+          type: array
+          items:
+            $ref: '#/components/schemas/JournalEntry'
+    TrialBalanceResponse:
+      type: object
+      properties:
+        debits:
+          type: integer
+        credits:
+          type: integer
+        difference:
+          type: integer
+
+paths:
+  /accounts/{id}/balance:
+    get:
+      summary: Retorna saldo consistente da conta
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LedgerBalanceResponse'
+  /journals/by-transaction/{transactionId}:
+    get:
+      summary: Retorna um journal a partir do transactionId
+      parameters:
+        - name: transactionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JournalResponse'
+  /trial-balance:
+    get:
+      summary: Retorna o balancete de verificação
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TrialBalanceResponse'

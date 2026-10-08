@@ -1,0 +1,139 @@
+openapi: 3.0.3
+info:
+  title: Query Service API
+  version: 1.0.0
+servers:
+  - url: http://localhost:8083/api/v1
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    BalanceResponse:
+      type: object
+      properties:
+        accountId:
+          type: string
+          format: uuid
+        balance:
+          type: integer
+        currency:
+          type: string
+        asOfSequence:
+          type: integer
+        updatedAt:
+          type: string
+          format: date-time
+    StatementEntry:
+      type: object
+      properties:
+        id:
+          type: string
+        sequence:
+          type: integer
+        journalId:
+          type: string
+          format: uuid
+        transactionId:
+          type: string
+          format: uuid
+        kind:
+          type: string
+        direction:
+          type: string
+          enum: [DEBIT, CREDIT]
+        amount:
+          type: integer
+        balanceAfter:
+          type: integer
+        counterparty:
+          type: object
+          properties:
+            accountId:
+              type: string
+              format: uuid
+            agency:
+              type: string
+            number:
+              type: string
+            holderNameMasked:
+              type: string
+        description:
+          type: string
+        postedAt:
+          type: string
+          format: date-time
+    StatementPage:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/StatementEntry'
+        nextCursor:
+          type: string
+
+paths:
+  /accounts/{accountId}/balance:
+    get:
+      summary: Consulta o saldo da conta
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: accountId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BalanceResponse'
+  /accounts/{accountId}/statement:
+    get:
+      summary: Consulta o extrato da conta
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: accountId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: from
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: to
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: kind
+          in: query
+          schema:
+            type: string
+        - name: cursor
+          in: query
+          schema:
+            type: string
+        - name: size
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StatementPage'

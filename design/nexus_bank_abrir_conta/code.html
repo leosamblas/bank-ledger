@@ -1,0 +1,541 @@
+<!DOCTYPE html><html lang="pt-BR"><head><meta charset="utf-8"><meta content="width=device-width, initial-scale=1.0" name="viewport"><meta content="web_blank" name="shell-type"><style>@layer base{html,body{margin:0;padding:0;}body{overscroll-behavior:none;}main>:first-child{margin-top:0!important;}main>:last-child{margin-bottom:0!important;}}::-webkit-scrollbar{display:none;}</style><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&amp;display=swap" rel="stylesheet"><script src="https://cdn.tailwindcss.com"></script><script id="tailwind-config">tailwind.config={"darkMode":"class","theme":{"extend":{"colors":{"surface-container-low":"#eff4ff","surface-container-high":"#dce9ff","surface-tint":"#525f75","on-primary-fixed-variant":"#3a475c","inverse-on-surface":"#eaf1ff","outline-variant":"#c5c6cd","tertiary-fixed":"#69ff87","secondary-fixed":"#d3e4ff","primary-fixed":"#d6e3fe","on-secondary-container":"#3b5a7f","on-tertiary-fixed":"#002108","surface-bright":"#f8f9ff","surface-variant":"#d3e4fe","on-error":"#ffffff","background":"#f8f9ff","primary-container":"#0e1c2f","on-error-container":"#93000a","surface-container-highest":"#d3e4fe","tertiary":"#000000","inverse-primary":"#bac7e1","tertiary-fixed-dim":"#3ce36a","surface":"#f8f9ff","surface-dim":"#cbdbf5","inverse-surface":"#213145","on-tertiary-container":"#00983d","on-secondary":"#ffffff","on-primary-fixed":"#0e1c2f","on-tertiary-fixed-variant":"#00531e","outline":"#75777d","primary-fixed-dim":"#bac7e1","secondary-container":"#b3d1fd","on-primary":"#ffffff","surface-container":"#e5eeff","error":"#ba1a1a","on-surface-variant":"#44474c","on-surface":"#0b1c30","on-secondary-fixed":"#001c38","error-container":"#ffdad6","secondary-fixed-dim":"#aac9f4","on-primary-container":"#77849c","primary":"#000000","on-tertiary":"#ffffff","surface-container-lowest":"#ffffff","tertiary-container":"#002108","secondary":"#426086","on-background":"#0b1c30"},"borderRadius":{"DEFAULT":"0.125rem","lg":"0.25rem","xl":"0.5rem","full":"0.75rem"},"spacing":{"margin":"2rem","space-sm":"0.5rem","margin-mobile":"1rem","space-xl":"2.5rem","gutter-mobile":"0.75rem","gutter":"1.5rem","space-lg":"1.5rem","space-xs":"0.25rem","space-md":"1rem"},"fontFamily":{"headline-sm":["Inter"],"body-md":["Inter"],"display-hero-mobile":["Inter"],"body-lg":["Inter"],"headline-lg-mobile":["Inter"],"headline-lg":["Inter"],"code-lg":["JetBrains Mono"],"code-sm":["JetBrains Mono"],"label-caps":["Inter"],"body-sm":["Inter"],"code-md":["JetBrains Mono"],"headline-md":["Inter"],"display-hero":["Inter"]},"fontSize":{"headline-sm":["16px",{"lineHeight":"24px","letterSpacing":"-0.005em","fontWeight":"600"}],"body-md":["14px",{"lineHeight":"20px","letterSpacing":"0em","fontWeight":"400"}],"display-hero-mobile":["30px",{"lineHeight":"38px","letterSpacing":"-0.015em","fontWeight":"700"}],"body-lg":["16px",{"lineHeight":"24px","letterSpacing":"0em","fontWeight":"400"}],"headline-lg-mobile":["22px",{"lineHeight":"30px","letterSpacing":"-0.01em","fontWeight":"600"}],"headline-lg":["28px",{"lineHeight":"36px","letterSpacing":"-0.015em","fontWeight":"600"}],"code-lg":["18px",{"lineHeight":"26px","letterSpacing":"-0.02em","fontWeight":"500"}],"code-sm":["11px",{"lineHeight":"16px","letterSpacing":"0.01em","fontWeight":"500"}],"label-caps":["11px",{"lineHeight":"16px","letterSpacing":"0.05em","fontWeight":"600"}],"body-sm":["12px",{"lineHeight":"16px","letterSpacing":"0.005em","fontWeight":"400"}],"code-md":["13px",{"lineHeight":"18px","letterSpacing":"-0.01em","fontWeight":"500"}],"headline-md":["20px",{"lineHeight":"28px","letterSpacing":"-0.01em","fontWeight":"600"}],"display-hero":["40px",{"lineHeight":"48px","letterSpacing":"-0.02em","fontWeight":"700"}]}}}};</script></head><body class="bg-surface font-body-md text-on-surface antialiased"><main class="w-full min-h-screen flex flex-col justify-between bg-surface"><div class="flex flex-col w-full">
+<div class="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
+<!-- Top Identity & Context Bar -->
+<div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-8 border-b border-surface-container">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-xl bg-primary-container flex items-center justify-center text-on-primary shadow-sm">
+<span class="material-symbols-outlined text-2xl" style="font-variation-settings: 'FILL' 1;">account_balance</span>
+</div>
+<div>
+<span class="font-headline-sm text-headline-sm text-on-surface tracking-tight">Nexus Bank</span>
+<span class="block font-label-caps text-label-caps text-secondary uppercase tracking-widest">Instituição de Pagamento • Bacen Autorizado</span>
+</div>
+</div>
+<div class="flex items-center gap-2 text-on-surface-variant font-body-sm text-body-sm self-start sm:self-auto">
+<span class="inline-flex w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+<span class="">Ambiente Seguro Criptografado SSL 256-bit</span>
+</div>
+</div>
+<!-- Stepper Navigation -->
+<div class="py-8">
+<div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+<!-- Step 1 (Active) -->
+<div class="bg-surface-container-lowest p-4 rounded-xl shadow-sm flex items-center gap-4">
+<div class="w-9 h-9 rounded-full bg-primary text-on-primary flex items-center justify-center font-headline-sm text-headline-sm">
+            1
+          </div>
+<div class="min-w-0">
+<span class="block font-label-caps text-label-caps text-secondary uppercase">Passo Atual</span>
+<span class="font-headline-sm text-headline-sm text-on-surface truncate">Dados Pessoais</span>
+</div>
+</div>
+<!-- Step 2 -->
+<div class="bg-surface-container-low p-4 rounded-xl flex items-center gap-4 opacity-75">
+<div class="w-9 h-9 rounded-full bg-surface-container-highest text-on-surface-variant flex items-center justify-center font-headline-sm text-headline-sm">
+            2
+          </div>
+<div class="min-w-0">
+<span class="block font-label-caps text-label-caps text-on-surface-variant uppercase">Próxima Etapa</span>
+<span class="font-headline-sm text-headline-sm text-on-surface truncate">Segurança &amp; Acesso</span>
+</div>
+</div>
+<!-- Step 3 -->
+<div class="bg-surface-container-low p-4 rounded-xl flex items-center gap-4 opacity-75">
+<div class="w-9 h-9 rounded-full bg-surface-container-highest text-on-surface-variant flex items-center justify-center font-headline-sm text-headline-sm">
+            3
+          </div>
+<div class="min-w-0">
+<span class="block font-label-caps text-label-caps text-on-surface-variant uppercase">Finalização</span>
+<span class="font-headline-sm text-headline-sm text-on-surface truncate">Ativação da Conta</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Main Content 2-Column Grid -->
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-start">
+<!-- Left Column: Form -->
+<div class="lg:col-span-7 bg-surface-container-lowest p-6 sm:p-10 rounded-2xl shadow-sm">
+<!-- Header Section inside Content -->
+<div class="mb-8">
+<span class="font-label-caps text-label-caps uppercase text-secondary tracking-wider block mb-2">Abertura Simplificada</span>
+<h1 class="font-headline-lg text-headline-lg text-on-surface tracking-tight mb-2">
+            Abra sua conta digital Nexus Bank em poucos minutos
+          </h1>
+<p class="font-body-lg text-body-lg text-on-surface-variant">
+            Sem tarifas ocultas, 100% digital e com total segurança regulada pelo Banco Central do Brasil.
+          </p>
+</div>
+<!-- Form Elements -->
+<form class="space-y-6" id="openAccountForm" onsubmit="event.preventDefault(); handleSubmit();">
+<!-- Nome Completo -->
+<div class="space-y-1.5">
+<label class="block font-body-sm text-body-sm font-semibold text-on-surface" for="fullName">
+              Nome Completo
+            </label>
+<div class="relative">
+<input class="w-full bg-surface-container-low text-on-surface font-body-md text-body-md px-4 py-3 rounded-lg focus:outline-none focus:bg-surface-container-lowest focus:ring-2 focus:ring-primary-container transition-all" id="fullName" name="fullName" oninput="validateFullName(this)" placeholder="Ex: Carlos Eduardo Silva" required="" type="text">
+<span class="material-symbols-outlined absolute right-3 top-3 text-emerald-600 hidden text-xl" id="nameCheck" style="font-variation-settings: 'FILL' 1;">
+                check_circle
+              </span>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant" id="nameHint">
+              Informe seu nome completo conforme documento oficial de identificação.
+            </p>
+</div>
+<!-- CPF & Data de Nascimento Grid -->
+<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+<!-- CPF -->
+<div class="space-y-1.5">
+<label class="block font-body-sm text-body-sm font-semibold text-on-surface" for="cpf">
+                CPF
+              </label>
+<div class="relative">
+<input class="w-full bg-surface-container-low text-on-surface font-code-md text-code-md px-4 py-3 rounded-lg focus:outline-none focus:bg-surface-container-lowest focus:ring-2 focus:ring-primary-container transition-all" id="cpf" maxlength="14" name="cpf" oninput="handleCpfInput(this)" placeholder="000.000.000-00" required="" type="text">
+<span class="material-symbols-outlined absolute right-3 top-3 text-emerald-600 hidden text-xl" id="cpfBadge" style="font-variation-settings: 'FILL' 1;">
+                  check_circle
+                </span>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant" id="cpfHint">
+                Validação de dígitos verificadores em tempo real.
+              </p>
+</div>
+<!-- Data de Nascimento -->
+<div class="space-y-1.5">
+<label class="block font-body-sm text-body-sm font-semibold text-on-surface" for="birthDate">
+                Data de Nascimento
+              </label>
+<div class="relative">
+<input class="w-full bg-surface-container-low text-on-surface font-body-md text-body-md px-4 py-3 rounded-lg focus:outline-none focus:bg-surface-container-lowest focus:ring-2 focus:ring-primary-container transition-all" id="birthDate" name="birthDate" onchange="validateAge(this)" required="" type="date">
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant" id="ageHint">
+                Obrigatório ter 18 anos ou mais.
+              </p>
+</div>
+</div>
+<!-- E-mail & Celular Grid -->
+<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+<!-- E-mail -->
+<div class="space-y-1.5">
+<label class="block font-body-sm text-body-sm font-semibold text-on-surface" for="email">
+                E-mail
+              </label>
+<input class="w-full bg-surface-container-low text-on-surface font-body-md text-body-md px-4 py-3 rounded-lg focus:outline-none focus:bg-surface-container-lowest focus:ring-2 focus:ring-primary-container transition-all" id="email" name="email" placeholder="nome@empresa.com.br" required="" type="email">
+<p class="font-body-sm text-body-sm text-on-surface-variant">
+                Para avisos de conta e comprovantes bancários.
+              </p>
+</div>
+<!-- Telefone Celular -->
+<div class="space-y-1.5">
+<label class="block font-body-sm text-body-sm font-semibold text-on-surface" for="phone">
+                Telefone Celular
+              </label>
+<input class="w-full bg-surface-container-low text-on-surface font-code-md text-code-md px-4 py-3 rounded-lg focus:outline-none focus:bg-surface-container-lowest focus:ring-2 focus:ring-primary-container transition-all" id="phone" maxlength="15" name="phone" oninput="formatPhone(this)" placeholder="(11) 98765-4321" required="" type="tel">
+<p class="font-body-sm text-body-sm text-on-surface-variant">
+                Confirmação por SMS e autenticação instantânea.
+              </p>
+</div>
+</div>
+<!-- Senha e Confirmação de Senha -->
+<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+<!-- Senha -->
+<div class="space-y-1.5">
+<label class="block font-body-sm text-body-sm font-semibold text-on-surface" for="password">
+                Senha de Acesso
+              </label>
+<div class="relative">
+<input class="w-full bg-surface-container-low text-on-surface font-body-md text-body-md px-4 py-3 rounded-lg focus:outline-none focus:bg-surface-container-lowest focus:ring-2 focus:ring-primary-container transition-all" id="password" name="password" oninput="checkPasswordStrength(this.value)" placeholder="Mínimo 8 caracteres" required="" type="password">
+</div>
+</div>
+<!-- Confirmação de Senha -->
+<div class="space-y-1.5">
+<label class="block font-body-sm text-body-sm font-semibold text-on-surface" for="confirmPassword">
+                Confirmar Senha
+              </label>
+<div class="relative">
+<input class="w-full bg-surface-container-low text-on-surface font-body-md text-body-md px-4 py-3 rounded-lg focus:outline-none focus:bg-surface-container-lowest focus:ring-2 focus:ring-primary-container transition-all" id="confirmPassword" name="confirmPassword" oninput="checkPasswordMatch()" placeholder="Repita sua senha" required="" type="password">
+</div>
+</div>
+</div>
+<!-- Indicador de Força de Senha -->
+<div class="bg-surface-container-low p-4 rounded-xl space-y-3">
+<div class="flex items-center justify-between">
+<span class="font-label-caps text-label-caps uppercase text-on-surface-variant">Segurança da Senha</span>
+<span class="font-body-sm text-body-sm font-semibold text-on-surface-variant" id="strengthText">Não informada</span>
+</div>
+<div class="w-full h-1.5 bg-surface-container-highest rounded-full overflow-hidden flex">
+<div class="h-full w-1/4 bg-surface-container transition-all" id="strengthBar1"></div>
+<div class="h-full w-1/4 bg-surface-container transition-all" id="strengthBar2"></div>
+<div class="h-full w-1/4 bg-surface-container transition-all" id="strengthBar3"></div>
+<div class="h-full w-1/4 bg-surface-container transition-all" id="strengthBar4"></div>
+</div>
+<div class="grid grid-cols-2 gap-2 pt-1 font-body-sm text-body-sm text-on-surface-variant">
+<div class="flex items-center gap-1.5" id="reqLength">
+<span class="material-symbols-outlined text-base">radio_button_unchecked</span>
+<span class="">8+ caracteres</span>
+</div>
+<div class="flex items-center gap-1.5" id="reqUpper">
+<span class="material-symbols-outlined text-base">radio_button_unchecked</span>
+<span class="">Letra maiúscula</span>
+</div>
+<div class="flex items-center gap-1.5" id="reqNumber">
+<span class="material-symbols-outlined text-base">radio_button_unchecked</span>
+<span class="">Pelo menos 1 número</span>
+</div>
+<div class="flex items-center gap-1.5" id="reqSymbol">
+<span class="material-symbols-outlined text-base">radio_button_unchecked</span>
+<span class="">Símbolo (@, #, $, etc.)</span>
+</div>
+</div>
+</div>
+<!-- Termos e Condições Checkbox -->
+<div class="flex items-start gap-3 pt-2">
+<input class="mt-1 w-4 h-4 rounded text-primary-container focus:ring-0 cursor-pointer accent-black" id="terms" name="terms" required="" type="checkbox">
+<label class="font-body-sm text-body-sm text-on-surface-variant leading-relaxed cursor-pointer" for="terms">
+              Declaro que li e concordo com os 
+              <a class="text-on-surface font-semibold underline hover:text-secondary" href="#">Termos de Uso</a> 
+              e a 
+              <a class="text-on-surface font-semibold underline hover:text-secondary" href="#">Política de Privacidade</a> 
+              do Nexus Bank, autorizando o tratamento de dados cadastrais para gestão de conta digital.
+            </label>
+</div>
+<!-- Informação sobre o Ciclo de Vida da Conta -->
+<div class="p-4 rounded-xl bg-surface-container flex items-start gap-3">
+<span class="material-symbols-outlined text-secondary text-xl mt-0.5">verified_user</span>
+<p class="font-body-sm text-body-sm text-on-surface leading-normal">
+              Sua conta é criada instantaneamente com agência 0001 e passa pelo processo ágil de ativação automática em instantes.
+            </p>
+</div>
+<!-- CTA Button -->
+<div class="pt-4 space-y-4">
+<button class="w-full h-12 px-6 bg-primary text-on-primary font-headline-sm text-headline-sm rounded-full hover:bg-on-secondary-fixed transition-all flex items-center justify-center gap-2 shadow-md hover:shadow-lg active:scale-[0.99] cursor-pointer" id="submitBtn" type="submit">
+<span class="">Concluir Abertura de Conta</span>
+<span class="material-symbols-outlined text-xl">arrow_forward</span>
+</button>
+<!-- Login Link for Existing Users -->
+<p class="text-center font-body-sm text-body-sm text-on-surface-variant pt-2">
+              Já possui uma conta? 
+              <a class="font-semibold text-on-surface hover:underline hover:text-secondary transition-colors" href="#">
+                Faça login
+              </a>
+</p>
+</div>
+</form>
+</div>
+<!-- Right Column: Visual Showcase & Trust Banner -->
+<div class="lg:col-span-5 space-y-6">
+<!-- Premium Virtual Card Preview Block -->
+<div class="bg-primary-container text-on-primary p-8 rounded-2xl shadow-xl relative overflow-hidden flex flex-col justify-between min-h-[360px]">
+<div class="absolute -right-16 -top-16 w-56 h-56 rounded-full bg-secondary opacity-20 blur-3xl pointer-events-none"></div>
+<div class="flex items-center justify-between z-10">
+<div class="flex items-center gap-2">
+<span class="font-headline-sm text-headline-sm text-on-primary tracking-tight">Nexus Black</span>
+<span class="bg-surface/20 text-on-primary px-2 py-0.5 rounded text-[10px] font-label-caps uppercase">BRL Account</span>
+</div>
+<span class="material-symbols-outlined text-2xl text-on-primary">contactless</span>
+</div>
+<div class="my-8 z-10">
+<div class="w-12 h-9 rounded-md bg-amber-400/90 mb-4 flex items-center justify-center shadow-inner">
+<div class="w-8 h-5 border border-amber-900/40 rounded-sm"></div>
+</div>
+<p class="font-code-lg text-code-lg text-on-primary tracking-widest font-mono">
+              •••• •••• •••• 9012
+            </p>
+</div>
+<div class="flex items-end justify-between z-10 pt-4 border-t border-white/10">
+<div>
+<span class="block font-label-caps text-[10px] uppercase text-on-primary-container tracking-wider">Titular da Conta</span>
+<span class="font-headline-sm text-headline-sm text-on-primary" id="cardHolderDisplay">SEU NOME AQUI</span>
+</div>
+<div class="text-right">
+<span class="block font-label-caps text-[10px] uppercase text-on-primary-container tracking-wider">Agência / Conta</span>
+<span class="font-code-md text-code-md text-on-primary font-mono">0001 / Digital</span>
+</div>
+</div>
+</div>
+<!-- Highlights Bento Cards -->
+<div class="space-y-3">
+<div class="bg-surface-container-lowest p-5 rounded-xl shadow-sm flex items-start gap-4">
+<div class="w-10 h-10 rounded-lg bg-surface-container flex items-center justify-center text-primary flex-shrink-0">
+<span class="material-symbols-outlined">payments</span>
+</div>
+<div>
+<h2 class="font-headline-sm text-headline-sm text-on-surface">Conta Corrente BRL sem anuidade</h2>
+<p class="font-body-sm text-body-sm text-on-surface-variant mt-0.5">
+                Zero mensalidade de manutenção, extratos transparentes e rendimento automático sobre o saldo.
+              </p>
+</div>
+</div>
+<div class="bg-surface-container-lowest p-5 rounded-xl shadow-sm flex items-start gap-4">
+<div class="w-10 h-10 rounded-lg bg-surface-container flex items-center justify-center text-primary flex-shrink-0">
+<span class="material-symbols-outlined">bolt</span>
+</div>
+<div>
+<h2 class="font-headline-sm text-headline-sm text-on-surface">Transferências e pagamentos instantâneos</h2>
+<p class="font-body-sm text-body-sm text-on-surface-variant mt-0.5">
+                Pix 24/7 sem limites ocultos, TEDs instantâneas e agendamento financeiro inteligente.
+              </p>
+</div>
+</div>
+<div class="bg-surface-container-lowest p-5 rounded-xl shadow-sm flex items-start gap-4">
+<div class="w-10 h-10 rounded-lg bg-surface-container flex items-center justify-center text-primary flex-shrink-0">
+<span class="material-symbols-outlined">shield</span>
+</div>
+<div>
+<h2 class="font-headline-sm text-headline-sm text-on-surface">Garantia e segurança bancária de ponta</h2>
+<p class="font-body-sm text-body-sm text-on-surface-variant mt-0.5">
+                Proteção com biometria facial, autenticação de múltiplos fatores e conformidade estrita com o Banco Central.
+              </p>
+</div>
+</div>
+</div>
+<!-- Trust & Customer Review Card -->
+<div class="bg-surface-container p-6 rounded-2xl flex flex-col gap-4">
+<div class="flex items-center gap-1 text-amber-500">
+<span class="material-symbols-outlined text-lg" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="material-symbols-outlined text-lg" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="material-symbols-outlined text-lg" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="material-symbols-outlined text-lg" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="material-symbols-outlined text-lg" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="font-headline-sm text-headline-sm text-on-surface ml-2">4.9 / 5</span>
+</div>
+<p class="font-body-md text-body-md text-on-surface italic leading-relaxed">
+            “A abertura de conta no Nexus Bank foi a experiência bancária mais fluida e segura que já tive. Em poucos instantes meu cartão virtual estava pronto e minha agência já operava normalmente.”
+          </p>
+<div class="flex items-center justify-between pt-2 border-t border-surface-container-highest">
+<div class="flex items-center gap-3">
+<div class="w-9 h-9 rounded-full bg-primary-container text-on-primary flex items-center justify-center font-headline-sm text-headline-sm">
+                LC
+              </div>
+<div>
+<span class="block font-headline-sm text-headline-sm text-on-surface">Lucas Castanho</span>
+<span class="block font-body-sm text-body-sm text-on-surface-variant">Empresário e Cliente Nexus</span>
+</div>
+</div>
+<div class="text-right">
+<span class="block font-label-caps text-label-caps text-emerald-700 uppercase font-semibold">Comunidade Ativa</span>
+<span class="font-body-sm text-body-sm font-semibold text-on-surface">Mais de 50.000 clientes</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Regulatory Footer note -->
+<div class="mt-12 pt-6 border-t border-surface-container flex flex-col sm:flex-row items-center justify-between text-on-surface-variant font-body-sm text-body-sm gap-4 text-center sm:text-left">
+<p class="">
+        Nexus Bank S.A. — Instituição de Pagamento autorizada pelo Banco Central do Brasil. CNPJ 00.000.000/0001-00.
+      </p>
+<div class="flex gap-4">
+<a class="hover:underline" href="#">Central de Ajuda</a>
+<a class="hover:underline" href="#">Segurança</a>
+<a class="hover:underline" href="#">Ouvidoria 0800</a>
+</div>
+</div>
+</div>
+</div>
+<script>
+  // Dynamic validation and masking logic
+  function validateFullName(input) {
+    const parts = input.value.trim().split(/\s+/);
+    const isValid = parts.length >= 2 && parts[0].length >= 2 && parts[1].length >= 2;
+    const badge = document.getElementById('nameCheck');
+    const display = document.getElementById('cardHolderDisplay');
+    
+    if (display) {
+      display.textContent = input.value.trim().toUpperCase() || 'SEU NOME AQUI';
+    }
+
+    if (isValid) {
+      badge.classList.remove('hidden');
+    } else {
+      badge.classList.add('hidden');
+    }
+  }
+
+  function handleCpfInput(input) {
+    let v = input.value.replace(/\D/g, '');
+    if (v.length > 11) v = v.substring(0, 11);
+    
+    // Apply mask
+    if (v.length > 9) {
+      input.value = v.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4");
+    } else if (v.length > 6) {
+      input.value = v.replace(/(\d{3})(\d{3})(\d{1,3})/, "$1.$2.$3");
+    } else if (v.length > 3) {
+      input.value = v.replace(/(\d{3})(\d{1,3})/, "$1.$2");
+    } else {
+      input.value = v;
+    }
+
+    // CPF digit validation
+    const badge = document.getElementById('cpfBadge');
+    const hint = document.getElementById('cpfHint');
+
+    if (v.length === 11) {
+      if (isValidCpf(v)) {
+        badge.classList.remove('hidden');
+        hint.textContent = 'CPF verificado e regular junto à Receita Federal.';
+        hint.classList.remove('text-error', 'text-on-surface-variant');
+        hint.classList.add('text-emerald-700');
+      } else {
+        badge.classList.add('hidden');
+        hint.textContent = 'Dígitos verificadores de CPF inválidos.';
+        hint.classList.remove('text-emerald-700', 'text-on-surface-variant');
+        hint.classList.add('text-error');
+      }
+    } else {
+      badge.classList.add('hidden');
+      hint.textContent = 'Validação de dígitos verificadores em tempo real.';
+      hint.classList.remove('text-error', 'text-emerald-700');
+      hint.classList.add('text-on-surface-variant');
+    }
+  }
+
+  function isValidCpf(cpf) {
+    if (/^(\d)\1{10}$/.test(cpf)) return false;
+    let sum = 0;
+    let remainder;
+    for (let i = 1; i <= 9; i++) sum = sum + parseInt(cpf.substring(i - 1, i)) * (11 - i);
+    remainder = (sum * 10) % 11;
+    if (remainder === 10 || remainder === 11) remainder = 0;
+    if (remainder !== parseInt(cpf.substring(9, 10))) return false;
+    sum = 0;
+    for (let i = 1; i <= 10; i++) sum = sum + parseInt(cpf.substring(i - 1, i)) * (12 - i);
+    remainder = (sum * 10) % 11;
+    if (remainder === 10 || remainder === 11) remainder = 0;
+    return remainder === parseInt(cpf.substring(10, 11));
+  }
+
+  function validateAge(input) {
+    const hint = document.getElementById('ageHint');
+    if (!input.value) return;
+    const birth = new Date(input.value);
+    const today = new Date();
+    let age = today.getFullYear() - birth.getFullYear();
+    const m = today.getMonth() - birth.getMonth();
+    if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) {
+      age--;
+    }
+
+    if (age >= 18) {
+      hint.textContent = 'Idade verificada (' + age + ' anos). Titular elegível.';
+      hint.classList.remove('text-error', 'text-on-surface-variant');
+      hint.classList.add('text-emerald-700');
+    } else {
+      hint.textContent = 'Abertura permitida apenas para maiores de 18 anos.';
+      hint.classList.remove('text-emerald-700', 'text-on-surface-variant');
+      hint.classList.add('text-error');
+    }
+  }
+
+  function formatPhone(input) {
+    let v = input.value.replace(/\D/g, '');
+    if (v.length > 11) v = v.substring(0, 11);
+
+    if (v.length > 10) {
+      input.value = v.replace(/^(\d{2})(\d{5})(\d{4})$/, '($1) $2-$3');
+    } else if (v.length > 6) {
+      input.value = v.replace(/^(\d{2})(\d{4})(\d{0,4})$/, '($1) $2-$3');
+    } else if (v.length > 2) {
+      input.value = v.replace(/^(\d{2})(\d{0,5})$/, '($1) $2');
+    } else {
+      input.value = v;
+    }
+  }
+
+  function checkPasswordStrength(val) {
+    const hasLen = val.length >= 8;
+    const hasUpper = /[A-Z]/.test(val);
+    const hasNum = /[0-9]/.test(val);
+    const hasSym = /[^A-Za-z0-9]/.test(val);
+
+    updateReq('reqLength', hasLen);
+    updateReq('reqUpper', hasUpper);
+    updateReq('reqNumber', hasNum);
+    updateReq('reqSymbol', hasSym);
+
+    let score = [hasLen, hasUpper, hasNum, hasSym].filter(Boolean).length;
+    
+    const b1 = document.getElementById('strengthBar1');
+    const b2 = document.getElementById('strengthBar2');
+    const b3 = document.getElementById('strengthBar3');
+    const b4 = document.getElementById('strengthBar4');
+    const txt = document.getElementById('strengthText');
+
+    [b1, b2, b3, b4].forEach(b => {
+      b.className = 'h-full w-1/4 bg-surface-container transition-all';
+    });
+
+    if (score === 0) {
+      txt.textContent = 'Não informada';
+      txt.className = 'font-body-sm text-body-sm font-semibold text-on-surface-variant';
+    } else if (score === 1) {
+      b1.classList.add('bg-error');
+      txt.textContent = 'Fraca';
+      txt.className = 'font-body-sm text-body-sm font-semibold text-error';
+    } else if (score === 2) {
+      b1.classList.add('bg-amber-500');
+      b2.classList.add('bg-amber-500');
+      txt.textContent = 'Média';
+      txt.className = 'font-body-sm text-body-sm font-semibold text-amber-600';
+    } else if (score === 3) {
+      b1.classList.add('bg-emerald-500');
+      b2.classList.add('bg-emerald-500');
+      b3.classList.add('bg-emerald-500');
+      txt.textContent = 'Boa';
+      txt.className = 'font-body-sm text-body-sm font-semibold text-emerald-600';
+    } else {
+      b1.classList.add('bg-emerald-600');
+      b2.classList.add('bg-emerald-600');
+      b3.classList.add('bg-emerald-600');
+      b4.classList.add('bg-emerald-600');
+      txt.textContent = 'Excelente';
+      txt.className = 'font-body-sm text-body-sm font-semibold text-emerald-700';
+    }
+  }
+
+  function updateReq(id, valid) {
+    const el = document.getElementById(id);
+    const icon = el.querySelector('.material-symbols-outlined');
+    if (valid) {
+      icon.textContent = 'check_circle';
+      icon.classList.add('text-emerald-600');
+      icon.classList.remove('text-on-surface-variant');
+      el.classList.add('text-emerald-700');
+      el.classList.remove('text-on-surface-variant');
+    } else {
+      icon.textContent = 'radio_button_unchecked';
+      icon.classList.remove('text-emerald-600');
+      icon.classList.add('text-on-surface-variant');
+      el.classList.remove('text-emerald-700');
+      el.classList.add('text-on-surface-variant');
+    }
+  }
+
+  function checkPasswordMatch() {
+    const p1 = document.getElementById('password').value;
+    const p2 = document.getElementById('confirmPassword').value;
+    const confirmInput = document.getElementById('confirmPassword');
+
+    if (p2 && p1 !== p2) {
+      confirmInput.classList.add('ring-2', 'ring-error');
+    } else {
+      confirmInput.classList.remove('ring-2', 'ring-error');
+    }
+  }
+
+  function handleSubmit() {
+    const btn = document.getElementById('submitBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span><span>Processando abertura...</span>';
+    
+    setTimeout(() => {
+      btn.innerHTML = '<span class="material-symbols-outlined text-xl">check</span><span>Conta Criada com Sucesso!</span>';
+      btn.classList.remove('bg-primary');
+      btn.classList.add('bg-emerald-700');
+    }, 1400);
+  }
+</script></main>
+
+</body></html>

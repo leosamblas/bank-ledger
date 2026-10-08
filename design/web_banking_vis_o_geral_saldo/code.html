@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+
+<html lang="pt-BR"><head><meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0" name="viewport"/><meta content="web_standard" name="shell-type"/><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/><link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&amp;family=JetBrains+Mono:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/><style>@layer base{html,body{margin:0;padding:0;}body{overscroll-behavior:none;}}::-webkit-scrollbar{display:none;}</style><script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script><script id="tailwind-config">tailwind.config = {darkMode: "class", theme: {extend: {colors: {"surface-variant": "#d3e4fe", primary: "#000000", "on-primary-container": "#77849c", "on-background": "#0b1c30", "primary-fixed": "#d6e3fe", "on-secondary-fixed": "#001c38", "on-tertiary-fixed-variant": "#00531e", "inverse-primary": "#bac7e1", "on-tertiary-container": "#00983d", "on-primary-fixed": "#0e1c2f", tertiary: "#000000", "on-primary-fixed-variant": "#3a475c", "on-primary": "#ffffff", "surface-container-high": "#dce9ff", "tertiary-container": "#002108", "on-secondary-container": "#3b5a7f", "secondary-fixed": "#d3e4ff", "surface-bright": "#f8f9ff", "outline-variant": "#c5c6cd", "primary-fixed-dim": "#bac7e1", surface: "#f8f9ff", "tertiary-fixed": "#69ff87", outline: "#75777d", "inverse-surface": "#213145", "on-surface-variant": "#44474c", secondary: "#426086", "surface-container-lowest": "#ffffff", "primary-container": "#0e1c2f", "inverse-on-surface": "#eaf1ff", "tertiary-fixed-dim": "#3ce36a", "surface-container": "#e5eeff", "error-container": "#ffdad6", "on-secondary-fixed-variant": "#29486d", "surface-container-low": "#eff4ff", "on-secondary": "#ffffff", "on-tertiary-fixed": "#002108", error: "#ba1a1a", "on-error": "#ffffff", "on-tertiary": "#ffffff", "secondary-fixed-dim": "#aac9f4", "surface-tint": "#525f75", "secondary-container": "#b3d1fd", "surface-dim": "#cbdbf5", "surface-container-highest": "#d3e4fe", background: "#f8f9ff", "on-error-container": "#93000a", "on-surface": "#0b1c30"}, borderRadius: {DEFAULT: "0.5rem", lg: "1rem", xl: "1.5rem", full: "9999px"}, spacing: {"space-xl": "2.5rem", gutter: "1.5rem", "space-sm": "0.5rem", "space-xs": "0.25rem", "space-lg": "1.5rem", margin: "2rem", "space-md": "1rem", "margin-mobile": "1rem", "gutter-mobile": "0.75rem"}, fontFamily: {"body-sm": ["Inter"], "display-hero-mobile": ["Inter"], "headline-lg-mobile": ["Inter"], "body-lg": ["Inter"], "headline-md": ["Inter"], "code-sm": ["JetBrains Mono"], "code-lg": ["JetBrains Mono"], "headline-sm": ["Inter"], "body-md": ["Inter"], "code-md": ["JetBrains Mono"], "headline-lg": ["Inter"], "label-caps": ["Inter"], "display-hero": ["Inter"], headline: ["Inter"], display: ["Inter"], body: ["Inter"], label: ["JetBrains Mono"]}, fontSize: {"body-sm": ["12px", {lineHeight: "16px", letterSpacing: "0.005em", fontWeight: "400"}], "display-hero-mobile": ["30px", {lineHeight: "38px", letterSpacing: "-0.015em", fontWeight: "700"}], "headline-lg-mobile": ["22px", {lineHeight: "30px", letterSpacing: "-0.01em", fontWeight: "600"}], "body-lg": ["16px", {lineHeight: "24px", letterSpacing: "0em", fontWeight: "400"}], "headline-md": ["20px", {lineHeight: "28px", letterSpacing: "-0.01em", fontWeight: "600"}], "code-sm": ["11px", {lineHeight: "16px", letterSpacing: "0.01em", fontWeight: "500"}], "code-lg": ["18px", {lineHeight: "26px", letterSpacing: "-0.02em", fontWeight: "500"}], "headline-sm": ["16px", {lineHeight: "24px", letterSpacing: "-0.005em", fontWeight: "600"}], "body-md": ["14px", {lineHeight: "20px", letterSpacing: "0em", fontWeight: "400"}], "code-md": ["13px", {lineHeight: "18px", letterSpacing: "-0.01em", fontWeight: "500"}], "headline-lg": ["28px", {lineHeight: "36px", letterSpacing: "-0.015em", fontWeight: "600"}], "label-caps": ["11px", {lineHeight: "16px", letterSpacing: "0.05em", fontWeight: "600"}], "display-hero": ["38px", {lineHeight: "46px", letterSpacing: "-0.02em", fontWeight: "700"}]}}}};</script></head><body class="bg-background font-body-md text-on-surface antialiased min-h-screen flex flex-col justify-between"><header class="fixed top-0 w-full z-50 bg-surface-container-lowest shadow-[0_1px_8px_rgba(11,28,48,0.06)]"><div class="h-20 w-full px-margin-mobile md:px-margin flex items-center justify-between gap-space-md"><div class="flex items-center gap-space-md flex-shrink-0"><div class="flex items-center gap-2.5"><div class="w-10 h-10 rounded-xl bg-primary text-on-primary flex items-center justify-center shadow-sm"><span class="material-symbols-outlined text-[22px] text-tertiary-fixed-dim">account_balance</span></div><div class="flex flex-col"><span class="font-headline-sm text-headline-sm text-on-surface leading-none font-bold tracking-tight">Nexus Bank</span><span class="font-code-sm text-[11px] text-on-surface-variant font-medium mt-1">Ag. 0001 · C/C 100234-7</span></div></div></div><div class="hidden xl:flex items-center justify-center"><nav class="bg-surface-container p-1 rounded-full border border-surface-container-high shadow-xs flex items-center gap-1"><a class="px-4 py-1.5 font-body-md text-[13px] bg-surface-container-lowest text-on-surface font-semibold rounded-full shadow-sm transition-all" data-path="visao-geral" href="#">Visão Geral</a><a class="px-4 py-1.5 font-body-md text-[13px] text-on-surface-variant hover:text-on-surface hover:bg-surface-container-low transition-colors rounded-full font-medium" data-path="transferir" href="#">Transferir</a><a class="px-4 py-1.5 font-body-md text-[13px] text-on-surface-variant hover:text-on-surface hover:bg-surface-container-low transition-colors rounded-full font-medium" data-path="depositar-sacar" href="#">Depositar &amp; Sacar</a><a class="px-4 py-1.5 font-body-md text-[13px] text-on-surface-variant hover:text-on-surface hover:bg-surface-container-low transition-colors rounded-full font-medium" data-path="extrato-completo" href="#">Extrato</a></nav></div><div class="flex items-center gap-space-sm flex-shrink-0"><div class="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-surface-container-low text-on-surface font-body-sm text-body-sm border border-surface-container"><span class="material-symbols-outlined text-[15px] text-on-tertiary-container">lock</span><span class="font-medium text-[12px]">Ambiente Seguro</span><span class="w-1.5 h-1.5 rounded-full bg-tertiary-fixed-dim inline-block animate-pulse ml-0.5"></span></div><button aria-label="Notificações" class="p-2 text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors rounded-lg flex items-center justify-center relative" type="button"><span class="material-symbols-outlined text-[20px]">notifications</span><span class="w-2 h-2 rounded-full bg-error absolute top-2 right-2"></span></button><div class="flex items-center gap-space-xs pl-space-xs border-l border-surface-container ml-1"><img alt="Carlos Silva" class="w-9 h-9 rounded-full object-cover ring-2 ring-surface-container" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB7GaahWR9yv1xwGIdEqNIuLF19RNX_szwJmmKvsT8yhIlnHXpRFfq02uC-OXMj-8nYKUgn8CO2DCFy8dKHirRRA7gQ43ieLR68mrHIb-duL6fI-ksg_4iMH8fgIllm1YOhZeUjWSZAOyAF_cKOLDPvAJ7iJ1dxZQIfbcvNVtVSp2sq59jamkI4hKvmSopafdVrer3R3XdbAwMN6UiZEwx3YQzZ0AcasIiMHoVVomkp"/><div class="hidden lg:flex flex-col text-left"><span class="font-headline-sm text-headline-sm text-[13px] text-on-surface font-semibold leading-tight">Carlos Silva</span><span class="font-label-caps text-label-caps text-on-surface-variant">Soberano Corp</span></div></div><button aria-label="Encerrar Sessão" class="hidden sm:flex p-2 text-on-surface-variant hover:text-error hover:bg-error-container transition-colors rounded-lg items-center justify-center" title="Encerrar Sessão" type="button"><span class="material-symbols-outlined text-[20px]">logout</span></button><button aria-label="Menu Principal" class="xl:hidden p-2 text-on-surface-variant hover:text-on-surface hover:bg-surface-container rounded-lg flex items-center justify-center" onclick="const m=document.getElementById('mobile-drawer');m.classList.toggle('hidden');" type="button"><span class="material-symbols-outlined text-[24px]">menu</span></button></div></div><div class="hidden xl:hidden w-full bg-surface-container-lowest shadow-[0_4px_12px_rgba(11,28,48,0.08)] px-margin-mobile py-space-md border-t border-surface-container" id="mobile-drawer"><div class="flex flex-col gap-space-xs"><a class="px-space-md py-2.5 font-body-md text-body-md bg-surface-container-high text-on-surface font-semibold rounded-lg" href="#">Visão Geral</a><a class="px-space-md py-2.5 font-body-md text-body-md text-on-surface-variant hover:bg-surface-container-low rounded-lg" href="#">Transferir</a><a class="px-space-md py-2.5 font-body-md text-body-md text-on-surface-variant hover:bg-surface-container-low rounded-lg" href="#">Depositar &amp; Sacar</a><a class="px-space-md py-2.5 font-body-md text-body-md text-on-surface-variant hover:bg-surface-container-low rounded-lg" href="#">Extrato</a><div class="pt-space-sm border-t border-surface-container flex items-center justify-between"><span class="text-body-sm text-on-surface-variant font-medium">Agência 0001 · C/C 100234-7</span><button class="text-error text-body-sm font-semibold flex items-center gap-1" type="button"><span class="material-symbols-outlined text-[16px]">logout</span> Sair</button></div></div></div></header><main class="w-full pt-24 md:pt-28 pb-12 bg-background flex-1"><div class="w-full px-margin-mobile md:px-margin max-w-[1600px] mx-auto flex flex-col gap-space-lg">
+<!-- 1. Linha de Boas-Vindas e Status Geral -->
+<div class="w-full bg-surface-container-lowest p- space-md md:p-space-lg p-5 rounded-xl shadow-sm border border-surface-container flex flex-col md:flex-row items-start md:items-center justify-between gap-space-md">
+<div class="flex flex-col gap-1.5">
+<div class="flex items-center gap-space-sm flex-wrap">
+<h1 class="font-headline-lg text-headline-lg text-on-surface font-bold tracking-tight">Olá, Carlos Silva</h1>
+<span class="px-2.5 py-0.5 rounded-lg bg-surface-container-high text-on-tertiary-container font-label-caps text-label-caps tracking-wider flex items-center gap-1.5 font-semibold">
+<span class="w-2 h-2 rounded-full bg-tertiary-fixed-dim inline-block animate-pulse"></span>
+            CONTA ATIVA
+          </span>
+<span class="px-2.5 py-0.5 rounded-lg bg-surface-container text-secondary font-label-caps text-label-caps font-semibold">
+            Conta Corrente
+          </span>
+</div>
+<div class="flex items-center gap-3 flex-wrap font-code-sm text-code-sm text-on-surface-variant">
+<span class="">Agência: <strong class="text-on-surface font-semibold">0001</strong></span>
+<span class="text-outline-variant">•</span>
+<span class="">Conta: <strong class="text-on-surface font-semibold">100234-7</strong></span>
+<span class="text-outline-variant">•</span>
+<span class="">Titular: <strong class="text-on-surface font-semibold">Carlos Eduardo Silva ME</strong></span>
+</div>
+</div>
+<!-- Cartão de Status Seguro -->
+<div class="flex items-center gap-3 bg-surface-container-low px-4 py-2.5 rounded-xl border border-surface-container shadow-xs w-full md:w-auto justify-between md:justify-start">
+<div class="flex items-center gap-2.5">
+<div class="w-8 h-8 rounded-lg bg-surface-container-high flex items-center justify-center text-on-tertiary-container">
+<span class="material-symbols-outlined text-[20px]">verified_user</span>
+</div>
+<div class="flex flex-col">
+<div class="flex items-center gap-1.5 text-[13px] font-semibold text-on-surface">
+<span class="">Conexão Protegida de ponta a ponta</span>
+<span class="w-1.5 h-1.5 rounded-full bg-tertiary-fixed-dim inline-block"></span>
+</div>
+<span class="font-body-sm text-[12px] text-on-surface-variant">Criptografia bancária 256-bit ativa</span>
+</div>
+</div>
+<button class="p-1.5 hover:bg-surface-container rounded-lg text-secondary transition-transform active:rotate-180" title="Atualizar Dados" type="button">
+<span class="material-symbols-outlined text-[18px]">refresh</span>
+</button>
+</div>
+</div>
+<!-- 2. Grid Estruturado: 65% Principal (Left) / 35% Lateral (Right) -->
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-space-lg items-start">
+<!-- COLUNA PRINCIPAL (65% / 8 Cols Desktop) -->
+<div class="lg:col-span-8 flex flex-col gap-space-lg w-full">
+<!-- Card de Saldo Principal Amplo, Legível e Elegante -->
+<div class="w-full bg-surface-container-lowest rounded-xl shadow-sm border border-surface-container p-6 md:p-8 flex flex-col gap-6 relative overflow-hidden">
+<!-- Marca d'água sutil institucional -->
+<div class="absolute -right-6 -bottom-6 opacity-[0.03] pointer-events-none select-none text-primary">
+<span class="material-symbols-outlined text-[220px]">account_balance</span>
+</div>
+<!-- Header do Card de Saldo -->
+<div class="flex flex-col gap-2 z-10">
+<div class="flex items-center justify-between flex-wrap gap-2">
+<span class="font-label-caps text-label-caps text-on-surface-variant uppercase font-semibold tracking-wider">Saldo Disponível em Conta</span>
+<span class="font-body-sm text-[12px] px-2.5 py-1 rounded-md bg-surface-container-low text-on-surface-variant flex items-center gap-1 border border-surface-container">
+<span class="material-symbols-outlined text-[15px] text-on-tertiary-container">check_circle</span>
+          Auditado em tempo real
+        </span>
+</div>
+<div class="flex items-baseline gap-3 flex-wrap">
+<span class="font-display-hero text-display-hero text-on-surface font-bold tracking-tight">R$ 15.420,50</span>
+<span class="font-code-sm text-[13px] text-on-tertiary-container bg-surface-container-high px-2.5 py-1 rounded-md font-semibold flex items-center gap-1">
+<span class="material-symbols-outlined text-[16px]">trending_up</span> +34,2% no mês
+        </span>
+</div>
+</div>
+<!-- Sub-métricas Horizontais em Grid Limpo -->
+<div class="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1 z-10">
+<!-- Sub-métrica 1: Saldo Bloqueado -->
+<div class="bg-surface-container-low p-4 rounded-xl border border-surface-container flex flex-col justify-between gap-1">
+<span class="font-label-caps text-[11px] text-on-surface-variant uppercase font-semibold">Saldo Bloqueado (Garantia/Judicial)</span>
+<span class="font-code-lg text-code-lg text-on-surface font-bold">R$ 0,00</span>
+<span class="font-body-sm text-[12px] text-on-surface-variant">0 centavos sob custódia</span>
+</div>
+<!-- Sub-métrica 2: Limite Diário de Transferências -->
+<div class="bg-surface-container-low p-4 rounded-xl border border-surface-container flex flex-col justify-between gap-2">
+<div class="flex items-center justify-between">
+<span class="font-label-caps text-[11px] text-on-surface-variant uppercase font-semibold">Limite Diário de Transferências</span>
+<span class="font-code-sm text-[11px] text-on-tertiary-container font-semibold">69,2% disp.</span>
+</div>
+<div class="flex items-baseline justify-between font-code-sm text-code-sm">
+<span class="font-semibold text-on-surface text-[15px]">R$ 34.580,00</span>
+<span class="text-on-surface-variant text-[12px]">de R$ 50.000,00</span>
+</div>
+<div class="w-full bg-surface-container h-2 rounded-full overflow-hidden">
+<div class="bg-secondary h-full rounded-full" style="width: 69.16%;"></div>
+</div>
+</div>
+</div>
+<!-- Botões de Ação Rápida em Destaque -->
+<div class="flex items-center gap-3 flex-wrap pt-2 z-10 border-t border-surface-container">
+<button class="px-5 py-2.5 rounded-lg bg-primary text-on-primary font-headline-sm text-[14px] flex items-center gap-2 hover:bg-neutral-800 active:scale-[0.99] transition-all shadow-sm font-semibold" type="button">
+<span class="material-symbols-outlined text-[18px] text-tertiary-fixed-dim">arrow_outward</span>
+        Nova Transferência
+      </button>
+<button class="px-4 py-2.5 rounded-lg bg-surface-container-high text-on-surface font-headline-sm text-[14px] flex items-center gap-2 hover:bg-surface-variant transition-colors shadow-xs font-semibold" type="button">
+<span class="material-symbols-outlined text-[18px] text-on-tertiary-container">arrow_downward</span>
+        Depositar Fundos
+      </button>
+<button class="px-4 py-2.5 rounded-lg bg-surface-container-high text-on-surface font-headline-sm text-[14px] flex items-center gap-2 hover:bg-surface-variant transition-colors shadow-xs font-semibold" type="button">
+<span class="material-symbols-outlined text-[18px] text-secondary">atm</span>
+        Efetuar Saque
+      </button>
+<button class="px-4 py-2.5 rounded-lg bg-surface-container-low text-on-surface-variant font-headline-sm text-[14px] flex items-center gap-2 hover:text-on-surface hover:bg-surface-container transition-colors ml-auto font-medium" type="button">
+<span class="material-symbols-outlined text-[18px]">receipt_long</span>
+        Ver Extrato Completo
+      </button>
+</div>
+</div>
+<!-- Seção Últimas Movimentações -->
+<div class="w-full bg-surface-container-lowest rounded-xl shadow-sm border border-surface-container p-6 md:p-8 flex flex-col gap-6">
+<div class="flex items-center justify-between flex-wrap gap-3">
+<div class="flex flex-col">
+<h2 class="font-headline-md text-headline-md text-on-surface font-bold tracking-tight">Últimas Movimentações</h2>
+<span class="font-body-sm text-body-sm text-on-surface-variant">Histórico recente de débitos e créditos da conta corrente</span>
+</div>
+<div class="flex items-center gap-2">
+<span class="font-body-sm text-body-sm px-3 py-1 rounded-lg bg-surface-container-low text-on-surface-variant flex items-center gap-1.5 border border-surface-container">
+<span class="material-symbols-outlined text-[16px] text-on-tertiary-container">check_circle</span>
+          Auditado e Liquidado
+        </span>
+</div>
+</div>
+<!-- Lista de Transações Recentes -->
+<div class="flex flex-col gap-3">
+<!-- 1. Transferência Recebida -->
+<div class="p-4 rounded-xl bg-surface-container-low hover:bg-surface-container/60 transition-colors border border-surface-container/80 flex items-center justify-between gap-4">
+<div class="flex items-center gap-3.5 min-w-0">
+<div class="w-10 h-10 rounded-lg bg-surface-container-high flex-shrink-0 flex items-center justify-center text-on-tertiary-container">
+<span class="material-symbols-outlined text-[22px]">call_received</span>
+</div>
+<div class="flex flex-col min-w-0">
+<div class="flex items-center gap-2 flex-wrap">
+<span class="font-headline-sm text-headline-sm text-[15px] text-on-surface font-semibold truncate">Transferência Recebida</span>
+<span class="px-2 py-0.5 rounded bg-surface-container-high text-on-tertiary-container font-code-sm text-[11px] font-bold">CRÉDITO</span>
+</div>
+<span class="font-body-sm text-body-sm text-on-surface-variant truncate">
+              Contraparte: <strong class="text-on-surface font-medium">Jo** Si***</strong> • Ag 0001 C/C 98124-1
+            </span>
+<span class="font-code-sm text-[11px] text-on-surface-variant/80 mt-0.5">Hoje, 14:32:18 • Seq #142 • TxID: tx-77e8a9</span>
+</div>
+</div>
+<div class="flex flex-col items-end flex-shrink-0">
+<span class="font-code-lg text-code-lg text-on-tertiary-container font-bold">+R$ 3.200,00</span>
+<span class="font-code-sm text-[11px] px-2 py-0.5 mt-1 rounded bg-surface-container text-on-surface-variant">
+            Saldo após: <strong class="text-on-surface">R$ 15.420,50</strong>
+</span>
+</div>
+</div>
+<!-- 2. Transferência Enviada -->
+<div class="p-4 rounded-xl bg-surface-container-low hover:bg-surface-container/60 transition-colors border border-surface-container/80 flex items-center justify-between gap-4">
+<div class="flex items-center gap-3.5 min-w-0">
+<div class="w-10 h-10 rounded-lg bg-error-container/40 flex-shrink-0 flex items-center justify-center text-error">
+<span class="material-symbols-outlined text-[22px]">call_made</span>
+</div>
+<div class="flex flex-col min-w-0">
+<div class="flex items-center gap-2 flex-wrap">
+<span class="font-headline-sm text-headline-sm text-[15px] text-on-surface font-semibold truncate">Transferência Enviada</span>
+<span class="px-2 py-0.5 rounded bg-error-container text-on-error-container font-code-sm text-[11px] font-bold">DÉBITO</span>
+</div>
+<span class="font-body-sm text-body-sm text-on-surface-variant truncate">
+              Contraparte: <strong class="text-on-surface font-medium">Distribuidora Alpha Ltda</strong> (CNPJ 18.***.***/0001)
+            </span>
+<span class="font-code-sm text-[11px] text-on-surface-variant/80 mt-0.5">Hoje, 11:15:02 • Seq #141 • TxID: tx-44c3f2</span>
+</div>
+</div>
+<div class="flex flex-col items-end flex-shrink-0">
+<span class="font-code-lg text-code-lg text-error font-bold">-R$ 1.150,00</span>
+<span class="font-code-sm text-[11px] px-2 py-0.5 mt-1 rounded bg-surface-container text-on-surface-variant">
+            Saldo após: <strong class="text-on-surface">R$ 12.220,50</strong>
+</span>
+</div>
+</div>
+<!-- 3. Depósito em Espécie -->
+<div class="p-4 rounded-xl bg-surface-container-low hover:bg-surface-container/60 transition-colors border border-surface-container/80 flex items-center justify-between gap-4">
+<div class="flex items-center gap-3.5 min-w-0">
+<div class="w-10 h-10 rounded-lg bg-surface-container-high flex-shrink-0 flex items-center justify-center text-on-tertiary-container">
+<span class="material-symbols-outlined text-[22px]">payments</span>
+</div>
+<div class="flex flex-col min-w-0">
+<div class="flex items-center gap-2 flex-wrap">
+<span class="font-headline-sm text-headline-sm text-[15px] text-on-surface font-semibold truncate">Depósito em Espécie</span>
+<span class="px-2 py-0.5 rounded bg-surface-container-high text-on-tertiary-container font-code-sm text-[11px] font-bold">CRÉDITO</span>
+</div>
+<span class="font-body-sm text-body-sm text-on-surface-variant truncate">
+              Terminal: <strong class="text-on-surface font-medium">Autoatendimento</strong> • Agência 0001 Centro
+            </span>
+<span class="font-code-sm text-[11px] text-on-surface-variant/80 mt-0.5">Ontem, 16:40:11 • Seq #140 • TxID: tx-11b099</span>
+</div>
+</div>
+<div class="flex flex-col items-end flex-shrink-0">
+<span class="font-code-lg text-code-lg text-on-tertiary-container font-bold">+R$ 5.000,00</span>
+<span class="font-code-sm text-[11px] px-2 py-0.5 mt-1 rounded bg-surface-container text-on-surface-variant">
+            Saldo após: <strong class="text-on-surface">R$ 13.370,50</strong>
+</span>
+</div>
+</div>
+<!-- 4. Saque em Caixa Eletrônico -->
+<div class="p-4 rounded-xl bg-surface-container-low hover:bg-surface-container/60 transition-colors border border-surface-container/80 flex items-center justify-between gap-4">
+<div class="flex items-center gap-3.5 min-w-0">
+<div class="w-10 h-10 rounded-lg bg-error-container/40 flex-shrink-0 flex items-center justify-center text-error">
+<span class="material-symbols-outlined text-[22px]">local_atm</span>
+</div>
+<div class="flex flex-col min-w-0">
+<div class="flex items-center gap-2 flex-wrap">
+<span class="font-headline-sm text-headline-sm text-[15px] text-on-surface font-semibold truncate">Saque em Caixa Eletrônico</span>
+<span class="px-2 py-0.5 rounded bg-error-container text-on-error-container font-code-sm text-[11px] font-bold">DÉBITO</span>
+</div>
+<span class="font-body-sm text-body-sm text-on-surface-variant truncate">
+              Terminal: <strong class="text-on-surface font-medium">Autoatendimento 24h</strong> • SYS-CASH-11
+            </span>
+<span class="font-code-sm text-[11px] text-on-surface-variant/80 mt-0.5">Ontem, 09:20:55 • Seq #139 • TxID: tx-08f321</span>
+</div>
+</div>
+<div class="flex flex-col items-end flex-shrink-0">
+<span class="font-code-lg text-code-lg text-error font-bold">-R$ 400,00</span>
+<span class="font-code-sm text-[11px] px-2 py-0.5 mt-1 rounded bg-surface-container text-on-surface-variant">
+            Saldo após: <strong class="text-on-surface">R$ 8.370,50</strong>
+</span>
+</div>
+</div>
+</div>
+<!-- Rodapé da Lista -->
+<div class="pt-2 flex flex-col sm:flex-row items-center justify-between gap-3 border-t border-surface-container">
+<span class="font-body-sm text-body-sm text-on-surface-variant">Exibindo 4 de 1.482 registros contábeis</span>
+<button class="px-4 py-2 rounded-lg bg-surface-container hover:bg-surface-container-high text-on-surface font-headline-sm text-[13px] font-semibold transition-colors flex items-center gap-1.5 shadow-xs" type="button">
+        Visualizar Extrato Completo com Filtros
+        <span class="material-symbols-outlined text-[16px]">arrow_forward</span>
+</button>
+</div>
+</div>
+</div>
+<!-- COLUNA LATERAL (35% / 4 Cols Desktop) -->
+<div class="lg:col-span-4 flex flex-col gap-space-lg w-full">
+<!-- 1. Card Visual Nexus Black Premium -->
+<div class="w-full bg-gradient-to-br from-neutral-950 via-zinc-900 to-neutral-900 text-white rounded-2xl p-6 shadow-md border border-neutral-800 flex flex-col justify-between gap-6 relative overflow-hidden">
+<!-- Efeito de brilho de fundo -->
+<div class="absolute -right-12 -top-12 w-48 h-48 bg-white/5 rounded-full blur-2xl pointer-events-none"></div>
+<div class="flex items-center justify-between z-10">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-tertiary-fixed-dim text-[24px]">contactless</span>
+<span class="font-label-caps text-[11px] tracking-wider text-neutral-400 font-semibold uppercase">Nexus Black</span>
+</div>
+<span class="font-headline-sm text-headline-sm font-bold tracking-tight text-white">Nexus Bank</span>
+</div>
+<div class="flex items-center gap-4 z-10 my-1">
+<div class="w-11 h-8 rounded-md bg-gradient-to-tr from-amber-400 via-amber-300 to-amber-200 border border-amber-300 shadow flex items-center justify-center">
+<div class="w-7 h-5 rounded border border-amber-600/40 grid grid-cols-2"></div>
+</div>
+<span class="font-code-lg text-[19px] tracking-widest text-neutral-100 font-medium">•••• •••• •••• 9012</span>
+</div>
+<div class="flex items-end justify-between z-10">
+<div class="flex flex-col">
+<span class="text-[10px] font-label-caps uppercase text-neutral-400 tracking-wider">Titular</span>
+<span class="font-headline-sm text-[13px] text-white font-semibold uppercase tracking-wide">Carlos Silva</span>
+</div>
+<div class="flex flex-col items-end">
+<span class="text-[10px] font-label-caps uppercase text-neutral-400 tracking-wider">Validade</span>
+<span class="font-code-sm text-code-sm text-white font-medium">09/29</span>
+</div>
+</div>
+<!-- Ações do Cartão -->
+<div class="flex items-center gap-2 pt-3 border-t border-white/10 z-10">
+<button class="flex-1 py-1.5 px-3 rounded-lg bg-white/10 hover:bg-white/15 text-white font-body-sm text-[12px] font-medium transition-colors flex items-center justify-center gap-1.5" type="button">
+<span class="material-symbols-outlined text-[15px]">visibility</span>
+        Ver Dados
+      </button>
+<button class="flex-1 py-1.5 px-3 rounded-lg bg-white/10 hover:bg-white/15 text-white font-body-sm text-[12px] font-medium transition-colors flex items-center justify-center gap-1.5" type="button">
+<span class="material-symbols-outlined text-[15px]">lock</span>
+        Bloquear
+      </button>
+</div>
+</div>
+<!-- 2. Card Limites Operacionais Diários -->
+<div class="w-full bg-surface-container-lowest p-6 rounded-xl shadow-sm border border-surface-container flex flex-col gap-4">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-secondary text-[22px]">tune</span>
+<h3 class="font-headline-sm text-headline-sm text-on-surface font-bold">Limites Operacionais</h3>
+</div>
+<span class="px-2 py-0.5 rounded-lg bg-surface-container-high text-on-tertiary-container font-label-caps text-label-caps font-semibold flex items-center gap-1">
+<span class="w-1.5 h-1.5 rounded-full bg-tertiary-fixed-dim inline-block animate-pulse"></span>
+        DISPONÍVEL
+      </span>
+</div>
+<div class="flex flex-col gap-3 bg-surface-container-low p-4 rounded-xl border border-surface-container">
+<div class="flex items-center justify-between text-body-sm">
+<span class="text-on-surface-variant">Consumido hoje:</span>
+<span class="font-code-sm text-code-sm text-on-surface font-bold">R$ 15.420,00 <span class="text-secondary font-medium">(30,8%)</span></span>
+</div>
+<div class="w-full bg-surface-container h-2.5 rounded-full overflow-hidden">
+<div class="bg-secondary h-full rounded-full transition-all duration-500" style="width: 30.84%;"></div>
+</div>
+<div class="flex items-center justify-between font-code-sm text-[11px] text-on-surface-variant">
+<span class="">Consumido: R$ 15.420,00</span>
+<span class="">Total: R$ 50.000,00</span>
+</div>
+</div>
+<div class="flex items-center justify-between bg-surface-container-low p-3.5 rounded-xl border border-surface-container">
+<div class="flex flex-col">
+<span class="font-label-caps text-[11px] text-on-surface-variant uppercase font-semibold">Disponível para Transações</span>
+<span class="font-headline-sm text-headline-sm text-on-surface font-bold">R$ 34.580,00</span>
+</div>
+<button class="px-3.5 py-1.5 rounded-lg bg-surface-container-high text-on-surface font-code-sm text-[12px] font-semibold hover:bg-surface-variant transition-colors" type="button">
+        Ajustar Limite
+      </button>
+</div>
+</div>
+<!-- 3. Card Segurança & Proteção -->
+<div class="w-full bg-surface-container-lowest p-6 rounded-xl shadow-sm border border-surface-container flex flex-col gap-4">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-secondary text-[22px]">shield</span>
+<h3 class="font-headline-sm text-headline-sm text-on-surface font-bold">Segurança &amp; Proteção</h3>
+</div>
+<span class="px-2 py-0.5 rounded-lg bg-surface-container-high text-on-tertiary-container font-label-caps text-[10px] font-bold uppercase">
+        100% PROTEGIDA
+      </span>
+</div>
+<div class="flex flex-col gap-2.5">
+<!-- Item 1 -->
+<div class="flex items-center justify-between p-3 rounded-lg bg-surface-container-low border border-surface-container">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-on-tertiary-container text-[20px]">face</span>
+<div class="flex flex-col">
+<span class="text-on-surface font-medium text-body-sm leading-tight">Biometria Facial Ativa</span>
+<span class="text-on-surface-variant text-[11px]">Reconhecimento avançado validado</span>
+</div>
+</div>
+<span class="px-2 py-0.5 rounded bg-surface-container-high text-on-tertiary-container font-code-sm text-[11px] font-bold">Ativo</span>
+</div>
+<!-- Item 2 -->
+<div class="flex items-center justify-between p-3 rounded-lg bg-surface-container-low border border-surface-container">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-on-tertiary-container text-[20px]">notifications_active</span>
+<div class="flex flex-col">
+<span class="text-on-surface font-medium text-body-sm leading-tight">Alertas em Tempo Real</span>
+<span class="text-on-surface-variant text-[11px]">Notificação instantânea via SMS e Push</span>
+</div>
+</div>
+<span class="px-2 py-0.5 rounded bg-surface-container-high text-on-tertiary-container font-code-sm text-[11px] font-bold">Ativo</span>
+</div>
+<!-- Item 3 -->
+<div class="flex items-center justify-between p-3 rounded-lg bg-surface-container-low border border-surface-container">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-secondary text-[20px]">verified</span>
+<div class="flex flex-col">
+<span class="text-on-surface font-medium text-body-sm leading-tight">Proteção Institucional FGC</span>
+<span class="text-on-surface-variant text-[11px]">Garantido nos termos regulamentares</span>
+</div>
+</div>
+<span class="text-secondary font-semibold text-code-sm text-[11px]">Certificado</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div></main><footer class="w-full bg-surface-container-low py-6 border-t border-surface-container"><div class="w-full px-margin-mobile md:px-margin max-w-[1600px] mx-auto flex flex-col md:flex-row items-center justify-between gap-4 text-on-surface-variant font-body-sm text-body-sm"><div class="flex items-center gap-2 flex-wrap text-center md:text-left"><span class="font-headline-sm text-headline-sm text-[13px] font-bold text-on-surface">Nexus Bank S.A.</span><span class="">—</span><span class="">Instituição autorizada pelo Banco Central do Brasil. CNPJ 00.000.000/0001-00.</span></div><div class="flex items-center gap-4 flex-wrap text-center md:text-right font-body-sm text-[13px]"><span class="">Ouvidoria: 0800 770 1234</span><span class="">•</span><span class="">SAC 24h: 0800 770 4321</span><span class="">•</span><span class="">© 2025 Nexus Bank</span></div></div></footer>
+</body></html>

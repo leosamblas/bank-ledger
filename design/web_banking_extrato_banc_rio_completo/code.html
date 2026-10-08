@@ -1,0 +1,711 @@
+<!DOCTYPE html>
+
+<html lang="pt-BR" style=""><head><meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0" name="viewport"/><meta content="web_standard" name="shell-type"/><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&amp;display=swap" rel="stylesheet"/><style>@layer base{html,body{margin:0;padding:0;}body{overscroll-behavior:none;}main>:first-child{margin-top:0!important;}main>:last-child{margin-bottom:0!important;}}::-webkit-scrollbar{display:none;}</style><script src="https://cdn.tailwindcss.com"></script><script id="tailwind-config">tailwind.config = {darkMode: "class", theme: {extend: {colors: {"surface-variant": "#d3e4fe", primary: "#000000", "on-primary-container": "#77849c", "on-background": "#0b1c30", "primary-fixed": "#d6e3fe", "on-secondary-fixed": "#001c38", "on-tertiary-fixed-variant": "#00531e", "inverse-primary": "#bac7e1", "on-tertiary-container": "#00983d", "on-primary-fixed": "#0e1c2f", tertiary: "#000000", "on-primary-fixed-variant": "#3a475c", "on-primary": "#ffffff", "surface-container-high": "#dce9ff", "tertiary-container": "#002108", "on-secondary-container": "#3b5a7f", "secondary-fixed": "#d3e4ff", "surface-bright": "#f8f9ff", "outline-variant": "#c5c6cd", "primary-fixed-dim": "#bac7e1", surface: "#f8f9ff", "tertiary-fixed": "#69ff87", outline: "#75777d", "inverse-surface": "#213145", "on-surface-variant": "#44474c", secondary: "#426086", "surface-container-lowest": "#ffffff", "primary-container": "#0e1c2f", "inverse-on-surface": "#eaf1ff", "tertiary-fixed-dim": "#3ce36a", "surface-container": "#e5eeff", "error-container": "#ffdad6", "on-secondary-fixed-variant": "#29486d", "surface-container-low": "#eff4ff", "on-secondary": "#ffffff", "on-tertiary-fixed": "#002108", error: "#ba1a1a", "on-error": "#ffffff", "on-tertiary": "#ffffff", "secondary-fixed-dim": "#aac9f4", "surface-tint": "#525f75", "secondary-container": "#b3d1fd", "surface-dim": "#cbdbf5", "surface-container-highest": "#d3e4fe", background: "#f8f9ff", "on-error-container": "#93000a", "on-surface": "#0b1c30"}, borderRadius: {DEFAULT: "0.5rem", lg: "1rem", xl: "1.5rem", full: "9999px"}, spacing: {"space-xl": "2.5rem", gutter: "1.5rem", "space-sm": "0.5rem", "space-xs": "0.25rem", "space-lg": "1.5rem", margin: "2rem", "space-md": "1rem", "margin-mobile": "1rem", "gutter-mobile": "0.75rem"}, fontFamily: {"body-sm": ["Inter"], "display-hero-mobile": ["Inter"], "headline-lg-mobile": ["Inter"], "body-lg": ["Inter"], "headline-md": ["Inter"], "code-sm": ["JetBrains Mono"], "code-lg": ["JetBrains Mono"], "headline-sm": ["Inter"], "body-md": ["Inter"], "code-md": ["JetBrains Mono"], "headline-lg": ["Inter"], "label-caps": ["Inter"], "display-hero": ["Inter"], headline: ["Inter"], display: ["Inter"], body: ["Inter"], label: ["JetBrains Mono"]}, fontSize: {"body-sm": ["12px", {lineHeight: "16px", letterSpacing: "0.005em", fontWeight: "400"}], "display-hero-mobile": ["30px", {lineHeight: "38px", letterSpacing: "-0.015em", fontWeight: "700"}], "headline-lg-mobile": ["22px", {lineHeight: "30px", letterSpacing: "-0.01em", fontWeight: "600"}], "body-lg": ["16px", {lineHeight: "24px", letterSpacing: "0em", fontWeight: "400"}], "headline-md": ["20px", {lineHeight: "28px", letterSpacing: "-0.01em", fontWeight: "600"}], "code-sm": ["11px", {lineHeight: "16px", letterSpacing: "0.01em", fontWeight: "500"}], "code-lg": ["18px", {lineHeight: "26px", letterSpacing: "-0.02em", fontWeight: "500"}], "headline-sm": ["16px", {lineHeight: "24px", letterSpacing: "-0.005em", fontWeight: "600"}], "body-md": ["14px", {lineHeight: "20px", letterSpacing: "0em", fontWeight: "400"}], "code-md": ["13px", {lineHeight: "18px", letterSpacing: "-0.01em", fontWeight: "500"}], "headline-lg": ["28px", {lineHeight: "36px", letterSpacing: "-0.015em", fontWeight: "600"}], "label-caps": ["11px", {lineHeight: "16px", letterSpacing: "0.05em", fontWeight: "600"}], "display-hero": ["40px", {lineHeight: "48px", letterSpacing: "-0.02em", fontWeight: "700"}]}}}};</script></head><body class="bg-background font-body-md text-on-surface antialiased"><header class="fixed top-0 w-full z-50 bg-surface-container-lowest shadow-[0_1px_8px_rgba(11,28,48,0.06)]"><div class="h-20 w-full px-margin-mobile md:px-margin flex items-center justify-between gap-space-md"><div class="flex items-center gap-space-sm"><div class="w-8 h-8 rounded-lg bg-primary text-on-primary flex items-center justify-center font-bold text-base shadow-sm"><span class="material-symbols-outlined text-[20px]">account_balance</span></div><div class="flex flex-col"><div class="flex items-center gap-2"><span class="font-headline-sm text-headline-sm text-on-surface leading-none font-bold">Nexus Bank</span><span class="hidden sm:inline-flex px-2 py-0.5 rounded bg-surface-container font-code-sm text-code-sm text-on-secondary-container font-medium">Ag. 0001 · C/C 100234-7</span></div><span class="sm:hidden font-code-sm text-code-sm text-on-surface-variant font-medium mt-0.5">Ag. 0001 · C/C 100234-7</span></div></div><nav class="hidden xl:flex items-center p-1 bg-surface-container-low rounded-full gap-1"><a class="px-4 py-1.5 font-body-md text-body-md text-on-surface-variant hover:text-on-surface rounded-full transition-colors font-medium" data-path="visao-geral" href="#">Visão Geral</a><a class="px-4 py-1.5 font-body-md text-body-md text-on-surface-variant hover:text-on-surface rounded-full transition-colors font-medium" data-path="transferir" href="#">Transferir</a><a class="px-4 py-1.5 font-body-md text-body-md text-on-surface-variant hover:text-on-surface rounded-full transition-colors font-medium" data-path="depositar-sacar" href="#">Depositar &amp; Sacar</a><a aria-current="page" class="px-4 py-1.5 font-body-md text-body-md bg-surface-container-lowest text-on-surface font-semibold rounded-full shadow-sm transition-all" data-path="extrato-completo" href="#">Extrato</a></nav><div class="flex items-center gap-space-xs sm:gap-space-sm"><div class="hidden md:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-surface-container font-code-sm text-code-sm text-on-tertiary-container"><span class="material-symbols-outlined text-[15px] text-on-tertiary-container">lock</span><span class="font-medium">Ambiente Seguro</span><span class="w-1.5 h-1.5 rounded-full bg-tertiary-fixed-dim ml-0.5"></span></div><button aria-label="Notificações" class="p-2 text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors rounded-lg flex items-center justify-center" type="button"><span class="material-symbols-outlined text-[20px]">notifications</span></button><div class="flex items-center gap-space-xs pl-space-xs"><img alt="Profile" class="w-8 h-8 rounded-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB7GaahWR9yv1xwGIdEqNIuLF19RNX_szwJmmKvsT8yhIlnHXpRFfq02uC-OXMj-8nYKUgn8CO2DCFy8dKHirRRA7gQ43ieLR68mrHIb-duL6fI-ksg_4iMH8fgIllm1YOhZeUjWSZAOyAF_cKOLDPvAJ7iJ1dxZQIfbcvNVtVSp2sq59jamkI4hKvmSopafdVrer3R3XdbAwMN6UiZEwx3YQzZ0AcasIiMHoVVomkp"/><div class="hidden lg:flex flex-col text-left"><span class="font-code-sm text-code-sm text-on-surface font-semibold">Carlos Silva</span><span class="font-label-caps text-label-caps text-on-surface-variant">Soberano Corp</span></div></div><button aria-label="Encerrar Sessão" class="hidden sm:flex p-2 text-on-surface-variant hover:text-error hover:bg-error-container transition-colors rounded-lg items-center justify-center" type="button"><span class="material-symbols-outlined text-[20px]">logout</span></button><button aria-label="Menu Principal" class="xl:hidden p-2 text-on-surface-variant hover:text-on-surface hover:bg-surface-container rounded-lg flex items-center justify-center" onclick="const m=document.getElementById('mobile-drawer');m.classList.toggle('hidden');" type="button"><span class="material-symbols-outlined text-[24px]">menu</span></button></div></div><div class="hidden xl:hidden w-full bg-surface-container-lowest shadow-[0_4px_12px_rgba(11,28,48,0.08)] px-margin-mobile py-space-md" id="mobile-drawer"><div class="flex flex-col gap-space-xs"><span class="font-code-sm text-code-sm text-on-surface-variant px-space-sm py-1">Agência 0001 · C/C 100234-7</span><nav class="flex flex-col gap-1"><a class="px-space-sm py-2 font-body-md text-body-md text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors rounded-lg" data-path="visao-geral" href="#">Visão Geral</a><a class="px-space-sm py-2 font-body-md text-body-md text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors rounded-lg" data-path="transferir" href="#">Transferir</a><a class="px-space-sm py-2 font-body-md text-body-md text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors rounded-lg" data-path="depositar-sacar" href="#">Depositar &amp; Sacar</a><a aria-current="page" class="px-space-sm py-2 transition-colors bg-surface-container-high text-on-surface font-semibold rounded-lg" data-path="extrato-completo" href="#">Extrato</a></nav><div class="flex items-center justify-between pt-space-sm mt-space-xs border-t border-surface-container"><span class="font-code-sm text-code-sm text-on-surface-variant">Soberano Corp</span><button class="flex items-center gap-1 font-body-sm text-body-sm text-error" type="button"><span class="material-symbols-outlined text-[16px]">logout</span>Sair</button></div></div></div></header><main class="w-full pt-20 bg-background min-h-screen"><div class="flex flex-col w-full">
+<div class="w-full px-margin-mobile md:px-margin py-space-md lg:py-space-lg flex flex-col gap-space-lg">
+<!-- Top Metadata Breadcrumb & Live Query-Service Banner -->
+<!-- Page Title & Rebuild Action Bar -->
+<div class="flex flex-col md:flex-row md:items-end justify-between gap-space-md"><div class="flex flex-col gap-1"><div class="flex items-center gap-2"><span class="px-2 py-0.5 rounded bg-surface-container font-code-sm text-code-sm text-on-secondary-container font-medium">Conta Corrente PJ</span><span class="px-2 py-0.5 rounded bg-surface-container-high font-label-caps text-label-caps uppercase text-on-tertiary-container font-semibold">Atualizado em Tempo Real</span></div><h1 class="font-headline-lg text-headline-lg text-on-surface font-bold tracking-tight">Extrato de Conta Corrente</h1><p class="font-body-md text-body-md text-on-surface-variant">Acompanhe todos os lançamentos, entradas e saídas da sua conta em tempo real.</p></div><div class="flex items-center gap-space-xs flex-wrap"><button class="px-space-md py-2 bg-surface-container-high text-on-surface hover:bg-surface-container font-body-md text-body-md font-medium rounded-lg shadow-sm flex items-center gap-2 transition-all" id="rebuild-btn" onclick="triggerRebuild()" type="button"><span class="material-symbols-outlined text-[18px]" id="rebuild-icon">refresh</span><span class="" id="rebuild-text">Atualizar Extrato</span></button><button class="px-space-md py-2 bg-primary text-on-primary hover:bg-primary-container font-headline-sm text-headline-sm font-semibold rounded-lg shadow-sm flex items-center gap-2 transition-colors" onclick="toggleExportModal()" type="button"><span class="material-symbols-outlined text-[18px]">file_download</span><span class="">Exportar CSV / PDF</span></button></div></div>
+<!-- Summary Metrics Bento Grid -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-space-md">
+<!-- Saldo Atual -->
+<div class="bg-surface-container-lowest p-space-md lg:p-space-lg rounded-xl shadow-sm flex flex-col justify-between gap-space-sm relative overflow-hidden">
+<div class="flex items-center justify-between">
+<span class="font-label-caps text-label-caps uppercase text-on-surface-variant font-semibold tracking-wider">Saldo Disponível em Conta</span>
+<span class="p-1.5 rounded-lg bg-surface-container text-secondary flex items-center justify-center">
+<span class="material-symbols-outlined text-[20px]">account_balance_wallet</span>
+</span>
+</div>
+<div>
+<span class="font-code-lg text-code-lg text-on-surface font-bold text-2xl lg:text-3xl tracking-tight">R$ 15.420,50</span>
+<div class="flex items-center gap-2 mt-1">
+<span class="w-2 h-2 rounded-full bg-tertiary-fixed-dim"></span>
+<span class="font-code-sm text-code-sm text-on-surface-variant">100% Conciliado via Double-Entry</span>
+</div>
+</div>
+<div class="pt-space-xs bg-surface-container-low px-space-sm py-1.5 rounded-lg flex items-center justify-between font-code-sm text-code-sm text-on-secondary-container">
+<span class="">Disponível Imediato:</span>
+<span class="font-semibold text-on-surface">R$ 15.420,50</span>
+</div>
+</div>
+<!-- Entradas -->
+<div class="bg-surface-container-lowest p-space-md lg:p-space-lg rounded-xl shadow-sm flex flex-col justify-between gap-space-sm relative overflow-hidden">
+<div class="flex items-center justify-between">
+<span class="font-label-caps text-label-caps uppercase text-on-surface-variant font-semibold tracking-wider">Total Entradas (Créditos)</span>
+<span class="p-1.5 rounded-lg bg-surface-container-high text-on-tertiary-container flex items-center justify-center">
+<span class="material-symbols-outlined text-[20px]">arrow_downward_alt</span>
+</span>
+</div>
+<div>
+<span class="font-code-lg text-code-lg text-on-tertiary-container font-bold text-2xl lg:text-3xl tracking-tight">+R$ 18.200,00</span>
+<div class="flex items-center gap-2 mt-1">
+<span class="font-body-sm text-body-sm text-on-surface-variant">6 operações no ciclo selecionado</span>
+</div>
+</div>
+<div class="pt-space-xs bg-surface-container-low px-space-sm py-1.5 rounded-lg flex items-center justify-between font-code-sm text-code-sm text-on-secondary-container">
+<span class="">Volume Médio por Depósito/In:</span>
+<span class="font-semibold text-on-surface">R$ 3.033,33</span>
+</div>
+</div>
+<!-- Saídas -->
+<div class="bg-surface-container-lowest p-space-md lg:p-space-lg rounded-xl shadow-sm flex flex-col justify-between gap-space-sm relative overflow-hidden">
+<div class="flex items-center justify-between">
+<span class="font-label-caps text-label-caps uppercase text-on-surface-variant font-semibold tracking-wider">Total Saídas (Débitos)</span>
+<span class="p-1.5 rounded-lg bg-error-container text-error flex items-center justify-center">
+<span class="material-symbols-outlined text-[20px]">arrow_upward_alt</span>
+</span>
+</div>
+<div>
+<span class="font-code-lg text-code-lg text-error font-bold text-2xl lg:text-3xl tracking-tight">-R$ 2.779,50</span>
+<div class="flex items-center gap-2 mt-1">
+<span class="font-body-sm text-body-sm text-on-surface-variant">4 operações confirmadas · 1 rejeitada</span>
+</div>
+</div>
+<div class="pt-space-xs bg-surface-container-low px-space-sm py-1.5 rounded-lg flex items-center justify-between font-code-sm text-code-sm text-on-secondary-container">
+<span class="">Maior Débito Individual:</span>
+<span class="font-semibold text-error">-R$ 1.250,00</span>
+</div>
+</div>
+</div>
+<!-- Filters & Operational Toolbar -->
+<div class="bg-surface-container-lowest p-space-md rounded-xl shadow-sm flex flex-col gap-space-md">
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-space-sm">
+<!-- Date Range Filter -->
+<div class="flex flex-col gap-1">
+<label class="font-label-caps text-label-caps uppercase text-on-surface-variant font-semibold">Janela Temporal (ISO 8601)</label>
+<div class="relative flex items-center">
+<span class="material-symbols-outlined absolute left-3 text-[18px] text-on-surface-variant">calendar_today</span>
+<input class="w-full pl-9 pr-3 py-2 bg-surface-container-low text-on-surface font-code-sm text-code-sm rounded-lg focus:outline-none focus:bg-surface-container cursor-pointer" readonly="" type="text" value="01/10/2026 - 31/10/2026"/>
+</div>
+</div>
+<!-- Tipo Movimentação Filter -->
+<div class="flex flex-col gap-1">
+<label class="font-label-caps text-label-caps uppercase text-on-surface-variant font-semibold">Tipo de Movimentação</label>
+<div class="relative flex items-center">
+<span class="material-symbols-outlined absolute left-3 text-[18px] text-on-surface-variant">swap_vert</span>
+<select class="w-full pl-9 pr-8 py-2 bg-surface-container-low text-on-surface font-body-md text-body-md rounded-lg appearance-none focus:outline-none focus:bg-surface-container cursor-pointer" id="type-filter" onchange="applyFilters()">
+<option value="ALL">Todas as operações (10)</option>
+<option value="CREDIT">Apenas Créditos (Entradas)</option>
+<option value="DEBIT">Apenas Débitos (Saídas)</option>
+<option value="TRANSFER">Transferências (IN/OUT)</option>
+<option value="DEPOSIT">Depósitos em Espécie</option>
+<option value="WITHDRAWAL">Saques Terminal</option>
+<option value="FAILED">Apenas Falhas / Bloqueios</option>
+</select>
+<span class="material-symbols-outlined absolute right-2.5 pointer-events-none text-[18px] text-on-surface-variant">expand_more</span>
+</div>
+</div>
+<!-- Search Bar -->
+<div class="flex flex-col gap-1 lg:col-span-2">
+<label class="font-label-caps text-label-caps uppercase text-on-surface-variant font-semibold">Busca de Contraparte / ID / Ledger Tx</label>
+<div class="relative flex items-center">
+<span class="material-symbols-outlined absolute left-3 text-[18px] text-on-surface-variant">search</span>
+<input class="w-full pl-9 pr-9 py-2 bg-surface-container-low text-on-surface font-body-md text-body-md rounded-lg focus:outline-none focus:bg-surface-container" id="search-input" onkeyup="applyFilters()" placeholder="Buscar por nome, tipo de operação ou valor..." type="text"/>
+<button class="absolute right-2.5 text-on-surface-variant hover:text-on-surface flex items-center" onclick="clearSearch()" type="button">
+<span class="material-symbols-outlined text-[16px]">close</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Quick Status Badges Filter Bar -->
+<div class="flex items-center gap-space-xs flex-wrap pt-space-xs">
+<span class="font-label-caps text-label-caps uppercase text-on-surface-variant font-semibold mr-1">Filtro Rápido:</span>
+<button class="px-2.5 py-1 rounded bg-primary text-on-primary font-code-sm text-code-sm font-semibold transition-colors" onclick="quickFilter('ALL')" type="button">Todos (10)</button>
+<button class="px-2.5 py-1 rounded bg-surface-container text-on-tertiary-container hover:bg-surface-container-high font-code-sm text-code-sm font-medium transition-colors" onclick="quickFilter('CREDIT')" type="button">+ Créditos (6)</button>
+<button class="px-2.5 py-1 rounded bg-surface-container text-error hover:bg-surface-container-high font-code-sm text-code-sm font-medium transition-colors" onclick="quickFilter('DEBIT')" type="button">- Débitos (3)</button>
+<button class="px-2.5 py-1 rounded bg-surface-container text-on-error-container hover:bg-surface-container-high font-code-sm text-code-sm font-medium transition-colors" onclick="quickFilter('FAILED')" type="button">Falhas (1)</button>
+<div class="ml-auto hidden xl:flex items-center gap-2 font-code-sm text-code-sm text-on-surface-variant"><span class="material-symbols-outlined text-[16px] text-tertiary-fixed-dim">verified_user</span><span class="">Conciliação Automática Ativa</span></div>
+</div>
+</div>
+<!-- Statement Primary Table & Responsive Card Rows -->
+<div class="bg-surface-container-lowest rounded-xl shadow-sm overflow-hidden flex flex-col">
+<!-- Table View (Desktop & Tablet Lg) -->
+<div class="hidden lg:block overflow-x-auto w-full">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="bg-surface-container-low font-label-caps text-label-caps uppercase text-on-surface-variant">
+<th class="py-3 px-4 font-semibold">Data / Hora (UTC-3)</th>
+<th class="py-3 px-3 font-semibold text-center">Nº Registro</th>
+<th class="py-3 px-4 font-semibold">Tipo &amp; Descrição</th>
+<th class="py-3 px-4 font-semibold">Contraparte / Origem</th>
+<th class="py-3 px-3 font-semibold text-center">Natureza</th>
+<th class="py-3 px-4 font-semibold text-right">Valor (R$)</th>
+<th class="py-3 px-4 font-semibold text-right">Saldo Resultante</th>
+<th class="py-3 px-4 font-semibold text-center">Ações</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-surface-container-low" id="statement-tbody">
+<!-- Row 1: TRANSFER_IN (Seq #142) -->
+<tr class="hover:bg-surface-container-low transition-colors group" data-category="TRANSFER" data-type="CREDIT">
+<td class="py-3 px-4 font-code-sm text-code-sm text-on-surface whitespace-nowrap">
+                31/10/2026 <span class="text-on-surface-variant">18:45:12</span>
+</td>
+<td class="py-3 px-3 font-code-sm text-code-sm text-center">
+<span class="px-2 py-0.5 rounded bg-surface-container font-bold text-on-secondary-container">#142</span>
+</td>
+<td class="py-3 px-4">
+<div class="flex items-center gap-2">
+<span class="w-2 h-2 rounded-full bg-tertiary-fixed-dim"></span>
+<div class="flex flex-col">
+<span class="font-code-md text-code-md font-semibold text-on-surface">TRANSFER_IN</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant">Recebimento Pix Chave CNPJ</span>
+</div>
+</div>
+</td>
+<td class="py-3 px-4">
+<div class="flex flex-col">
+<span class="font-body-md text-body-md font-medium text-on-surface">Atacado Alfa Brasil Ltda</span>
+<span class="font-code-sm text-code-sm text-on-surface-variant">***.908.412-** · Ag 0001 C/C 45892-1</span>
+</div>
+</td>
+<td class="py-3 px-3 text-center">
+<span class="px-2 py-0.5 rounded bg-surface-container-high font-label-caps text-label-caps uppercase text-on-tertiary-container font-semibold">CRÉDITO (+)</span>
+</td>
+<td class="py-3 px-4 text-right font-code-md text-code-md font-bold text-on-tertiary-container whitespace-nowrap">
+                +R$ 4.500,00
+              </td>
+<td class="py-3 px-4 text-right font-code-md text-code-md font-semibold text-on-surface whitespace-nowrap">
+                R$ 15.420,50
+              </td>
+<td class="py-3 px-4 text-center">
+<button class="p-1.5 rounded-lg bg-surface-container text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors inline-flex items-center justify-center" onclick="openReceipt('142', 'TRANSFER_IN', '+R$ 4.500,00', 'Atacado Alfa Brasil Ltda', '31/10/2026 18:45:12', 'R$ 15.420,50')" title="Ver Comprovante Criptográfico" type="button">
+<span class="material-symbols-outlined text-[18px]">receipt_long</span>
+</button>
+</td>
+</tr>
+<!-- Row 2: TRANSFER_OUT (Seq #141) -->
+<tr class="hover:bg-surface-container-low transition-colors group" data-category="TRANSFER" data-type="DEBIT">
+<td class="py-3 px-4 font-code-sm text-code-sm text-on-surface whitespace-nowrap">
+                30/10/2026 <span class="text-on-surface-variant">14:12:05</span>
+</td>
+<td class="py-3 px-3 font-code-sm text-code-sm text-center">
+<span class="px-2 py-0.5 rounded bg-surface-container font-bold text-on-secondary-container">#141</span>
+</td>
+<td class="py-3 px-4">
+<div class="flex items-center gap-2">
+<span class="w-2 h-2 rounded-full bg-error"></span>
+<div class="flex flex-col">
+<span class="font-code-md text-code-md font-semibold text-on-surface">TRANSFER_OUT</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant">Liquidação Fornecedor Energia S/A</span>
+</div>
+</div>
+</td>
+<td class="py-3 px-4">
+<div class="flex flex-col">
+<span class="font-body-md text-body-md font-medium text-on-surface">Energia Solar Sul S.A.</span>
+<span class="font-code-sm text-code-sm text-on-surface-variant">***.102.889-** · Ag 0003 C/C 99014-2</span>
+</div>
+</td>
+<td class="py-3 px-3 text-center">
+<span class="px-2 py-0.5 rounded bg-error-container font-label-caps text-label-caps uppercase text-error font-semibold">DÉBITO (-)</span>
+</td>
+<td class="py-3 px-4 text-right font-code-md text-code-md font-bold text-error whitespace-nowrap">
+                -R$ 1.250,00
+              </td>
+<td class="py-3 px-4 text-right font-code-md text-code-md font-semibold text-on-surface whitespace-nowrap">
+                R$ 10.920,50
+              </td>
+<td class="py-3 px-4 text-center">
+<button class="p-1.5 rounded-lg bg-surface-container text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors inline-flex items-center justify-center" onclick="openReceipt('141', 'TRANSFER_OUT', '-R$ 1.250,00', 'Energia Solar Sul S.A.', '30/10/2026 14:12:05', 'R$ 10.920,50')" title="Ver Comprovante Criptográfico" type="button">
+<span class="material-symbols-outlined text-[18px]">receipt_long</span>
+</button>
+</td>
+</tr>
+<!-- Row 3: FAILED TRANSACTION (Seq #140 Rejected) -->
+<tr class="bg-error-container/20 hover:bg-error-container/30 transition-colors" data-category="FAILED" data-type="FAILED"><td class="py-3 px-4 font-code-sm text-code-sm text-on-surface whitespace-nowrap">29/10/2026 <span class="text-on-surface-variant">11:02:44</span></td><td class="py-3 px-3 font-code-sm text-code-sm text-center"><span class="px-2 py-0.5 rounded bg-surface-container font-bold text-on-surface-variant">#140</span></td><td class="py-3 px-4"><div class="flex items-center gap-2"><span class="w-2 h-2 rounded-full bg-error"></span><div class="flex flex-col"><span class="font-code-md text-code-md font-semibold text-error">Transferência Não Realizada</span><span class="font-body-sm text-body-sm text-on-surface-variant">Motivo: Saldo insuficiente em conta</span></div></div></td><td class="py-3 px-4"><div class="flex flex-col"><span class="font-body-md text-body-md font-medium text-on-surface">Global Investments Holding</span><span class="font-code-sm text-code-sm text-on-surface-variant">***.441.770-** · Ag 0001 C/C 87123-0</span></div></td><td class="py-3 px-3 text-center"><span class="px-2 py-0.5 rounded bg-surface-container font-label-caps text-label-caps uppercase text-error font-semibold">NÃO CONCLUÍDA</span></td><td class="py-3 px-4 text-right font-code-md text-code-md font-bold text-on-surface-variant line-through whitespace-nowrap">R$ 35.000,00</td><td class="py-3 px-4 text-right font-code-md text-code-md font-semibold text-on-surface-variant whitespace-nowrap">Saldo inalterado</td><td class="py-3 px-4 text-center"><button class="p-1.5 rounded-lg bg-surface-container text-error hover:bg-error-container transition-colors inline-flex items-center justify-center" onclick="showFailureReason('A transferência de R$ 35.000,00 não pôde ser concluída por saldo insuficiente disponível no momento da solicitação.')" title="Detalhes da Operação" type="button"><span class="material-symbols-outlined text-[18px]">info</span></button></td></tr>
+<!-- Row 4: DEPOSIT (Seq #139) -->
+<tr class="hover:bg-surface-container-low transition-colors group" data-category="DEPOSIT" data-type="CREDIT">
+<td class="py-3 px-4 font-code-sm text-code-sm text-on-surface whitespace-nowrap">
+                28/10/2026 <span class="text-on-surface-variant">09:18:22</span>
+</td>
+<td class="py-3 px-3 font-code-sm text-code-sm text-center">
+<span class="px-2 py-0.5 rounded bg-surface-container font-bold text-on-secondary-container">#139</span>
+</td>
+<td class="py-3 px-4">
+<div class="flex items-center gap-2">
+<span class="w-2 h-2 rounded-full bg-tertiary-fixed-dim"></span>
+<div class="flex flex-col">
+<span class="font-code-md text-code-md font-semibold text-on-surface">DEPOSIT</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant">Depósito em Espécie ATM Seguro</span>
+</div>
+</div>
+</td>
+<td class="py-3 px-4">
+<div class="flex flex-col">
+<span class="font-body-md text-body-md font-medium text-on-surface">Terminal Autoatendimento 04</span>
+<span class="font-code-sm text-code-sm text-on-surface-variant">Caixa Eletrônico Nexus · Agência Centro</span>
+</div>
+</td>
+<td class="py-3 px-3 text-center">
+<span class="px-2 py-0.5 rounded bg-surface-container-high font-label-caps text-label-caps uppercase text-on-tertiary-container font-semibold">CRÉDITO (+)</span>
+</td>
+<td class="py-3 px-4 text-right font-code-md text-code-md font-bold text-on-tertiary-container whitespace-nowrap">
+                +R$ 2.000,00
+              </td>
+<td class="py-3 px-4 text-right font-code-md text-code-md font-semibold text-on-surface whitespace-nowrap">
+                R$ 12.170,50
+              </td>
+<td class="py-3 px-4 text-center">
+<button class="p-1.5 rounded-lg bg-surface-container text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors inline-flex items-center justify-center" onclick="openReceipt('139', 'DEPOSIT', '+R$ 2.000,00', 'SYS-CASH-04 (Terminal 04)', '28/10/2026 09:18:22', 'R$ 12.170,50')" title="Ver Comprovante Criptográfico" type="button">
+<span class="material-symbols-outlined text-[18px]">receipt_long</span>
+</button>
+</td>
+</tr>
+<!-- Row 5: WITHDRAWAL (Seq #138) -->
+<tr class="hover:bg-surface-container-low transition-colors group" data-category="WITHDRAWAL" data-type="DEBIT">
+<td class="py-3 px-4 font-code-sm text-code-sm text-on-surface whitespace-nowrap">
+                25/10/2026 <span class="text-on-surface-variant">17:50:31</span>
+</td>
+<td class="py-3 px-3 font-code-sm text-code-sm text-center">
+<span class="px-2 py-0.5 rounded bg-surface-container font-bold text-on-secondary-container">#138</span>
+</td>
+<td class="py-3 px-4">
+<div class="flex items-center gap-2">
+<span class="w-2 h-2 rounded-full bg-error"></span>
+<div class="flex flex-col">
+<span class="font-code-md text-code-md font-semibold text-on-surface">WITHDRAWAL</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant">Saque em Moeda Fiduciária ATM</span>
+</div>
+</div>
+</td>
+<td class="py-3 px-4">
+<div class="flex flex-col">
+<span class="font-body-md text-body-md font-medium text-on-surface">Terminal Autoatendimento 02</span>
+<span class="font-code-sm text-code-sm text-on-surface-variant">Terminal de Autoatendimento 24h · Agência 0001</span>
+</div>
+</td>
+<td class="py-3 px-3 text-center">
+<span class="px-2 py-0.5 rounded bg-error-container font-label-caps text-label-caps uppercase text-error font-semibold">DÉBITO (-)</span>
+</td>
+<td class="py-3 px-4 text-right font-code-md text-code-md font-bold text-error whitespace-nowrap">
+                -R$ 800,00
+              </td>
+<td class="py-3 px-4 text-right font-code-md text-code-md font-semibold text-on-surface whitespace-nowrap">
+                R$ 10.170,50
+              </td>
+<td class="py-3 px-4 text-center">
+<button class="p-1.5 rounded-lg bg-surface-container text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors inline-flex items-center justify-center" onclick="openReceipt('138', 'WITHDRAWAL', '-R$ 800,00', 'SYS-CASH-02 (Agência 0001)', '25/10/2026 17:50:31', 'R$ 10.170,50')" title="Ver Comprovante Criptográfico" type="button">
+<span class="material-symbols-outlined text-[18px]">receipt_long</span>
+</button>
+</td>
+</tr>
+<!-- Row 6: TRANSFER_IN (Seq #137) -->
+<tr class="hover:bg-surface-container-low transition-colors group" data-category="TRANSFER" data-type="CREDIT">
+<td class="py-3 px-4 font-code-sm text-code-sm text-on-surface whitespace-nowrap">
+                22/10/2026 <span class="text-on-surface-variant">10:05:00</span>
+</td>
+<td class="py-3 px-3 font-code-sm text-code-sm text-center">
+<span class="px-2 py-0.5 rounded bg-surface-container font-bold text-on-secondary-container">#137</span>
+</td>
+<td class="py-3 px-4">
+<div class="flex items-center gap-2">
+<span class="w-2 h-2 rounded-full bg-tertiary-fixed-dim"></span>
+<div class="flex flex-col">
+<span class="font-code-md text-code-md font-semibold text-on-surface">TRANSFER_IN</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant">Aporte Operacional Matriz</span>
+</div>
+</div>
+</td>
+<td class="py-3 px-4">
+<div class="flex flex-col">
+<span class="font-body-md text-body-md font-medium text-on-surface">Soberano Holding S/A</span>
+<span class="font-code-sm text-code-sm text-on-surface-variant">***.458.912-** · Ag 0001 C/C 100001-0</span>
+</div>
+</td>
+<td class="py-3 px-3 text-center">
+<span class="px-2 py-0.5 rounded bg-surface-container-high font-label-caps text-label-caps uppercase text-on-tertiary-container font-semibold">CRÉDITO (+)</span>
+</td>
+<td class="py-3 px-4 text-right font-code-md text-code-md font-bold text-on-tertiary-container whitespace-nowrap">
+                +R$ 7.200,00
+              </td>
+<td class="py-3 px-4 text-right font-code-md text-code-md font-semibold text-on-surface whitespace-nowrap">
+                R$ 10.970,50
+              </td>
+<td class="py-3 px-4 text-center">
+<button class="p-1.5 rounded-lg bg-surface-container text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors inline-flex items-center justify-center" onclick="openReceipt('137', 'TRANSFER_IN', '+R$ 7.200,00', 'Soberano Holding S/A', '22/10/2026 10:05:00', 'R$ 10.970,50')" title="Ver Comprovante Criptográfico" type="button">
+<span class="material-symbols-outlined text-[18px]">receipt_long</span>
+</button>
+</td>
+</tr>
+<!-- Row 7: TRANSFER_OUT (Seq #136) -->
+<tr class="hover:bg-surface-container-low transition-colors group" data-category="TRANSFER" data-type="DEBIT">
+<td class="py-3 px-4 font-code-sm text-code-sm text-on-surface whitespace-nowrap">
+                19/10/2026 <span class="text-on-surface-variant">16:21:40</span>
+</td>
+<td class="py-3 px-3 font-code-sm text-code-sm text-center">
+<span class="px-2 py-0.5 rounded bg-surface-container font-bold text-on-secondary-container">#136</span>
+</td>
+<td class="py-3 px-4">
+<div class="flex items-center gap-2">
+<span class="w-2 h-2 rounded-full bg-error"></span>
+<div class="flex flex-col">
+<span class="font-code-md text-code-md font-semibold text-on-surface">TRANSFER_OUT</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant">Serviços de Infraestrutura Cloud AWS</span>
+</div>
+</div>
+</td>
+<td class="py-3 px-4">
+<div class="flex flex-col">
+<span class="font-body-md text-body-md font-medium text-on-surface">Amazon Serviços de Internet</span>
+<span class="font-code-sm text-code-sm text-on-surface-variant">***.233.109-** · Ag 0002 C/C 77812-4</span>
+</div>
+</td>
+<td class="py-3 px-3 text-center">
+<span class="px-2 py-0.5 rounded bg-error-container font-label-caps text-label-caps uppercase text-error font-semibold">DÉBITO (-)</span>
+</td>
+<td class="py-3 px-4 text-right font-code-md text-code-md font-bold text-error whitespace-nowrap">
+                -R$ 729,50
+              </td>
+<td class="py-3 px-4 text-right font-code-md text-code-md font-semibold text-on-surface whitespace-nowrap">
+                R$ 3.770,50
+              </td>
+<td class="py-3 px-4 text-center">
+<button class="p-1.5 rounded-lg bg-surface-container text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors inline-flex items-center justify-center" onclick="openReceipt('136', 'TRANSFER_OUT', '-R$ 729,50', 'Amazon Serviços de Internet', '19/10/2026 16:21:40', 'R$ 3.770,50')" title="Ver Comprovante Criptográfico" type="button">
+<span class="material-symbols-outlined text-[18px]">receipt_long</span>
+</button>
+</td>
+</tr>
+<!-- Row 8: TRANSFER_IN (Seq #135) -->
+<tr class="hover:bg-surface-container-low transition-colors group" data-category="TRANSFER" data-type="CREDIT">
+<td class="py-3 px-4 font-code-sm text-code-sm text-on-surface whitespace-nowrap">
+                14/10/2026 <span class="text-on-surface-variant">14:32:00</span>
+</td>
+<td class="py-3 px-3 font-code-sm text-code-sm text-center">
+<span class="px-2 py-0.5 rounded bg-surface-container font-bold text-on-secondary-container">#135</span>
+</td>
+<td class="py-3 px-4">
+<div class="flex items-center gap-2">
+<span class="w-2 h-2 rounded-full bg-tertiary-fixed-dim"></span>
+<div class="flex flex-col">
+<span class="font-code-md text-code-md font-semibold text-on-surface">TRANSFER_IN</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant">TED Transferência Interbancária SPB</span>
+</div>
+</div>
+</td>
+<td class="py-3 px-4">
+<div class="flex flex-col">
+<span class="font-body-md text-body-md font-medium text-on-surface">Jo** Si***</span>
+<span class="font-code-sm text-code-sm text-on-surface-variant">***.781.990-** · Ag 0001 C/C 123456-7</span>
+</div>
+</td>
+<td class="py-3 px-3 text-center">
+<span class="px-2 py-0.5 rounded bg-surface-container-high font-label-caps text-label-caps uppercase text-on-tertiary-container font-semibold">CRÉDITO (+)</span>
+</td>
+<td class="py-3 px-4 text-right font-code-md text-code-md font-bold text-on-tertiary-container whitespace-nowrap">
+                +R$ 1.500,00
+              </td>
+<td class="py-3 px-4 text-right font-code-md text-code-md font-semibold text-on-surface whitespace-nowrap">
+                R$ 4.500,00
+              </td>
+<td class="py-3 px-4 text-center">
+<button class="p-1.5 rounded-lg bg-surface-container text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors inline-flex items-center justify-center" onclick="openReceipt('135', 'TRANSFER_IN', '+R$ 1.500,00', 'Jo** Si***', '14/10/2026 14:32:00', 'R$ 4.500,00')" title="Ver Comprovante Criptográfico" type="button">
+<span class="material-symbols-outlined text-[18px]">receipt_long</span>
+</button>
+</td>
+</tr>
+<!-- Row 9: DEPOSIT (Seq #134) -->
+<tr class="hover:bg-surface-container-low transition-colors group" data-category="DEPOSIT" data-type="CREDIT">
+<td class="py-3 px-4 font-code-sm text-code-sm text-on-surface whitespace-nowrap">
+                10/10/2026 <span class="text-on-surface-variant">11:15:18</span>
+</td>
+<td class="py-3 px-3 font-code-sm text-code-sm text-center">
+<span class="px-2 py-0.5 rounded bg-surface-container font-bold text-on-secondary-container">#134</span>
+</td>
+<td class="py-3 px-4">
+<div class="flex items-center gap-2">
+<span class="w-2 h-2 rounded-full bg-tertiary-fixed-dim"></span>
+<div class="flex flex-col">
+<span class="font-code-md text-code-md font-semibold text-on-surface">DEPOSIT</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant">Depósito em Cheque Compensado B3</span>
+</div>
+</div>
+</td>
+<td class="py-3 px-4">
+<div class="flex flex-col">
+<span class="font-body-md text-body-md font-medium text-on-surface">Câmara Interbancária CIP</span>
+<span class="font-code-sm text-code-sm text-on-surface-variant">SYS-CIP-CLEARING · Lote #89912</span>
+</div>
+</td>
+<td class="py-3 px-3 text-center">
+<span class="px-2 py-0.5 rounded bg-surface-container-high font-label-caps text-label-caps uppercase text-on-tertiary-container font-semibold">CRÉDITO (+)</span>
+</td>
+<td class="py-3 px-4 text-right font-code-md text-code-md font-bold text-on-tertiary-container whitespace-nowrap">
+                +R$ 1.000,00
+              </td>
+<td class="py-3 px-4 text-right font-code-md text-code-md font-semibold text-on-surface whitespace-nowrap">
+                R$ 3.000,00
+              </td>
+<td class="py-3 px-4 text-center">
+<button class="p-1.5 rounded-lg bg-surface-container text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors inline-flex items-center justify-center" onclick="openReceipt('134', 'DEPOSIT', '+R$ 1.000,00', 'CIP Lote #89912', '10/10/2026 11:15:18', 'R$ 3.000,00')" title="Ver Comprovante Criptográfico" type="button">
+<span class="material-symbols-outlined text-[18px]">receipt_long</span>
+</button>
+</td>
+</tr>
+<!-- Row 10: INITIAL DEPOSIT (Seq #133) -->
+<tr class="hover:bg-surface-container-low transition-colors group" data-category="DEPOSIT" data-type="CREDIT">
+<td class="py-3 px-4 font-code-sm text-code-sm text-on-surface whitespace-nowrap">
+                02/10/2026 <span class="text-on-surface-variant">08:00:10</span>
+</td>
+<td class="py-3 px-3 font-code-sm text-code-sm text-center">
+<span class="px-2 py-0.5 rounded bg-surface-container font-bold text-on-secondary-container">#133</span>
+</td>
+<td class="py-3 px-4">
+<div class="flex items-center gap-2">
+<span class="w-2 h-2 rounded-full bg-tertiary-fixed-dim"></span>
+<div class="flex flex-col">
+<span class="font-code-md text-code-md font-semibold text-on-surface">DEPOSIT</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant">Abertura de Caixa Inicial do Período</span>
+</div>
+</div>
+</td>
+<td class="py-3 px-4">
+<div class="flex flex-col">
+<span class="font-body-md text-body-md font-medium text-on-surface">Tesouraria Central Matriz</span>
+<span class="font-code-sm text-code-sm text-on-surface-variant">LEDGER-GENESIS-ROLLFORWARD</span>
+</div>
+</td>
+<td class="py-3 px-3 text-center">
+<span class="px-2 py-0.5 rounded bg-surface-container-high font-label-caps text-label-caps uppercase text-on-tertiary-container font-semibold">CRÉDITO (+)</span>
+</td>
+<td class="py-3 px-4 text-right font-code-md text-code-md font-bold text-on-tertiary-container whitespace-nowrap">
+                +R$ 2.000,00
+              </td>
+<td class="py-3 px-4 text-right font-code-md text-code-md font-semibold text-on-surface whitespace-nowrap">
+                R$ 2.000,00
+              </td>
+<td class="py-3 px-4 text-center">
+<button class="p-1.5 rounded-lg bg-surface-container text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors inline-flex items-center justify-center" onclick="openReceipt('133', 'DEPOSIT', '+R$ 2.000,00', 'Tesouraria Central Matriz', '02/10/2026 08:00:10', 'R$ 2.000,00')" title="Ver Comprovante Criptográfico" type="button">
+<span class="material-symbols-outlined text-[18px]">receipt_long</span>
+</button>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<!-- Mobile / Tablet Sm Card-Row List View -->
+<div class="lg:hidden flex flex-col divide-y divide-surface-container-low p-space-sm" id="mobile-cards-container">
+<!-- Mobile Card 1 -->
+<div class="py-space-md flex flex-col gap-space-xs">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="px-2 py-0.5 rounded bg-surface-container font-code-sm text-code-sm font-bold text-on-secondary-container">#142</span>
+<span class="font-code-md text-code-md font-semibold text-on-surface">TRANSFER_IN</span>
+</div>
+<span class="px-2 py-0.5 rounded bg-surface-container-high font-label-caps text-label-caps uppercase text-on-tertiary-container font-semibold">CRÉDITO (+)</span>
+</div>
+<div class="flex items-center justify-between mt-1">
+<span class="font-body-md text-body-md text-on-surface">Atacado Alfa Brasil Ltda</span>
+<span class="font-code-md text-code-md font-bold text-on-tertiary-container">+R$ 4.500,00</span>
+</div>
+<div class="flex items-center justify-between font-code-sm text-code-sm text-on-surface-variant">
+<span class="">31/10/2026 18:45</span>
+<span class="">Saldo: <strong class="text-on-surface">R$ 15.420,50</strong></span>
+</div>
+<div class="flex items-center justify-end pt-1">
+<button class="font-code-sm text-code-sm text-secondary font-semibold flex items-center gap-1" onclick="openReceipt('142', 'TRANSFER_IN', '+R$ 4.500,00', 'Atacado Alfa Brasil Ltda', '31/10/2026 18:45:12', 'R$ 15.420,50')" type="button">
+<span class="material-symbols-outlined text-[16px]">receipt_long</span>
+<span class="">Visualizar Comprovante</span>
+</button>
+</div>
+</div>
+<!-- Mobile Card 2 -->
+<div class="py-space-md flex flex-col gap-space-xs">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="px-2 py-0.5 rounded bg-surface-container font-code-sm text-code-sm font-bold text-on-secondary-container">#141</span>
+<span class="font-code-md text-code-md font-semibold text-on-surface">TRANSFER_OUT</span>
+</div>
+<span class="px-2 py-0.5 rounded bg-error-container font-label-caps text-label-caps uppercase text-error font-semibold">DÉBITO (-)</span>
+</div>
+<div class="flex items-center justify-between mt-1">
+<span class="font-body-md text-body-md text-on-surface">Energia Solar Sul S.A.</span>
+<span class="font-code-md text-code-md font-bold text-error">-R$ 1.250,00</span>
+</div>
+<div class="flex items-center justify-between font-code-sm text-code-sm text-on-surface-variant">
+<span class="">30/10/2026 14:12</span>
+<span class="">Saldo: <strong class="text-on-surface">R$ 10.920,50</strong></span>
+</div>
+<div class="flex items-center justify-end pt-1">
+<button class="font-code-sm text-code-sm text-secondary font-semibold flex items-center gap-1" onclick="openReceipt('141', 'TRANSFER_OUT', '-R$ 1.250,00', 'Energia Solar Sul S.A.', '30/10/2026 14:12:05', 'R$ 10.920,50')" type="button">
+<span class="material-symbols-outlined text-[16px]">receipt_long</span>
+<span class="">Visualizar Comprovante</span>
+</button>
+</div>
+</div>
+<!-- Mobile Card 3 (Failed) -->
+<div class="py-space-md flex flex-col gap-space-xs bg-error-container/20 p-space-sm rounded-lg">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="px-2 py-0.5 rounded bg-surface-container font-code-sm text-code-sm font-bold text-on-surface-variant">#140</span>
+<span class="font-code-md text-code-md font-bold text-error">FAILED: INSUFFICIENT_FUNDS</span>
+</div>
+<span class="px-2 py-0.5 rounded bg-error-container font-label-caps text-label-caps uppercase text-error font-semibold">REJEITADA</span>
+</div>
+<div class="flex items-center justify-between mt-1">
+<span class="font-body-md text-body-md text-on-surface">Global Investments</span>
+<span class="font-code-md text-code-md line-through text-on-surface-variant">R$ 35.000,00</span>
+</div>
+<div class="flex items-center justify-between font-code-sm text-code-sm text-on-surface-variant">
+<span class="">29/10/2026 11:02</span>
+<span class="">Saldo Inalterado</span>
+</div>
+<div class="flex items-center justify-end pt-1">
+<button class="font-code-sm text-code-sm text-error font-semibold flex items-center gap-1" onclick="showFailureReason('Err code 422: Overdraft limit not authorized.')" type="button">
+<span class="material-symbols-outlined text-[16px]">info</span>
+<span class="">Motivo da Rejeição</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Pagination & Cursor Controls Bar (conforme Section 8.6 & 9.3) -->
+<div class="p-space-md bg-surface-container-low flex flex-col md:flex-row items-center justify-between gap-space-md">
+<div class="flex flex-col sm:flex-row sm:items-center gap-space-sm w-full md:w-auto">
+<span class="font-body-sm text-body-sm text-on-surface-variant">
+            Exibindo <strong class="text-on-surface font-semibold">10</strong> de <strong class="text-on-surface font-semibold">142</strong> lançamentos determinísticos
+          </span>
+<span class="hidden sm:inline text-on-surface-variant font-code-sm text-code-sm">·</span>
+<div class="flex items-center gap-1.5 bg-surface-container px-2 py-1 rounded font-code-sm text-code-sm text-on-secondary-container">
+<span class="material-symbols-outlined text-[14px] text-secondary">token</span>
+<span class="">cursor=<code>eyJzZXF1ZW5jZSI6MTMyfQ==</code></span>
+</div>
+</div>
+<div class="flex items-center gap-space-xs w-full sm:w-auto justify-between sm:justify-end">
+<button class="px-space-md py-2 bg-surface-container text-on-surface-variant opacity-50 cursor-not-allowed font-code-sm text-code-sm font-semibold rounded-lg flex items-center gap-1" disabled="" type="button">
+<span class="material-symbols-outlined text-[16px]">chevron_left</span>
+<span class="">Página Anterior</span>
+</button>
+<button class="px-space-md py-2 bg-surface-container-high text-on-surface hover:bg-surface-container font-code-sm text-code-sm font-semibold rounded-lg shadow-sm flex items-center gap-1 transition-colors" onclick="loadNextPage()" type="button">
+<span class="">Próxima Página</span>
+<span class="material-symbols-outlined text-[16px]">chevron_right</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Cryptographic Proof Notice Footer Callout -->
+<div class="bg-surface-container-lowest p-space-md rounded-xl shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-space-md"><div class="flex items-center gap-space-sm"><span class="p-2 rounded-lg bg-surface-container text-secondary flex items-center justify-center"><span class="material-symbols-outlined text-[24px]">verified_user</span></span><div class="flex flex-col"><span class="font-headline-sm text-headline-sm text-on-surface font-semibold">Segurança e Conformidade Bancária</span><p class="font-body-sm text-body-sm text-on-surface-variant">Todos os registros são certificados e auditáveis conforme normas do Banco Central do Brasil.</p></div></div><button class="px-space-md py-2 bg-surface-container-high text-on-surface hover:bg-surface-container font-headline-sm text-headline-sm font-semibold rounded-lg whitespace-nowrap transition-colors flex items-center gap-1.5" onclick="alert('Comprovante consolidado do extrato gerado com sucesso.')" type="button"><span class="material-symbols-outlined text-[18px]">description</span><span class="">Comprovante Consolidado</span></button></div>
+</div>
+<!-- Modal Comprovante Detalhado -->
+<div class="fixed inset-0 z-50 bg-on-surface/40 hidden items-center justify-center p-4" id="receipt-modal">
+</div>
+<!-- Modal Exportar CSV / PDF -->
+<div class="fixed inset-0 z-50 bg-on-surface/40 hidden items-center justify-center p-4" id="export-modal">
+</div>
+<script>
+    // Client-side interactions for CQRS projection filters, receipt views & rebuild
+    function openReceipt(seq, op, val, party, date, bal) {
+      document.getElementById('m-seq').textContent = '#' + seq;
+      document.getElementById('m-op').textContent = op;
+      document.getElementById('m-val').textContent = val;
+      document.getElementById('m-party').textContent = party;
+      document.getElementById('m-date').textContent = date;
+      document.getElementById('m-bal').textContent = bal;
+      
+      const valEl = document.getElementById('m-val');
+      if (val.includes('+')) {
+        valEl.className = 'font-bold text-on-tertiary-container text-base';
+      } else {
+        valEl.className = 'font-bold text-error text-base';
+      }
+      
+      const modal = document.getElementById('receipt-modal');
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+    }
+
+    function closeReceipt() {
+      const modal = document.getElementById('receipt-modal');
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    }
+
+    function toggleExportModal() {
+      const modal = document.getElementById('export-modal');
+      if (modal.classList.contains('hidden')) {
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+      } else {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+      }
+    }
+
+    function executeExport() {
+      const fmt = document.querySelector('input[name="export-fmt"]:checked').value;
+      toggleExportModal();
+      alert('Arquivo exportado com sucesso: extrato_nexus_seq142.' + fmt);
+    }
+
+    function showFailureReason(msg) {
+      alert('DETALHES DO EVENTO DE REJEIÇÃO:\n\n' + msg);
+    }
+
+    function applyFilters() {
+      const typeVal = document.getElementById('type-filter').value;
+      const searchVal = document.getElementById('search-input').value.toLowerCase();
+      const rows = document.querySelectorAll('#statement-tbody tr');
+
+      rows.forEach(row => {
+        const rowType = row.getAttribute('data-type');
+        const rowCat = row.getAttribute('data-category');
+        const text = row.innerText.toLowerCase();
+
+        let matchesType = false;
+        if (typeVal === 'ALL') matchesType = true;
+        else if (typeVal === 'CREDIT' && rowType === 'CREDIT') matchesType = true;
+        else if (typeVal === 'DEBIT' && rowType === 'DEBIT') matchesType = true;
+        else if (typeVal === 'TRANSFER' && rowCat === 'TRANSFER') matchesType = true;
+        else if (typeVal === 'DEPOSIT' && rowCat === 'DEPOSIT') matchesType = true;
+        else if (typeVal === 'WITHDRAWAL' && rowCat === 'WITHDRAWAL') matchesType = true;
+        else if (typeVal === 'FAILED' && rowType === 'FAILED') matchesType = true;
+
+        const matchesSearch = text.includes(searchVal);
+
+        if (matchesType && matchesSearch) {
+          row.style.display = '';
+        } else {
+          row.style.display = 'none';
+        }
+      });
+    }
+
+    function quickFilter(type) {
+      const sel = document.getElementById('type-filter');
+      sel.value = type;
+      applyFilters();
+    }
+
+    function clearSearch() {
+      document.getElementById('search-input').value = '';
+      applyFilters();
+    }
+
+    function triggerRebuild() {
+      const btn = document.getElementById('rebuild-btn');
+      const icon = document.getElementById('rebuild-icon');
+      const text = document.getElementById('rebuild-text');
+
+      btn.disabled = true;
+      icon.classList.add('animate-spin');
+      text.textContent = 'Replay de Eventos Kafka...';
+
+      setTimeout(() => {
+        icon.classList.remove('animate-spin');
+        text.textContent = 'Projeção Atualizada (#142)';
+        btn.disabled = false;
+        setTimeout(() => {
+          text.textContent = 'Reconstruir Projeção (Rebuild CQRS)';
+        }, 2500);
+      }, 1200);
+    }
+
+    function loadNextPage() {
+      alert('Cursor eyJzZXF1ZW5jZSI6MTMyfQ== requisitado via GET /api/v1/accounts/100234-7/statement?cursor=eyJzZXF1ZW5jZSI6MTMyfQ==&limit=10');
+    }
+
+    function verifyLedgerIntegrity() {
+      alert('ÁRVORE MERKLE VALIDADA:\n\nRaiz: 0x8a9012fce...34a01\nStatus: 142 de 142 eventos íntegros e verificados contra hash da última snapshot.');
+    }
+  </script>
+</div></main><footer class="w-full bg-surface-container-low mt-space-xl py-space-lg"><div class="w-full px-margin-mobile md:px-margin flex flex-col sm:flex-row items-center justify-between gap-space-sm text-on-surface-variant font-body-sm text-body-sm"><div class="flex items-center gap-space-sm"><span class="font-headline-sm text-headline-sm font-bold text-on-surface">Nexus Bank S.A.</span><span class="">·</span><span class="">Instituição autorizada pelo Banco Central do Brasil</span></div><div class="flex items-center gap-space-md font-body-sm text-body-sm"><span class="">Ouvidoria: 0800 722 0011</span><span class="">Segurança 256-bit SSL</span><span class="">© 2025 Nexus Bank. Todos os direitos reservados.</span></div></div></footer>
+</body></html>

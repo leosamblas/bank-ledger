@@ -5,3 +5,4 @@ package com.bankledger.account.application.port.in;
  */
 public interface CreateAccountUseCase {
 }
+

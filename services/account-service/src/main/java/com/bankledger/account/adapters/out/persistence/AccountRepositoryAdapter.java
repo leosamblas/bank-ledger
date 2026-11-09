@@ -14,3 +14,4 @@ public class AccountRepositoryAdapter implements AccountRepositoryPort {
     public void save(Account account) {
     }
 }
+

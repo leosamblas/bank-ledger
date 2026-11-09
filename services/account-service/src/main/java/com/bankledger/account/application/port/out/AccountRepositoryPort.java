@@ -9,3 +9,4 @@ public interface AccountRepositoryPort {
 
     void save(Account account);
 }
+

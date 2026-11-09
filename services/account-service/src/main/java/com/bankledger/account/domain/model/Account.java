@@ -6,3 +6,4 @@ package com.bankledger.account.domain.model;
  */
 public class Account {
 }
+

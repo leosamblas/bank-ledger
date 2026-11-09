@@ -29,7 +29,8 @@ public class HexagonalArchitectureTest {
                 "..com.bankledger.account.adapters..",
                 "..com.bankledger.account.config..",
                 "org.springframework..",
-                "jakarta.persistence.."
+                "jakarta.persistence..",
+                "org.hibernate.."
             )
             .allowEmptyShould(false);
 
@@ -70,10 +71,26 @@ public class HexagonalArchitectureTest {
             .allowEmptyShould(false);
 
     @ArchTest
+    public static final ArchRule incoming_adapters_should_not_depend_on_outgoing_adapters =
+        noClasses()
+            .that().resideInAPackage("..adapters.in..")
+            .should().dependOnClassesThat()
+            .resideInAnyPackage("..adapters.out..")
+            .allowEmptyShould(false);
+
+    @ArchTest
     public static final ArchRule outgoing_adapters_should_not_depend_on_incoming_ports =
         noClasses()
             .that().resideInAPackage("..adapters.out..")
             .should().dependOnClassesThat()
             .resideInAnyPackage("..application.port.in..")
+            .allowEmptyShould(false);
+
+    @ArchTest
+    public static final ArchRule outgoing_adapters_should_not_depend_on_incoming_adapters =
+        noClasses()
+            .that().resideInAPackage("..adapters.out..")
+            .should().dependOnClassesThat()
+            .resideInAnyPackage("..adapters.in..")
             .allowEmptyShould(false);
 }

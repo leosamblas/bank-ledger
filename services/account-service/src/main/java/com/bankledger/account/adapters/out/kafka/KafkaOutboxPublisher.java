@@ -54,8 +54,13 @@ public class KafkaOutboxPublisher implements OutboxPublisher {
         log.debug("Publishing OutboxEvent {} to topic '{}' with key '{}' (timeout: {}ms)",
                 event.getId(), event.getTopic(), event.getMessageKey(), publishTimeoutMs);
 
-        kafkaTemplate.send(event.getTopic(), event.getMessageKey(), event.getPayload())
-                .get(publishTimeoutMs, TimeUnit.MILLISECONDS);
+        try {
+            kafkaTemplate.send(event.getTopic(), event.getMessageKey(), event.getPayload())
+                    .get(publishTimeoutMs, TimeUnit.MILLISECONDS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw e;
+        }
 
         log.info("Successfully published OutboxEvent {} to topic '{}'",
                 event.getId(), event.getTopic());

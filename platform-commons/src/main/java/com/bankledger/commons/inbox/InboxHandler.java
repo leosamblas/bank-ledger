@@ -1,7 +1,7 @@
 package com.bankledger.commons.inbox;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -15,16 +15,12 @@ import java.util.function.Consumer;
  * Transactional helper for executing idempotent event consumer actions.
  * Ensures an exactly-once side-effect guarantee using table {@code inbox_event}.
  */
+@Slf4j
 @Component
+@RequiredArgsConstructor
 public class InboxHandler {
 
-    private static final Logger log = LoggerFactory.getLogger(InboxHandler.class);
-
     private final InboxEventRepository repository;
-
-    public InboxHandler(InboxEventRepository repository) {
-        this.repository = Objects.requireNonNull(repository, "repository must not be null");
-    }
 
     /**
      * Executes business logic idempotently for the given event ID and handler name.

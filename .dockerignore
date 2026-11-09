@@ -1,0 +1,10 @@
+.git
+.gradle
+build
+*/build
+*/*/build
+node_modules
+web/node_modules
+web/.next
+.superpowers
+*.log

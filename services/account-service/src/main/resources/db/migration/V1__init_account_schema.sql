@@ -15,6 +15,7 @@ CREATE TABLE IF NOT EXISTS customer (
     password_hash           VARCHAR(255) NOT NULL,
     failed_login_attempts   INT NOT NULL DEFAULT 0,
     locked_until            TIMESTAMP WITH TIME ZONE,
+    version                 BIGINT NOT NULL DEFAULT 0,
     created_at              TIMESTAMP WITH TIME ZONE NOT NULL,
     updated_at              TIMESTAMP WITH TIME ZONE NOT NULL,
     CONSTRAINT uk_customer_cpf UNIQUE (cpf),
@@ -29,10 +30,12 @@ CREATE TABLE IF NOT EXISTS account (
     account_number  VARCHAR(10) NOT NULL,
     check_digit     VARCHAR(1) NOT NULL,
     status          VARCHAR(20) NOT NULL DEFAULT 'ACTIVE',
+    version         BIGINT NOT NULL DEFAULT 0,
     created_at      TIMESTAMP WITH TIME ZONE NOT NULL,
     updated_at      TIMESTAMP WITH TIME ZONE NOT NULL,
     closed_at       TIMESTAMP WITH TIME ZONE,
     CONSTRAINT fk_account_customer FOREIGN KEY (customer_id) REFERENCES customer (id),
+    CONSTRAINT uk_account_customer UNIQUE (customer_id),
     CONSTRAINT uk_account_branch_number UNIQUE (branch, account_number),
     CONSTRAINT chk_account_status CHECK (status IN ('PENDING_ACTIVATION', 'ACTIVE', 'SUSPENDED', 'BLOCKED', 'CLOSED'))
 );

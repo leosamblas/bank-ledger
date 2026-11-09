@@ -23,7 +23,13 @@ public class AccountPersistenceAdapter implements AccountRepositoryPort {
     @Override
     public Account save(Account account) {
         Objects.requireNonNull(account, "account must not be null");
-        AccountJpaEntity entity = AccountJpaEntity.fromDomain(account);
+        AccountJpaEntity entity = accountRepository.findById(account.id())
+                .map(existing -> {
+                    AccountJpaEntity updated = AccountJpaEntity.fromDomain(account);
+                    updated.setVersion(existing.getVersion());
+                    return updated;
+                })
+                .orElseGet(() -> AccountJpaEntity.fromDomain(account));
         AccountJpaEntity saved = accountRepository.saveAndFlush(entity);
         return saved.toDomain();
     }

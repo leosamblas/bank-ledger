@@ -25,7 +25,13 @@ public class CustomerPersistenceAdapter implements CustomerRepositoryPort {
     @Override
     public Customer save(Customer customer) {
         Objects.requireNonNull(customer, "customer must not be null");
-        CustomerJpaEntity entity = CustomerJpaEntity.fromDomain(customer);
+        CustomerJpaEntity entity = customerRepository.findById(customer.id())
+                .map(existing -> {
+                    CustomerJpaEntity updated = CustomerJpaEntity.fromDomain(customer);
+                    updated.setVersion(existing.getVersion());
+                    return updated;
+                })
+                .orElseGet(() -> CustomerJpaEntity.fromDomain(customer));
         CustomerJpaEntity saved = customerRepository.saveAndFlush(entity);
         return saved.toDomain();
     }

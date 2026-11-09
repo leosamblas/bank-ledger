@@ -218,6 +218,56 @@ class PersistenceIntegrationTest {
     }
 
     @Test
+    @DisplayName("Should enforce unique constraint on customer ID (one account per customer)")
+    void shouldEnforceUniqueCustomerAccountConstraint() {
+        Customer customer = customerRepository.save(buildCustomer("52998224725", "user1@example.com"));
+
+        AccountNumber accNum1 = AccountNumber.of("0001", "100000", "4");
+        Account account1 = Account.create(UUID.randomUUID(), customer.id(), "0001", accNum1, Instant.now());
+        accountRepository.save(account1);
+
+        AccountNumber accNum2 = AccountNumber.of("0001", "100001", "2");
+        Account account2 = Account.create(UUID.randomUUID(), customer.id(), "0001", accNum2, Instant.now());
+
+        assertThatThrownBy(() -> accountRepository.save(account2))
+                .isInstanceOf(DataIntegrityViolationException.class);
+    }
+
+    @Test
+    @DisplayName("Should increment version on customer update for optimistic locking")
+    void shouldIncrementVersionOnCustomerUpdate() {
+        Customer customer = customerRepository.save(buildCustomer("52998224725", "version.customer@example.com"));
+
+        Long v0 = jdbcTemplate.queryForObject("SELECT version FROM customer WHERE id = ?", Long.class, customer.id());
+        assertThat(v0).isEqualTo(0L);
+
+        customer.recordFailedLogin(Instant.now());
+        customerRepository.save(customer);
+
+        Long v1 = jdbcTemplate.queryForObject("SELECT version FROM customer WHERE id = ?", Long.class, customer.id());
+        assertThat(v1).isEqualTo(1L);
+    }
+
+    @Test
+    @DisplayName("Should increment version on account update for optimistic locking")
+    void shouldIncrementVersionOnAccountUpdate() {
+        Customer customer = customerRepository.save(buildCustomer("52998224725", "version.account@example.com"));
+        AccountNumber accNum = AccountNumber.of("0001", "100000", "4");
+        Account account = accountRepository.save(
+                Account.create(UUID.randomUUID(), customer.id(), "0001", accNum, Instant.now())
+        );
+
+        Long v0 = jdbcTemplate.queryForObject("SELECT version FROM account WHERE id = ?", Long.class, account.id());
+        assertThat(v0).isEqualTo(0L);
+
+        account.close(Instant.now());
+        accountRepository.save(account);
+
+        Long v1 = jdbcTemplate.queryForObject("SELECT version FROM account WHERE id = ?", Long.class, account.id());
+        assertThat(v1).isEqualTo(1L);
+    }
+
+    @Test
     @DisplayName("Should persist customer updates for failed login attempts and lockout")
     void shouldUpdateCustomerLockout() {
         Customer customer = customerRepository.save(buildCustomer("52998224725", "maria.oliveira@example.com"));
@@ -258,16 +308,20 @@ class PersistenceIntegrationTest {
     @Test
     @DisplayName("Should accept all valid account statuses according to check constraint")
     void shouldAcceptAllValidAccountStatuses() {
-        Customer customer = customerRepository.save(buildCustomer("52998224725", "maria.oliveira@example.com"));
-
         int i = 0;
         for (AccountStatus status : AccountStatus.values()) {
+            UUID customerId = UUID.randomUUID();
+            jdbcTemplate.update(
+                    "INSERT INTO customer (id, full_name, cpf, email, phone, birth_date, password_hash, created_at, updated_at) " +
+                            "VALUES (?, 'Status Customer', ?, ?, '+5511988887777', '1990-01-01', 'hash', now(), now())",
+                    customerId, String.format("900000000%02d", i), String.format("status%d@example.com", i)
+            );
             UUID accountId = UUID.randomUUID();
             String accNumber = String.format("20000%d", i++);
             int rows = jdbcTemplate.update(
                     "INSERT INTO account (id, customer_id, branch, account_number, check_digit, status, created_at, updated_at) " +
                             "VALUES (?, ?, '0001', ?, '0', ?, now(), now())",
-                    accountId, customer.id(), accNumber, status.name()
+                    accountId, customerId, accNumber, status.name()
             );
             assertThat(rows).isEqualTo(1);
         }

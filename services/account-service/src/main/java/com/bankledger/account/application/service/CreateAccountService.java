@@ -29,6 +29,11 @@ import java.util.UUID;
 /**
  * Application service for opening a new bank account.
  * Atomically creates Customer, Account, and records OutboxEvent.
+ *
+ * <p><strong>Note on Lifecycle:</strong> In Slice 1, newly opened accounts are initialized with
+ * {@code ACTIVE} status to allow direct end-to-end testing without ledger dependency. This will be
+ * switched to {@code PENDING_ACTIVATION} when the {@code LedgerAccountProvisioned} saga is introduced
+ * in Slice 2.</p>
  */
 @Service
 @Transactional

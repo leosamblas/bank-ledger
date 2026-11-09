@@ -145,6 +145,21 @@ class LoginServiceTest {
     }
 
     @Test
+    @DisplayName("Should fail with InvalidCredentialsException when CPF format is invalid to conform to OpenAPI contract")
+    void shouldFailWithInvalidCredentialsWhenCpfFormatInvalid() {
+        LoginCommand command = new LoginCommand("invalid-cpf-format", "AnyPassword");
+
+        assertThatThrownBy(() -> loginService.login(command))
+                .isInstanceOf(InvalidCredentialsException.class)
+                .hasMessage("Credenciais inválidas");
+
+        verify(customerRepository, never()).findByCpf(any());
+        verify(passwordEncoder, never()).matches(any(), any());
+        verify(customerRepository, never()).save(any());
+        verify(tokenService, never()).generateToken(any(), any());
+    }
+
+    @Test
     @DisplayName("Should increment failed attempts on invalid password without locking if below threshold")
     void shouldFailWhenPasswordInvalidAndIncrementFailedAttempts() {
         Customer customer = createCustomer(2, null);

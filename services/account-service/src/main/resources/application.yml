@@ -4,6 +4,8 @@ server:
 spring:
   application:
     name: account-service
+  jackson:
+    default-property-inclusion: non_null
   threads:
     virtual:
       enabled: true
@@ -38,4 +40,8 @@ bankledger:
       batch-size: 50
       max-attempts: 5
       auto-startup: true
+  security:
+    jwt:
+      secret: ${JWT_SECRET:bankledger-super-secure-secret-key-that-is-at-least-256-bits-long}
+      expiration-seconds: ${JWT_EXPIRATION_SECONDS:3600}
 

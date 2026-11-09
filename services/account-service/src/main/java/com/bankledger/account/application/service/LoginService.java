@@ -10,6 +10,7 @@ import com.bankledger.account.application.port.out.TokenServicePort;
 import com.bankledger.account.domain.exception.AccountNotFoundException;
 import com.bankledger.account.domain.exception.CustomerLockedException;
 import com.bankledger.account.domain.exception.InvalidCredentialsException;
+import com.bankledger.account.domain.exception.InvalidCpfException;
 import com.bankledger.account.domain.model.Account;
 import com.bankledger.account.domain.model.AccountStatus;
 import com.bankledger.account.domain.model.Customer;
@@ -66,8 +67,13 @@ public class LoginService implements LoginUseCase {
 
         Instant now = Instant.now(clock);
 
-        Customer customer = customerRepositoryPort.findByCpf(Cpf.of(command.cpf()))
-                .orElseThrow(() -> new InvalidCredentialsException("Credenciais inválidas"));
+        Customer customer;
+        try {
+            customer = customerRepositoryPort.findByCpf(Cpf.of(command.cpf()))
+                    .orElseThrow(() -> new InvalidCredentialsException("Credenciais inválidas"));
+        } catch (InvalidCpfException e) {
+            throw new InvalidCredentialsException("Credenciais inválidas", e);
+        }
 
         if (customer.isLocked(now)) {
             long minutesLeft = calculateMinutesLeft(customer.getLockedUntil(), now);

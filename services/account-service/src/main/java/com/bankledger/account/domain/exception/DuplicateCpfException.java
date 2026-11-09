@@ -1,6 +1,6 @@
 package com.bankledger.account.domain.exception;
 
-public class DuplicateCpfException extends DomainException {
+public class DuplicateCpfException extends CpfAlreadyExistsException {
 
     private static final long serialVersionUID = 1L;
 

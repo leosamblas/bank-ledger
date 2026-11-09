@@ -72,6 +72,10 @@ public record AccountNumber(
         return new AccountNumber(branch, number, checkDigit);
     }
 
+    public static AccountNumber ofBranchAndNumber(String branch, String number) {
+        return new AccountNumber(branch, number, null);
+    }
+
     /**
      * Parses account number from formatted representations:
      * - "100000-4"

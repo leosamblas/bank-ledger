@@ -1,6 +1,6 @@
 package com.bankledger.account.domain.exception;
 
-public class DuplicateEmailException extends DomainException {
+public class DuplicateEmailException extends EmailAlreadyExistsException {
 
     private static final long serialVersionUID = 1L;
 

@@ -1,6 +1,6 @@
 # Plano de Desenvolvimento — Ledger Bancário (laboratório)
 
-Plano para execução solo, em passos sequenciais (sem sprints). Nenhum código é desenvolvido aqui: apenas decisões, contratos e roteiro. Versões citadas (Java 25, Spring Boot 4.1.1) devem ser confirmadas no start.spring.io e nas release notes antes de começar, pois a linha 4.x trouxe starters modulares, Jackson 3 e Spring Framework 7.
+Plano para execução solo, em passos sequenciais (sem sprints). Nenhum código é desenvolvido aqui: apenas decisões, contratos e roteiro. Versões citadas (Java 25, Spring Boot 4.1.2) devem ser confirmadas no start.spring.io e nas release notes antes de começar, pois a linha 4.x trouxe starters modulares, Jackson 3 e Spring Framework 7.
 
 ## 1. Objetivo, escopo e premissas
 
@@ -693,6 +693,7 @@ com.bankledger.<servico>/
 5. **Governança com ArchUnit:** Cada serviço conterá uma suíte de testes com **ArchUnit** que valida e impede em tempo de build violações da separação de camadas.
 
 ### 12.2 Padrões e Tecnologias
+- **Framework & Runtime:** Java 25 e Spring Boot 4.1.2 (linha 4.x com starters modulares, Spring Framework 7 e Jackson 3).
 - **Persistência:** Spring Data JPA com Flyway, `ddl-auto=validate`; Spring Data MongoDB no query.
 - **Observabilidade:** Actuator, Micrometer + Prometheus + Grafana, logs JSON com `correlationId` (MDC). Métricas de negócio: transações por tipo e status, rejeições por código, latência fim a fim.
 - **Segurança:** Spring Security como resource server, CPF mascarado em logs e respostas, segredos em variáveis de ambiente (não no repositório), rate limit no login.

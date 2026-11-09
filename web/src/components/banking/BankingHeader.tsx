@@ -1,16 +1,44 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useBanking } from '@/hooks/useBanking';
 import { authService } from '@/services';
+import { mockBankingStore } from '@/services/mockBankingStore';
 
 export function BankingHeader() {
   const pathname = usePathname();
   const router = useRouter();
   const { account } = useBanking();
   const [mobileOpen, setMobileOpen] = useState(false);
+
+  useEffect(() => {
+    if (authService.isAuthenticated()) {
+      authService.getCurrentUserAccount()
+        .then((data) => {
+          if (data) {
+            mockBankingStore.updateAccount({
+              agency: data.agency,
+              accountNumber: data.number,
+              digit: data.digit,
+              ...(data.holderName ? { holderName: data.holderName } : {}),
+            });
+          }
+        })
+        .catch((err) => {
+          console.error('[BankingHeader] Falha ao carregar conta do usuário:', err);
+        });
+    }
+  }, []);
+
+  const userInitials = (account.holderName || 'CS')
+    .split(' ')
+    .filter(Boolean)
+    .map((n) => n[0])
+    .join('')
+    .slice(0, 2)
+    .toUpperCase();
 
   const navItems = [
     { label: 'Visão Geral', href: '/dashboard' },
@@ -92,7 +120,7 @@ export function BankingHeader() {
           {/* User Avatar & Name */}
           <div className="flex items-center gap-2 pl-2 border-l border-surface-container ml-1">
             <div className="w-9 h-9 rounded-full bg-[#0e1c2f] text-white flex items-center justify-center font-bold text-xs ring-2 ring-surface-container shadow-xs">
-              CS
+              {userInitials}
             </div>
             <div className="hidden lg:flex flex-col text-left">
               <span className="font-headline-sm text-headline-sm text-[13px] text-on-surface font-semibold leading-tight">

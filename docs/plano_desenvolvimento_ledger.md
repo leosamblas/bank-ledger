@@ -425,20 +425,20 @@ O desenvolvimento é conduzido de forma estritamente incremental, integrando e v
 
 ---
 
-### 👤 Slice 1 — Identidade & Gestão de Contas (`account-service`)
+### 👤 [x] Slice 1 — Gestão de Contas e Identidade (account-service) (Concluído)
 - **Objetivo:** Permitir que o usuário se cadastre e realize login real no sistema, integrando o frontend.
 - **Telas Integradas:**
-  - `/signup` (Abertura de conta guiada em 3 etapas).
-  - `/login` (Autenticação com CPF e senha eletrônica).
-  - `/dashboard` (Exibição dos dados do titular autenticado).
+  - [x] `/signup` (Abertura de conta guiada em 3 etapas).
+  - [x] `/login` (Autenticação com CPF e senha eletrônica).
+  - [x] `/dashboard` (Exibição dos dados do titular autenticado).
 - **Entregas Backend (`services/account-service`):**
-  - Domínio: Entidades `Customer`, `Account`, Value Objects (`Cpf`, `AccountNumber`).
-  - Casos de Uso: `CreateAccountUseCase`, `LoginUseCase`, `GetAccountMeUseCase`, `LookupAccountUseCase`.
-  - Adaptadores: Controllers REST, migrações Flyway `V1`, publicação de evento `AccountOpened` no Outbox.
-  - Segurança: Emissão de token JWT com tempo de expiração e hashing BCrypt para senhas.
+  - [x] Domínio: Entidades `Customer`, `Account`, Value Objects (`Cpf`, `AccountNumber`).
+  - [x] Casos de Uso: `CreateAccountUseCase`, `LoginUseCase`, `GetAccountMeUseCase`, `LookupAccountUseCase`.
+  - [x] Adaptadores: Controllers REST, migrações Flyway `V1`, publicação de evento `AccountOpened` no Outbox.
+  - [x] Segurança: Emissão de token JWT com tempo de expiração e hashing BCrypt para senhas.
 - **Validação de Integração:**
-  - Criar conta pelo formulário do `/signup` e verificar registro no banco `account_db`.
-  - Fazer login no `/login` com o CPF cadastrado, receber o token JWT e ser redirecionado para o dashboard com o nome do cliente renderizado.
+  - [x] Criar conta pelo formulário do `/signup` e verificar registro no banco `account_db`.
+  - [x] Fazer login no `/login` com o CPF cadastrado, receber o token JWT e ser redirecionado para o dashboard com o nome do cliente renderizado.
 
 ---
 

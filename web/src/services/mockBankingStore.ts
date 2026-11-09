@@ -282,6 +282,17 @@ export const mockBankingStore = {
     return loadState();
   },
 
+  updateAccount(account: Partial<BankingState['account']>): void {
+    const current = loadState();
+    saveState({
+      ...current,
+      account: {
+        ...current.account,
+        ...account,
+      },
+    });
+  },
+
   reset(): void {
     if (typeof window === 'undefined') return;
     localStorage.removeItem(STORAGE_KEY);

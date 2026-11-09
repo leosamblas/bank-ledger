@@ -148,7 +148,8 @@ public class AccountController {
                 result.number(),
                 result.digit(),
                 result.status().name(),
-                result.openedAt()
+                result.openedAt(),
+                result.holderName()
         );
     }
 }

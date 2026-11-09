@@ -79,6 +79,8 @@ components:
         openedAt:
           type: string
           format: date-time
+        holderName:
+          type: string
     AccountLookupResponse:
       type: object
       properties:

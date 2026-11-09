@@ -45,6 +45,7 @@ export interface AccountResponse {
   digit: string;
   status: 'ACTIVE' | 'PENDING_ACTIVATION' | 'BLOCKED' | 'CLOSED';
   openedAt: string;
+  holderName?: string;
 }
 
 export interface AccountLookupResponse {

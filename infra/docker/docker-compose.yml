@@ -98,6 +98,28 @@ services:
     networks:
       - bank-ledger-network
 
+  account-service:
+    build:
+      context: ../../
+      dockerfile: services/account-service/Dockerfile
+    container_name: bank-ledger-account-service
+    restart: unless-stopped
+    ports:
+      - "8081:8081"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/account_db
+      SPRING_DATASOURCE_USERNAME: bank_ledger
+      SPRING_DATASOURCE_PASSWORD: bank_ledger_secret
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      SERVER_PORT: 8081
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    networks:
+      - bank-ledger-network
+
   gateway:
     image: nginx:alpine
     container_name: bank-ledger-gateway

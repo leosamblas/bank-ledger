@@ -1,9 +1,9 @@
 package com.bankledger.account.adapters.out.kafka;
 
+import com.bankledger.account.config.OutboxPollerProperties;
 import com.bankledger.commons.outbox.OutboxEvent;
 import com.bankledger.commons.outbox.OutboxPublisher;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Component;
 
@@ -38,13 +38,14 @@ public class KafkaOutboxPublisher implements OutboxPublisher {
 
     public KafkaOutboxPublisher(
             KafkaTemplate<String, String> kafkaTemplate,
-            @Value("${bankledger.outbox.poller.publish-timeout-ms:2000}") long publishTimeoutMs
+            OutboxPollerProperties properties
     ) {
         this.kafkaTemplate = Objects.requireNonNull(kafkaTemplate, "kafkaTemplate must not be null");
-        if (publishTimeoutMs <= 0) {
-            throw new IllegalArgumentException("publishTimeoutMs must be positive: " + publishTimeoutMs);
+        Objects.requireNonNull(properties, "properties must not be null");
+        if (properties.getPublishTimeoutMs() <= 0) {
+            throw new IllegalArgumentException("publishTimeoutMs must be positive: " + properties.getPublishTimeoutMs());
         }
-        this.publishTimeoutMs = publishTimeoutMs;
+        this.publishTimeoutMs = properties.getPublishTimeoutMs();
     }
 
     @Override

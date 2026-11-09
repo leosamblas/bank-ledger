@@ -1,5 +1,6 @@
 package com.bankledger.account.adapters.out.kafka;
 
+import com.bankledger.account.config.OutboxPollerProperties;
 import com.bankledger.commons.outbox.OutboxEvent;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.clients.producer.RecordMetadata;
@@ -37,7 +38,9 @@ class KafkaOutboxPublisherTest {
 
     @BeforeEach
     void setUp() {
-        publisher = new KafkaOutboxPublisher(kafkaTemplate, TIMEOUT_MS);
+        OutboxPollerProperties properties = new OutboxPollerProperties();
+        properties.setPublishTimeoutMs(TIMEOUT_MS);
+        publisher = new KafkaOutboxPublisher(kafkaTemplate, properties);
     }
 
     @Test
@@ -122,17 +125,28 @@ class KafkaOutboxPublisherTest {
     }
 
     @Test
-    @DisplayName("Should reject null kafkaTemplate or non-positive timeout in constructor")
+    @DisplayName("Should reject null kafkaTemplate, null properties, or non-positive timeout in constructor")
     void shouldValidateConstructorArguments() {
-        assertThatThrownBy(() -> new KafkaOutboxPublisher(null, TIMEOUT_MS))
+        OutboxPollerProperties validProperties = new OutboxPollerProperties();
+        validProperties.setPublishTimeoutMs(TIMEOUT_MS);
+
+        assertThatThrownBy(() -> new KafkaOutboxPublisher(null, validProperties))
                 .isInstanceOf(NullPointerException.class)
                 .hasMessageContaining("kafkaTemplate must not be null");
 
-        assertThatThrownBy(() -> new KafkaOutboxPublisher(kafkaTemplate, 0))
+        assertThatThrownBy(() -> new KafkaOutboxPublisher(kafkaTemplate, (OutboxPollerProperties) null))
+                .isInstanceOf(NullPointerException.class)
+                .hasMessageContaining("properties must not be null");
+
+        OutboxPollerProperties invalidZero = new OutboxPollerProperties();
+        invalidZero.setPublishTimeoutMs(0);
+        assertThatThrownBy(() -> new KafkaOutboxPublisher(kafkaTemplate, invalidZero))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("publishTimeoutMs must be positive");
 
-        assertThatThrownBy(() -> new KafkaOutboxPublisher(kafkaTemplate, -100))
+        OutboxPollerProperties invalidNegative = new OutboxPollerProperties();
+        invalidNegative.setPublishTimeoutMs(-100);
+        assertThatThrownBy(() -> new KafkaOutboxPublisher(kafkaTemplate, invalidNegative))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("publishTimeoutMs must be positive");
     }

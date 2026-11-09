@@ -41,12 +41,12 @@ spring:
 bankledger:
   outbox:
     poller:
-      enabled: true
-      interval-ms: 200
-      batch-size: 50
-      max-attempts: 5
+      enabled: ${OUTBOX_POLLER_ENABLED:true}
+      auto-startup: ${OUTBOX_POLLER_AUTO_STARTUP:true}
+      batch-size: ${OUTBOX_POLLER_BATCH_SIZE:50}
+      interval-ms: ${OUTBOX_POLLER_INTERVAL_MS:200}
+      max-attempts: ${OUTBOX_POLLER_MAX_ATTEMPTS:5}
       publish-timeout-ms: ${OUTBOX_POLLER_PUBLISH_TIMEOUT_MS:2000}
-      auto-startup: true
   security:
     jwt:
       secret: ${JWT_SECRET:bankledger-super-secure-secret-key-that-is-at-least-256-bits-long}

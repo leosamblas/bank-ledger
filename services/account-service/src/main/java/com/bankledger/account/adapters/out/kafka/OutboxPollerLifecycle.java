@@ -1,10 +1,9 @@
 package com.bankledger.account.adapters.out.kafka;
 
+import com.bankledger.account.config.OutboxPollerProperties;
 import com.bankledger.commons.outbox.OutboxEventRepository;
 import com.bankledger.commons.outbox.OutboxPoller;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.SmartLifecycle;
 import org.springframework.stereotype.Component;
@@ -22,44 +21,31 @@ import java.util.Objects;
 public class OutboxPollerLifecycle implements SmartLifecycle {
 
     private final OutboxPoller poller;
+    private final OutboxPollerProperties properties;
     private final boolean autoStartup;
     private volatile boolean running = false;
 
-    @Autowired
     public OutboxPollerLifecycle(
             OutboxEventRepository repository,
             KafkaOutboxPublisher publisher,
             PlatformTransactionManager transactionManager,
-            @Value("${bankledger.outbox.poller.batch-size:50}") int batchSize,
-            @Value("${bankledger.outbox.poller.interval-ms:200}") long pollingIntervalMs,
-            @Value("${bankledger.outbox.poller.max-attempts:5}") int maxAttempts,
-            @Value("${bankledger.outbox.poller.auto-startup:true}") boolean autoStartup
+            OutboxPollerProperties properties
     ) {
         Objects.requireNonNull(repository, "repository must not be null");
         Objects.requireNonNull(publisher, "publisher must not be null");
         Objects.requireNonNull(transactionManager, "transactionManager must not be null");
+        Objects.requireNonNull(properties, "properties must not be null");
 
+        this.properties = properties;
         this.poller = new OutboxPoller(
                 repository,
                 publisher,
                 transactionManager,
-                batchSize,
-                pollingIntervalMs,
-                maxAttempts
+                properties.getBatchSize(),
+                properties.getIntervalMs(),
+                properties.getMaxAttempts()
         );
-        this.autoStartup = autoStartup;
-    }
-
-    public OutboxPollerLifecycle(
-            OutboxEventRepository repository,
-            KafkaOutboxPublisher publisher,
-            PlatformTransactionManager transactionManager
-    ) {
-        this(repository, publisher, transactionManager,
-                OutboxPoller.DEFAULT_BATCH_SIZE,
-                OutboxPoller.DEFAULT_POLLING_INTERVAL_MS,
-                OutboxPoller.DEFAULT_MAX_ATTEMPTS,
-                true);
+        this.autoStartup = properties.isAutoStartup();
     }
 
     @Override
@@ -116,5 +102,14 @@ public class OutboxPollerLifecycle implements SmartLifecycle {
      */
     public OutboxPoller getPoller() {
         return poller;
+    }
+
+    /**
+     * Returns the configured {@link OutboxPollerProperties}.
+     *
+     * @return poller properties
+     */
+    public OutboxPollerProperties getProperties() {
+        return properties;
     }
 }

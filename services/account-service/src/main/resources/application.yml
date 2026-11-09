@@ -45,3 +45,19 @@ bankledger:
       secret: ${JWT_SECRET:bankledger-super-secure-secret-key-that-is-at-least-256-bits-long}
       expiration-seconds: ${JWT_EXPIRATION_SECONDS:3600}
 
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: always
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+  api-docs:
+    path: /v3/api-docs
+
+

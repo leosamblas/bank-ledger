@@ -1,67 +1,85 @@
 package com.bankledger.account.config;
 
-import com.bankledger.account.application.port.out.PasswordEncoderPort;
-import com.bankledger.account.application.port.out.TokenClaims;
-import com.bankledger.account.application.port.out.TokenServicePort;
-import com.bankledger.account.domain.model.Account;
-import com.bankledger.account.domain.model.Customer;
+import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
+import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.ProblemDetail;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.json.JsonMapper;
 
+import java.net.URI;
 import java.time.Clock;
 
 /**
- * Infrastructure configuration class.
+ * Infrastructure security configuration.
+ * Configures stateless JWT authentication, public endpoints, and RFC 7807 ProblemDetail entry point.
  */
 @Configuration
+@EnableWebSecurity
 public class SecurityConfig {
 
     @Bean
-    @ConditionalOnMissingBean
-    public PasswordEncoderPort passwordEncoderPort() {
-        BCryptPasswordEncoder encoder = new BCryptPasswordEncoder();
-        return new PasswordEncoderPort() {
-            @Override
-            public String encode(CharSequence rawPassword) {
-                return encoder.encode(rawPassword);
-            }
+    public SecurityFilterChain securityFilterChain(
+            HttpSecurity http,
+            JwtAuthenticationFilter jwtAuthenticationFilter,
+            ObjectMapper objectMapper
+    ) throws Exception {
+        return http
+                .csrf(csrf -> csrf.disable())
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .authorizeHttpRequests(auth -> auth
+                        .requestMatchers(HttpMethod.POST, "/api/v1/accounts").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/v1/auth/login").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/health").permitAll()
+                        .requestMatchers("/actuator/**").permitAll()
+                        .anyRequest().authenticated()
+                )
+                .exceptionHandling(exceptions -> exceptions
+                        .authenticationEntryPoint((request, response, authException) -> {
+                            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                            response.setContentType(MediaType.APPLICATION_PROBLEM_JSON_VALUE);
+                            ProblemDetail problem = ProblemDetail.forStatusAndDetail(
+                                    HttpStatus.UNAUTHORIZED,
+                                    "Full authentication is required to access this resource"
+                            );
+                            problem.setTitle("Unauthorized");
+                            problem.setType(URI.create("about:blank"));
+                            problem.setInstance(URI.create(request.getRequestURI()));
+                            objectMapper.writeValue(response.getOutputStream(), problem);
+                        })
+                )
+                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
+                .build();
+    }
 
-            @Override
-            public boolean matches(CharSequence rawPassword, String encodedPassword) {
-                return encoder.matches(rawPassword, encodedPassword);
-            }
-        };
+    @Bean
+    public FilterRegistrationBean<JwtAuthenticationFilter> jwtAuthenticationFilterRegistration(
+            JwtAuthenticationFilter filter
+    ) {
+        FilterRegistrationBean<JwtAuthenticationFilter> registration = new FilterRegistrationBean<>(filter);
+        registration.setEnabled(false);
+        return registration;
     }
 
     @Bean
     @ConditionalOnMissingBean
-    public TokenServicePort tokenServicePort() {
-        return new TokenServicePort() {
-            @Override
-            public String generateToken(Customer customer, Account account) {
-                return "stub-token-" + customer.getId();
-            }
-
-            @Override
-            public TokenClaims parseToken(String token) {
-                throw new UnsupportedOperationException("Token parsing not implemented in stub");
-            }
-        };
-    }
-
-    @Bean
-    @ConditionalOnMissingBean
-    public ObjectMapper objectMapper() {
+    public static ObjectMapper objectMapper() {
         return JsonMapper.builder().build();
     }
 
     @Bean
     @ConditionalOnMissingBean
-    public Clock clock() {
+    public static Clock clock() {
         return Clock.systemUTC();
     }
 }

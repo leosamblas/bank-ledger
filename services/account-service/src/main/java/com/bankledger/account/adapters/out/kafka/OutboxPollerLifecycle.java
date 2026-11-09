@@ -3,6 +3,7 @@ package com.bankledger.account.adapters.out.kafka;
 import com.bankledger.commons.outbox.OutboxEventRepository;
 import com.bankledger.commons.outbox.OutboxPoller;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.SmartLifecycle;
@@ -24,7 +25,7 @@ public class OutboxPollerLifecycle implements SmartLifecycle {
     private final boolean autoStartup;
     private volatile boolean running = false;
 
-    @org.springframework.beans.factory.annotation.Autowired
+    @Autowired
     public OutboxPollerLifecycle(
             OutboxEventRepository repository,
             KafkaOutboxPublisher publisher,

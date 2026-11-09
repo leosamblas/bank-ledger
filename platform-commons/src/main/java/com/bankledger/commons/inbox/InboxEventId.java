@@ -21,6 +21,8 @@ import java.util.UUID;
 @EqualsAndHashCode
 public class InboxEventId implements Serializable {
 
+    private static final long serialVersionUID = 1L;
+
     private UUID eventId;
     private String handler;
 }

@@ -4,11 +4,11 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import lombok.*;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
 import java.time.Instant;
-import java.util.Objects;
 import java.util.UUID;
 
 /**
@@ -16,12 +16,19 @@ import java.util.UUID;
  */
 @Entity
 @Table(name = "outbox_event")
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@ToString
+@EqualsAndHashCode(onlyExplicitlyIncluded = true)
 public class OutboxEvent {
 
     public static final String DEFAULT_HEADERS = "{}";
     public static final int DEFAULT_EVENT_VERSION = 1;
 
     @Id
+    @EqualsAndHashCode.Include
     @Column(name = "id", nullable = false)
     private UUID id;
 
@@ -60,37 +67,6 @@ public class OutboxEvent {
     @Column(name = "attempts", nullable = false)
     private int attempts = 0;
 
-    public OutboxEvent() {
-    }
-
-    public OutboxEvent(
-            UUID id,
-            String aggregateType,
-            UUID aggregateId,
-            String eventType,
-            int eventVersion,
-            String topic,
-            String messageKey,
-            String payload,
-            String headers,
-            Instant createdAt,
-            Instant publishedAt,
-            int attempts
-    ) {
-        this.id = id != null ? id : UUID.randomUUID();
-        this.aggregateType = aggregateType;
-        this.aggregateId = aggregateId;
-        this.eventType = eventType;
-        this.eventVersion = eventVersion > 0 ? eventVersion : DEFAULT_EVENT_VERSION;
-        this.topic = topic;
-        this.messageKey = messageKey;
-        this.payload = payload;
-        this.headers = headers != null ? headers : DEFAULT_HEADERS;
-        this.createdAt = createdAt != null ? createdAt : Instant.now();
-        this.publishedAt = publishedAt;
-        this.attempts = attempts >= 0 ? attempts : 0;
-    }
-
     /**
      * Factory method to create a pending outbox event with full parameters.
      */
@@ -109,11 +85,11 @@ public class OutboxEvent {
                 aggregateType,
                 aggregateId,
                 eventType,
-                eventVersion,
+                eventVersion > 0 ? eventVersion : DEFAULT_EVENT_VERSION,
                 topic,
                 messageKey,
                 payload,
-                headers,
+                headers != null ? headers : DEFAULT_HEADERS,
                 Instant.now(),
                 null,
                 0
@@ -164,132 +140,5 @@ public class OutboxEvent {
      */
     public boolean isPublished() {
         return this.publishedAt != null;
-    }
-
-    // Getters and Setters
-
-    public UUID getId() {
-        return id;
-    }
-
-    public void setId(UUID id) {
-        this.id = id;
-    }
-
-    public String getAggregateType() {
-        return aggregateType;
-    }
-
-    public void setAggregateType(String aggregateType) {
-        this.aggregateType = aggregateType;
-    }
-
-    public UUID getAggregateId() {
-        return aggregateId;
-    }
-
-    public void setAggregateId(UUID aggregateId) {
-        this.aggregateId = aggregateId;
-    }
-
-    public String getEventType() {
-        return eventType;
-    }
-
-    public void setEventType(String eventType) {
-        this.eventType = eventType;
-    }
-
-    public int getEventVersion() {
-        return eventVersion;
-    }
-
-    public void setEventVersion(int eventVersion) {
-        this.eventVersion = eventVersion;
-    }
-
-    public String getTopic() {
-        return topic;
-    }
-
-    public void setTopic(String topic) {
-        this.topic = topic;
-    }
-
-    public String getMessageKey() {
-        return messageKey;
-    }
-
-    public void setMessageKey(String messageKey) {
-        this.messageKey = messageKey;
-    }
-
-    public String getPayload() {
-        return payload;
-    }
-
-    public void setPayload(String payload) {
-        this.payload = payload;
-    }
-
-    public String getHeaders() {
-        return headers;
-    }
-
-    public void setHeaders(String headers) {
-        this.headers = headers;
-    }
-
-    public Instant getCreatedAt() {
-        return createdAt;
-    }
-
-    public void setCreatedAt(Instant createdAt) {
-        this.createdAt = createdAt;
-    }
-
-    public Instant getPublishedAt() {
-        return publishedAt;
-    }
-
-    public void setPublishedAt(Instant publishedAt) {
-        this.publishedAt = publishedAt;
-    }
-
-    public int getAttempts() {
-        return attempts;
-    }
-
-    public void setAttempts(int attempts) {
-        this.attempts = attempts;
-    }
-
-    @Override
-    public boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
-        OutboxEvent that = (OutboxEvent) o;
-        return id != null && Objects.equals(id, that.id);
-    }
-
-    @Override
-    public int hashCode() {
-        return getClass().hashCode();
-    }
-
-    @Override
-    public String toString() {
-        return "OutboxEvent{" +
-                "id=" + id +
-                ", aggregateType='" + aggregateType + '\'' +
-                ", aggregateId=" + aggregateId +
-                ", eventType='" + eventType + '\'' +
-                ", eventVersion=" + eventVersion +
-                ", topic='" + topic + '\'' +
-                ", messageKey='" + messageKey + '\'' +
-                ", createdAt=" + createdAt +
-                ", publishedAt=" + publishedAt +
-                ", attempts=" + attempts +
-                '}';
     }
 }

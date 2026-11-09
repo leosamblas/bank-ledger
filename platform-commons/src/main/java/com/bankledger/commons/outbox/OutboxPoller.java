@@ -1,7 +1,7 @@
 package com.bankledger.commons.outbox;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.Getter;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionOperations;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -15,9 +15,8 @@ import java.util.Objects;
  * Service that polls pending {@link OutboxEvent}s in transactional batches
  * and publishes them via an {@link OutboxPublisher} using Java Virtual Threads.
  */
+@Slf4j
 public class OutboxPoller implements AutoCloseable {
-
-    private static final Logger log = LoggerFactory.getLogger(OutboxPoller.class);
 
     public static final int DEFAULT_BATCH_SIZE = 50;
     public static final long DEFAULT_POLLING_INTERVAL_MS = 200;
@@ -26,11 +25,19 @@ public class OutboxPoller implements AutoCloseable {
     private final OutboxEventRepository repository;
     private final OutboxPublisher publisher;
     private final TransactionOperations transactionOperations;
+
+    @Getter
     private final int batchSize;
+
+    @Getter
     private final long pollingIntervalMs;
+
+    @Getter
     private final int maxAttempts;
 
     private volatile boolean running = false;
+
+    @Getter
     private Thread pollerThread;
 
     public OutboxPoller(
@@ -119,22 +126,6 @@ public class OutboxPoller implements AutoCloseable {
 
     public boolean isRunning() {
         return running;
-    }
-
-    public int getBatchSize() {
-        return batchSize;
-    }
-
-    public long getPollingIntervalMs() {
-        return pollingIntervalMs;
-    }
-
-    public int getMaxAttempts() {
-        return maxAttempts;
-    }
-
-    public Thread getPollerThread() {
-        return pollerThread;
     }
 
     private void runLoop() {

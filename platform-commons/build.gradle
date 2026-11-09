@@ -33,6 +33,12 @@ dependencies {
     // PostgreSQL driver
     runtimeOnly 'org.postgresql:postgresql:42.7.5'
 
+    // Lombok (Java 25 support)
+    compileOnly 'org.projectlombok:lombok:1.18.40'
+    annotationProcessor 'org.projectlombok:lombok:1.18.40'
+    testCompileOnly 'org.projectlombok:lombok:1.18.40'
+    testAnnotationProcessor 'org.projectlombok:lombok:1.18.40'
+
     // Testing
     testImplementation platform('org.junit:junit-bom:5.11.4')
     testImplementation 'org.junit.jupiter:junit-jupiter'

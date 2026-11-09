@@ -1,0 +1,17 @@
+tasks.register('test') {
+    description = "Runs all tests across included builds"
+    group = "verification"
+    dependsOn gradle.includedBuild('platform-commons').task(':test')
+}
+
+tasks.register('build') {
+    description = "Assembles and tests across included builds"
+    group = "build"
+    dependsOn gradle.includedBuild('platform-commons').task(':build')
+}
+
+tasks.register('clean') {
+    description = "Deletes build directories across included builds"
+    group = "build"
+    dependsOn gradle.includedBuild('platform-commons').task(':clean')
+}

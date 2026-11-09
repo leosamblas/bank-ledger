@@ -9,10 +9,12 @@ out/
 build/
 dist/
 
-# Gradle
+# Gradle & Java
 .gradle/
 build/
 */build/
+bin/
+*/bin/
 !gradle/wrapper/gradle-wrapper.jar
 
 # Environment Variables

@@ -66,6 +66,12 @@ public class Account implements Serializable {
 
         UUID accountId = id != null ? id : UUID.randomUUID();
         String accountBranch = branch != null && !branch.isBlank() ? branch.trim() : DEFAULT_BRANCH;
+        if (!accountBranch.equals(accountNumber.branch())) {
+            throw new IllegalArgumentException(
+                    String.format("Branch '%s' does not match account number branch '%s'",
+                            accountBranch, accountNumber.branch())
+            );
+        }
 
         return new Account(
                 accountId,
@@ -112,12 +118,22 @@ public class Account implements Serializable {
 
     public void suspend(Instant now) {
         Objects.requireNonNull(now, "now must not be null");
+        if (this.status == AccountStatus.CLOSED) {
+            throw new AccountAlreadyClosedException(
+                    String.format("Cannot suspend an already closed account %s", accountNumber.formatted())
+            );
+        }
         this.status = AccountStatus.SUSPENDED;
         this.updatedAt = now;
     }
 
     public void activate(Instant now) {
         Objects.requireNonNull(now, "now must not be null");
+        if (this.status == AccountStatus.CLOSED) {
+            throw new AccountAlreadyClosedException(
+                    String.format("Cannot activate an already closed account %s", accountNumber.formatted())
+            );
+        }
         this.status = AccountStatus.ACTIVE;
         this.updatedAt = now;
     }

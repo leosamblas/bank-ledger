@@ -146,4 +146,35 @@ class CustomerTest {
         assertThat(customer.getLockedUntil()).isNull();
         assertThat(customer.isLocked(t0)).isFalse();
     }
+
+    @Test
+    @DisplayName("Should reset counter when failing login after lockout period has elapsed")
+    void shouldResetCounterWhenFailingAfterLockoutPeriodHasElapsed() {
+        Instant t0 = Instant.parse("2026-11-09T10:00:00Z");
+        Customer customer = Customer.create(
+                UUID.randomUUID(),
+                "John Doe",
+                VALID_CPF,
+                VALID_EMAIL,
+                VALID_PHONE,
+                LocalDate.of(1995, 5, 20),
+                PASSWORD_HASH,
+                t0
+        );
+
+        for (int i = 1; i <= 5; i++) {
+            customer.recordFailedLogin(t0);
+        }
+        assertThat(customer.isLocked(t0)).isTrue();
+
+        // 16 minutes later (lockout elapsed)
+        Instant tAfterLockout = t0.plus(16, ChronoUnit.MINUTES);
+        assertThat(customer.isLocked(tAfterLockout)).isFalse();
+
+        // One failure after lockout should become attempt 1, NOT re-lock immediately
+        customer.recordFailedLogin(tAfterLockout);
+        assertThat(customer.getFailedLoginAttempts()).isEqualTo(1);
+        assertThat(customer.isLocked(tAfterLockout)).isFalse();
+        assertThat(customer.getLockedUntil()).isNull();
+    }
 }

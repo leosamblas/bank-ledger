@@ -151,6 +151,11 @@ public class Customer implements Serializable {
      */
     public void recordFailedLogin(Instant now) {
         Objects.requireNonNull(now, "now must not be null");
+        if (this.lockedUntil != null && !now.isBefore(this.lockedUntil)) {
+            // Lockout period has elapsed: reset counter before recording new failure
+            this.failedLoginAttempts = 0;
+            this.lockedUntil = null;
+        }
         this.failedLoginAttempts++;
         if (this.failedLoginAttempts >= MAX_FAILED_LOGIN_ATTEMPTS) {
             this.lockedUntil = now.plus(LOCKOUT_DURATION_MINUTES, ChronoUnit.MINUTES);

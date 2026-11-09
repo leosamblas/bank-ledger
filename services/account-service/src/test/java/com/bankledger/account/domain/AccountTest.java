@@ -65,7 +65,24 @@ class AccountTest {
     }
 
     @Test
-    @DisplayName("Should reconstitute account with all attributes")
+    @DisplayName("Should throw AccountAlreadyClosedException when suspending or activating closed account")
+    void shouldThrowWhenSuspendingOrActivatingClosedAccount() {
+        Account account = Account.create(UUID.randomUUID(), ACCOUNT_NUMBER);
+        account.close();
+
+        assertThatThrownBy(() -> account.suspend(Instant.now()))
+                .isInstanceOf(AccountAlreadyClosedException.class);
+
+        assertThatThrownBy(() -> account.activate(Instant.now()))
+                .isInstanceOf(AccountAlreadyClosedException.class);
+    }
+
+    @Test
+    @DisplayName("Should throw when creating account with branch mismatching account number branch")
+    void shouldThrowWhenBranchMismatchesAccountNumber() {
+        assertThatThrownBy(() -> Account.create(UUID.randomUUID(), UUID.randomUUID(), "9999", ACCOUNT_NUMBER, Instant.now()))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
     void shouldReconstituteAccount() {
         UUID id = UUID.randomUUID();
         UUID customerId = UUID.randomUUID();

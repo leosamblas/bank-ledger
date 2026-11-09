@@ -7,10 +7,11 @@ Este projeto baseia-se no princípio contábil das **Partidas Dobradas (Double-E
 ## 🏗️ Arquitetura Resumida
 
 O sistema utiliza padrões modernos para garantir alta disponibilidade e escalabilidade de dados financeiros:
-* **Backend em Java 25 & Spring Boot 4.1.2**: Microsserviços desacoplados construídos sobre Spring Boot 4.1.2 (starters modulares, Spring Framework 7, Jackson 3) com suporte a Virtual Threads nativas.
+* **Backend em Java 25 & Spring Boot 4.1.2**: Microsserviços independentes com Gradle (sintaxe padrão Java) sobre Spring Boot 4.1.2 (starters modulares, Spring Framework 7, Jackson 3) com suporte a Virtual Threads nativas.
+* **API Gateway (Nginx na porta 8080)**: Ponto de entrada unificado para o tráfego do frontend, distribuindo chamadas para os microsserviços isolados.
 * **Arquitetura Hexagonal (Ports & Adapters)**: Desacoplamento da regra de negócio (domínio) de frameworks, bancos de dados e mensageria.
-* **CQRS (Command Query Responsibility Segregation)**: Separação física e lógica das rotinas de gravação de transações (PostgreSQL) e rotinas de leitura de extrato/saldo (MongoDB).
-* **Consistência Eventual Segura**: Utilização do padrão *Transactional Outbox* para publicação assíncrona confiável de eventos em tópicos do Kafka.
+* **CQRS (Command Query Responsibility Segregation)**: Separação lógica entre rotinas de gravação de transações e projeções desnormalizadas de extrato e saldo no PostgreSQL.
+* **Consistência Eventual Segura**: Utilização do padrão *Transactional Outbox* para publicação assíncrona confiável de eventos em tópicos do Kafka (KRaft).
 * **Tolerância e Resiliência**: Particionamento de tabelas por data (`pg_partman`), particionamento das contas de caixa (*shards* do Banco Central) para evitar concorrência/lock, e suporte a alta idempotência na ingestão de eventos.
 * **Real-Time Updates**: Utilização de *Server-Sent Events (SSE)* no Frontend em substituição ao polling, evitando gargalos de I/O em fluxos de atualização contínua.
 

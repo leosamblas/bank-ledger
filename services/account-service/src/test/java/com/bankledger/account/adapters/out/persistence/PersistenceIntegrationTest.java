@@ -256,6 +256,24 @@ class PersistenceIntegrationTest {
     }
 
     @Test
+    @DisplayName("Should accept all valid account statuses according to check constraint")
+    void shouldAcceptAllValidAccountStatuses() {
+        Customer customer = customerRepository.save(buildCustomer("52998224725", "maria.oliveira@example.com"));
+
+        int i = 0;
+        for (AccountStatus status : AccountStatus.values()) {
+            UUID accountId = UUID.randomUUID();
+            String accNumber = String.format("20000%d", i++);
+            int rows = jdbcTemplate.update(
+                    "INSERT INTO account (id, customer_id, branch, account_number, check_digit, status, created_at, updated_at) " +
+                            "VALUES (?, ?, '0001', ?, '0', ?, now(), now())",
+                    accountId, customer.id(), accNumber, status.name()
+            );
+            assertThat(rows).isEqualTo(1);
+        }
+    }
+
+    @Test
     @DisplayName("Should enforce check constraint on account status column")
     void shouldEnforceCheckConstraintOnAccountStatus() {
         Customer customer = customerRepository.save(buildCustomer("52998224725", "maria.oliveira@example.com"));

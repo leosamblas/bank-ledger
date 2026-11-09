@@ -34,11 +34,11 @@ CREATE TABLE IF NOT EXISTS account (
     closed_at       TIMESTAMP WITH TIME ZONE,
     CONSTRAINT fk_account_customer FOREIGN KEY (customer_id) REFERENCES customer (id),
     CONSTRAINT uk_account_branch_number UNIQUE (branch, account_number),
-    CONSTRAINT chk_account_status CHECK (status IN ('ACTIVE', 'SUSPENDED', 'CLOSED'))
+    CONSTRAINT chk_account_status CHECK (status IN ('PENDING_ACTIVATION', 'ACTIVE', 'SUSPENDED', 'BLOCKED', 'CLOSED'))
 );
 
 CREATE INDEX IF NOT EXISTS ix_account_customer_id ON account (customer_id);
-CREATE INDEX IF NOT EXISTS ix_account_branch_number ON account (branch, account_number);
+CREATE INDEX IF NOT EXISTS ix_account_status ON account (status);
 
 -- Canonical Transactional Outbox Table
 CREATE TABLE IF NOT EXISTS outbox_event (

@@ -6,7 +6,10 @@ import com.bankledger.account.adapters.in.rest.dto.AccountResponse;
 import com.bankledger.account.application.port.in.*;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
@@ -56,16 +59,21 @@ public class AccountController {
     }
 
     @GetMapping("/me")
-    public ResponseEntity<AccountResponse> getAccountMe(
+    public ResponseEntity<?> getAccountMe(
             @AuthenticationPrincipal AuthenticatedUser user,
-            org.springframework.security.core.Authentication authentication
+            Authentication authentication
     ) {
-        AuthenticatedUser principal = user;
-        if (principal == null && authentication != null && authentication.getPrincipal() instanceof AuthenticatedUser authUser) {
-            principal = authUser;
-        }
+        AuthenticatedUser principal = resolvePrincipal(user, authentication);
         if (principal == null || principal.accountId() == null) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+            ProblemDetail problem = ProblemDetail.forStatusAndDetail(
+                    HttpStatus.UNAUTHORIZED,
+                    "Authentication is required to access this resource"
+            );
+            problem.setTitle("Unauthorized");
+            problem.setType(URI.create("about:blank"));
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .contentType(MediaType.APPLICATION_PROBLEM_JSON)
+                    .body(problem);
         }
         AccountMeResult result = getAccountMeUseCase.getAccountMe(principal.accountId());
         return ResponseEntity.ok(toAccountResponse(result));
@@ -86,9 +94,50 @@ public class AccountController {
     }
 
     @GetMapping("/{accountId}")
-    public ResponseEntity<AccountResponse> getAccountById(@PathVariable UUID accountId) {
+    public ResponseEntity<?> getAccountById(
+            @PathVariable UUID accountId,
+            @AuthenticationPrincipal AuthenticatedUser user,
+            Authentication authentication
+    ) {
+        AuthenticatedUser principal = resolvePrincipal(user, authentication);
+        if (principal == null || principal.accountId() == null) {
+            ProblemDetail problem = ProblemDetail.forStatusAndDetail(
+                    HttpStatus.UNAUTHORIZED,
+                    "Authentication is required to access this resource"
+            );
+            problem.setTitle("Unauthorized");
+            problem.setType(URI.create("about:blank"));
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .contentType(MediaType.APPLICATION_PROBLEM_JSON)
+                    .body(problem);
+        }
+
+        boolean isOwner = accountId.equals(principal.accountId());
+        boolean isAdmin = "ROLE_ADMIN".equalsIgnoreCase(principal.role());
+        if (!isOwner && !isAdmin) {
+            ProblemDetail problem = ProblemDetail.forStatusAndDetail(
+                    HttpStatus.FORBIDDEN,
+                    "Access denied: user is not the owner of this account"
+            );
+            problem.setTitle("Forbidden");
+            problem.setType(URI.create("about:blank"));
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .contentType(MediaType.APPLICATION_PROBLEM_JSON)
+                    .body(problem);
+        }
+
         AccountMeResult result = getAccountMeUseCase.getAccountMe(accountId);
         return ResponseEntity.ok(toAccountResponse(result));
+    }
+
+    private AuthenticatedUser resolvePrincipal(AuthenticatedUser user, Authentication authentication) {
+        if (user != null) {
+            return user;
+        }
+        if (authentication != null && authentication.getPrincipal() instanceof AuthenticatedUser authUser) {
+            return authUser;
+        }
+        return null;
     }
 
     private AccountResponse toAccountResponse(AccountMeResult result) {

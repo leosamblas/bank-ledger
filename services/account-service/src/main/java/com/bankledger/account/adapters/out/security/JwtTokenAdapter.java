@@ -129,9 +129,15 @@ public class JwtTokenAdapter implements TokenServicePort {
             throw new BadCredentialsException("Failed to decode token payload", e);
         }
 
+        if (!payloadNode.has("exp") || payloadNode.path("exp").isNull()) {
+            throw new BadCredentialsException("Token is missing required exp claim");
+        }
         long exp = payloadNode.path("exp").asLong(0);
+        if (exp <= 0) {
+            throw new BadCredentialsException("Token exp claim must be positive");
+        }
         Instant now = Instant.now(clock);
-        if (exp > 0 && now.getEpochSecond() > exp) {
+        if (now.getEpochSecond() > exp) {
             throw new BadCredentialsException("Token has expired");
         }
 

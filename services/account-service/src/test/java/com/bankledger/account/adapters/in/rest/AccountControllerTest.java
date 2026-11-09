@@ -69,8 +69,12 @@ class AccountControllerTest {
     }
 
     private UsernamePasswordAuthenticationToken createAuthToken(UUID customerId, UUID accountId) {
-        AuthenticatedUser user = new AuthenticatedUser(customerId, accountId, "0001", "123456", "ROLE_USER");
-        return new UsernamePasswordAuthenticationToken(user, null, List.of(new SimpleGrantedAuthority("ROLE_USER")));
+        return createAuthToken(customerId, accountId, "ROLE_USER");
+    }
+
+    private UsernamePasswordAuthenticationToken createAuthToken(UUID customerId, UUID accountId, String role) {
+        AuthenticatedUser user = new AuthenticatedUser(customerId, accountId, "0001", "123456", role);
+        return new UsernamePasswordAuthenticationToken(user, null, List.of(new SimpleGrantedAuthority(role)));
     }
 
     @Nested
@@ -263,7 +267,10 @@ class AccountControllerTest {
         @DisplayName("401 Unauthorized com ProblemDetail quando autenticação está ausente")
         void shouldReturn401WhenAuthenticationMissing() throws Exception {
             mockMvc.perform(get("/api/v1/accounts/me"))
-                    .andExpect(status().isUnauthorized());
+                    .andExpect(status().isUnauthorized())
+                    .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+                    .andExpect(jsonPath("$.status").value(401))
+                    .andExpect(jsonPath("$.title").value("Unauthorized"));
         }
     }
 
@@ -363,6 +370,51 @@ class AccountControllerTest {
                     .andExpect(status().isNotFound())
                     .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
                     .andExpect(jsonPath("$.status").value(404));
+        }
+
+        @Test
+        @DisplayName("403 Forbidden com ProblemDetail quando usuário tenta acessar conta de outro titular")
+        void shouldReturn403WhenUserIsNotOwner() throws Exception {
+            UUID userAccountId = UUID.randomUUID();
+            UUID targetAccountId = UUID.randomUUID();
+            UUID customerId = UUID.randomUUID();
+
+            mockMvc.perform(get("/api/v1/accounts/" + targetAccountId)
+                            .principal(createAuthToken(customerId, userAccountId)))
+                    .andExpect(status().isForbidden())
+                    .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+                    .andExpect(jsonPath("$.status").value(403))
+                    .andExpect(jsonPath("$.title").value("Forbidden"))
+                    .andExpect(jsonPath("$.detail").value(containsString("owner")));
+        }
+
+        @Test
+        @DisplayName("200 OK quando administrador acessa conta de qualquer titular")
+        void shouldReturn200WhenAdminAccessesAnyAccount() throws Exception {
+            UUID adminAccountId = UUID.randomUUID();
+            UUID targetAccountId = UUID.randomUUID();
+            UUID customerId = UUID.randomUUID();
+
+            AccountMeResult meResult = new AccountMeResult(
+                    targetAccountId,
+                    customerId,
+                    "0001",
+                    "654321",
+                    "8",
+                    AccountStatus.ACTIVE,
+                    Instant.parse("2026-11-09T20:00:00Z"),
+                    "Outro Cliente",
+                    "12345678909",
+                    "outro@example.com"
+            );
+            when(getAccountMeUseCase.getAccountMe(targetAccountId)).thenReturn(meResult);
+
+            mockMvc.perform(get("/api/v1/accounts/" + targetAccountId)
+                            .principal(createAuthToken(customerId, adminAccountId, "ROLE_ADMIN")))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.id").value(targetAccountId.toString()))
+                    .andExpect(jsonPath("$.agency").value("0001"))
+                    .andExpect(jsonPath("$.number").value("654321"));
         }
     }
 }

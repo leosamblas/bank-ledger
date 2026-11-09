@@ -118,5 +118,30 @@ class JwtTokenAdapterTest {
         assertThatThrownBy(() -> adapter.parseToken("invalidToken"))
                 .isInstanceOf(BadCredentialsException.class);
     }
+
+    @Test
+    @DisplayName("parseToken() falha quando o token não possui a claim exp")
+    void shouldFailWhenTokenIsMissingExpClaim() throws Exception {
+        String header = java.util.Base64.getUrlEncoder().withoutPadding()
+                .encodeToString("{\"alg\":\"HS256\",\"typ\":\"JWT\"}".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        String payloadWithoutExp = String.format(
+                "{\"customerId\":\"%s\",\"accountId\":\"%s\",\"branch\":\"0001\",\"accountNumber\":\"123456\",\"role\":\"ROLE_USER\"}",
+                customer.getId(), account.getId()
+        );
+        String payload = java.util.Base64.getUrlEncoder().withoutPadding()
+                .encodeToString(payloadWithoutExp.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        String signingInput = header + "." + payload;
+
+        javax.crypto.Mac mac = javax.crypto.Mac.getInstance("HmacSHA256");
+        mac.init(new javax.crypto.spec.SecretKeySpec(SECRET.getBytes(java.nio.charset.StandardCharsets.UTF_8), "HmacSHA256"));
+        byte[] sig = mac.doFinal(signingInput.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        String sigB64 = java.util.Base64.getUrlEncoder().withoutPadding().encodeToString(sig);
+
+        String tokenWithoutExp = signingInput + "." + sigB64;
+
+        assertThatThrownBy(() -> adapter.parseToken(tokenWithoutExp))
+                .isInstanceOf(BadCredentialsException.class)
+                .hasMessageContaining("exp");
+    }
 }
 

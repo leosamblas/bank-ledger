@@ -31,6 +31,12 @@ spring:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.apache.kafka.common.serialization.StringSerializer
       acks: all
+    consumer:
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      enable-auto-commit: false
+    listener:
+      ack-mode: manual_immediate
 
 bankledger:
   outbox:
@@ -39,6 +45,7 @@ bankledger:
       interval-ms: 200
       batch-size: 50
       max-attempts: 5
+      publish-timeout-ms: ${OUTBOX_POLLER_PUBLISH_TIMEOUT_MS:2000}
       auto-startup: true
   security:
     jwt:

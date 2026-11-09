@@ -1,4 +1,4 @@
-package com.bankledger.account.adapters.out.persistence;
+package com.bankledger.account.adapters.out.persistence.entity;
 
 import com.bankledger.account.domain.model.Customer;
 import com.bankledger.account.domain.vo.Cpf;

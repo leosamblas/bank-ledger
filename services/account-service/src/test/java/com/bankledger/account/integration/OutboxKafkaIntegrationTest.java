@@ -1,8 +1,8 @@
 package com.bankledger.account.integration;
 
 import com.bankledger.account.adapters.out.kafka.OutboxPollerLifecycle;
-import com.bankledger.account.adapters.out.persistence.AccountSpringDataRepository;
-import com.bankledger.account.adapters.out.persistence.CustomerSpringDataRepository;
+import com.bankledger.account.adapters.out.persistence.repository.AccountSpringDataRepository;
+import com.bankledger.account.adapters.out.persistence.repository.CustomerSpringDataRepository;
 import com.bankledger.account.application.port.in.CreateAccountCommand;
 import com.bankledger.account.application.port.in.CreateAccountUseCase;
 import com.bankledger.account.application.port.in.CreatedAccountResult;

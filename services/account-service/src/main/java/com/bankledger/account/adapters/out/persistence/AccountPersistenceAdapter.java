@@ -1,5 +1,7 @@
 package com.bankledger.account.adapters.out.persistence;
 
+import com.bankledger.account.adapters.out.persistence.entity.AccountJpaEntity;
+import com.bankledger.account.adapters.out.persistence.repository.AccountSpringDataRepository;
 import com.bankledger.account.application.port.out.AccountRepositoryPort;
 import com.bankledger.account.domain.model.Account;
 import org.springframework.stereotype.Repository;

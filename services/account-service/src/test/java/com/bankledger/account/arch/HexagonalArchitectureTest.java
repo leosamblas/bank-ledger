@@ -4,9 +4,12 @@ import com.tngtech.archunit.core.importer.ImportOption;
 import com.tngtech.archunit.junit.AnalyzeClasses;
 import com.tngtech.archunit.junit.ArchTest;
 import com.tngtech.archunit.lang.ArchRule;
+import jakarta.persistence.Entity;
+import org.springframework.data.repository.Repository;
 
 import static com.tngtech.archunit.base.DescribedPredicate.not;
 import static com.tngtech.archunit.core.domain.JavaClass.Predicates.resideInAPackage;
+import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.classes;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
 
 @AnalyzeClasses(
@@ -92,5 +95,26 @@ public class HexagonalArchitectureTest {
             .that().resideInAPackage("..adapters.out..")
             .should().dependOnClassesThat()
             .resideInAnyPackage("..adapters.in..")
+            .allowEmptyShould(false);
+
+    /**
+     * Rule 8: JPA entities must reside in persistence.entity package.
+     */
+    @ArchTest
+    public static final ArchRule entities_must_reside_in_persistence_entity_package =
+        classes()
+            .that().areAnnotatedWith(Entity.class)
+            .should().resideInAPackage("..adapters.out.persistence.entity..")
+            .allowEmptyShould(false);
+
+    /**
+     * Rule 9: Spring Data repositories must reside in persistence.repository package.
+     */
+    @ArchTest
+    public static final ArchRule repositories_must_reside_in_persistence_repository_package =
+        classes()
+            .that().areInterfaces()
+            .and().areAssignableTo(Repository.class)
+            .should().resideInAPackage("..adapters.out.persistence.repository..")
             .allowEmptyShould(false);
 }

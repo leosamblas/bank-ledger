@@ -1,5 +1,6 @@
-package com.bankledger.account.adapters.out.persistence;
+package com.bankledger.account.adapters.out.persistence.repository;
 
+import com.bankledger.account.adapters.out.persistence.entity.CustomerJpaEntity;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 

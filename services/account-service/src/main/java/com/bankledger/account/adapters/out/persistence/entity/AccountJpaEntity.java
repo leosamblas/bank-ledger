@@ -1,4 +1,4 @@
-package com.bankledger.account.adapters.out.persistence;
+package com.bankledger.account.adapters.out.persistence.entity;
 
 import com.bankledger.account.domain.model.Account;
 import com.bankledger.account.domain.model.AccountStatus;

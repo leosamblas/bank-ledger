@@ -23,10 +23,10 @@ export function OmnichannelSection() {
                 <div className="w-3 h-3 rounded-full bg-surface-container-highest"></div>
                 <div className="w-3 h-3 rounded-full bg-surface-container-highest"></div>
               </div>
-              <span className="font-code-sm text-code-sm text-on-surface-variant ml-2">app.nexusbank.com.br/core-ledger</span>
+              <span className="font-code-sm text-code-sm text-on-surface-variant ml-2">app.nexusbank.com.br/dashboard</span>
             </div>
             <div className="flex items-center gap-space-md">
-              <span className="font-label-caps text-label-caps text-on-surface-variant">SESSÃO CRIPTOGRAFADA: TLS 1.3</span>
+              <span className="font-label-caps text-label-caps text-on-surface-variant">CONEXÃO SEGURA CERTIFICADA</span>
               <div className="w-2 h-2 rounded-full bg-secondary"></div>
             </div>
           </div>
@@ -47,7 +47,7 @@ export function OmnichannelSection() {
                   <td className="py-space-sm px-space-md font-code-sm text-code-sm text-on-surface">14/10 14:12:08</td>
                   <td className="py-space-sm px-space-md">
                     <div className="font-code-sm text-code-sm text-on-surface font-semibold">ALIANÇA TECNOLOGIA LTDA</div>
-                    <span className="font-code-sm text-code-sm text-on-surface-variant">ISPB 04189920 - TXID #9048-A1</span>
+                    <span className="font-code-sm text-code-sm text-on-surface-variant">Banco 0418 • Autenticação #9048-A1</span>
                   </td>
                   <td className="py-space-sm px-space-md">
                     <span className="px-space-sm py-0.5 rounded text-label-caps font-label-caps bg-surface-container text-on-surface">PIX RECEBIDO</span>

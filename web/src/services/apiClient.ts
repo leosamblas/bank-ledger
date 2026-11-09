@@ -13,15 +13,18 @@ export const tokenStorage = {
   get: (): string | null => {
     if (typeof window === 'undefined') return null;
     try {
-      return localStorage.getItem(TOKEN_KEY);
+      return sessionStorage.getItem(TOKEN_KEY) || localStorage.getItem(TOKEN_KEY);
     } catch {
       return null;
     }
   },
-  set: (token: string): void => {
+  set: (token: string, persistent = true): void => {
     if (typeof window === 'undefined') return;
     try {
-      localStorage.setItem(TOKEN_KEY, token);
+      sessionStorage.setItem(TOKEN_KEY, token);
+      if (persistent) {
+        localStorage.setItem(TOKEN_KEY, token);
+      }
     } catch {
       // Ignora falhas de storage em ambientes restritos
     }
@@ -29,6 +32,7 @@ export const tokenStorage = {
   clear: (): void => {
     if (typeof window === 'undefined') return;
     try {
+      sessionStorage.removeItem(TOKEN_KEY);
       localStorage.removeItem(TOKEN_KEY);
     } catch {
       // Ignora

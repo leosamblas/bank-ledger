@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Header } from '@/components/ui/Header';
 import { Footer } from '@/components/ui/Footer';
 import { CpfInput } from '@/components/ui/CpfInput';
@@ -9,6 +10,7 @@ import { isValidCpf } from '@/utils/cpf';
 import { authService, TokenResponse, ApiError } from '@/services';
 
 export default function LoginPage() {
+  const router = useRouter();
   const [cpf, setCpf] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -18,11 +20,33 @@ export default function LoginPage() {
   const [authData, setAuthData] = useState<TokenResponse | null>(null);
   const [cpfError, setCpfError] = useState('');
   const [generalError, setGeneralError] = useState('');
+  const [failedAttempts, setFailedAttempts] = useState(0);
+  const [lockoutSeconds, setLockoutSeconds] = useState(0);
+
+  useEffect(() => {
+    if (lockoutSeconds <= 0) return;
+    const interval = setInterval(() => {
+      setLockoutSeconds((prev) => {
+        if (prev <= 1) {
+          setFailedAttempts(0);
+          setGeneralError('');
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [lockoutSeconds]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setCpfError('');
     setGeneralError('');
+
+    if (lockoutSeconds > 0) {
+      setGeneralError(`Acesso bloqueado por segurança. Tente novamente em ${lockoutSeconds}s.`);
+      return;
+    }
 
     if (!cpf.trim()) {
       setCpfError('Informe o CPF cadastrado.');
@@ -47,14 +71,28 @@ export default function LoginPage() {
         password,
       });
 
+      setFailedAttempts(0);
       setAuthData(response);
       setAuthSuccess(true);
+      setTimeout(() => {
+        router.push('/dashboard');
+      }, 700);
     } catch (err: unknown) {
-      if (err instanceof ApiError) {
-        setGeneralError(err.problem.detail || err.problem.title || 'Falha na autenticação.');
-      } else {
-        setGeneralError('Erro inesperado ao conectar ao serviço de autenticação.');
-      }
+      setFailedAttempts((prev) => {
+        const next = prev + 1;
+        if (next >= 5) {
+          setLockoutSeconds(60);
+          setGeneralError('Por segurança, seu acesso foi bloqueado temporariamente por 60 segundos após 5 tentativas incorretas.');
+        } else {
+          const remaining = 5 - next;
+          const msg =
+            err instanceof ApiError
+              ? err.problem.detail || err.problem.title || 'Falha na autenticação.'
+              : 'Erro inesperado ao conectar ao serviço de autenticação.';
+          setGeneralError(`${msg} (${remaining} ${remaining === 1 ? 'tentativa restante' : 'tentativas restantes'})`);
+        }
+        return next;
+      });
     } finally {
       setIsLoading(false);
     }
@@ -98,7 +136,7 @@ export default function LoginPage() {
                     >
                       verified_user
                     </span>
-                    <span className="font-semibold">Sessão TLS 1.3</span>
+                    <span className="font-semibold">Ambiente Seguro 256-bit</span>
                   </div>
                 </div>
 
@@ -120,13 +158,16 @@ export default function LoginPage() {
                     Bem-vindo(a), {authData.user?.fullName || 'Cliente Nexus'}!
                   </p>
                   <p className="text-xs text-emerald-700">
-                    Sessão criptografada iniciada com sucesso. Token JWT ativo por {Math.floor(authData.expiresIn / 60)} min.
+                    Autenticação realizada com sucesso. Redirecionando para sua conta...
                   </p>
-                  <div className="pt-1 flex items-center gap-2">
-                    <span className="inline-flex items-center gap-1 text-[11px] font-mono font-medium px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-900 border border-emerald-500/30">
+                  <div className="pt-1 flex items-center justify-between gap-2 flex-wrap">
+                    <span className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-900 border border-emerald-500/30">
                       <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse"></span>
-                      Sessão Ativa (Mock/Backend)
+                      Acesso autorizado · Redirecionando...
                     </span>
+                    <Link href="/dashboard" className="text-xs font-bold text-emerald-900 underline hover:text-emerald-950">
+                      Entrar no Web Banking &rarr;
+                    </Link>
                   </div>
                 </div>
               </div>
@@ -232,17 +273,24 @@ export default function LoginPage() {
                 >
                   info
                 </span>
-                <p className="font-body-sm text-body-sm text-on-surface-variant leading-relaxed">
-                  Por medidas de segurança, 5 tentativas incorretas consecutivas bloqueiam temporariamente o acesso aos canais digitais.
-                </p>
+                <div className="flex flex-col gap-0.5">
+                  <p className="font-body-sm text-body-sm text-on-surface-variant leading-relaxed">
+                    Por medidas de segurança, 5 tentativas incorretas consecutivas bloqueiam temporariamente o acesso aos canais digitais.
+                  </p>
+                  {failedAttempts > 0 && (
+                    <span className="text-xs font-semibold text-error">
+                      Tentativas incorretas registradas: {failedAttempts} de 5
+                    </span>
+                  )}
+                </div>
               </div>
 
               {/* Submit Button */}
               <button
                 type="submit"
-                disabled={isLoading}
+                disabled={isLoading || lockoutSeconds > 0}
                 id="submitButton"
-                className="w-full h-12 bg-[#0e1c2f] text-white font-headline-sm text-headline-sm rounded-full flex items-center justify-center gap-2 hover:bg-[#1a2d47] active:scale-[0.99] transition-all duration-200 shadow-md hover:shadow-xl hover:shadow-black/15 cursor-pointer disabled:opacity-80 disabled:cursor-not-allowed font-semibold group"
+                className="w-full h-12 bg-[#0e1c2f] text-white font-headline-sm text-headline-sm rounded-full flex items-center justify-center gap-2 hover:bg-[#1a2d47] active:scale-[0.99] transition-all duration-200 shadow-md hover:shadow-xl hover:shadow-black/15 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed font-semibold group"
               >
                 {isLoading ? (
                   <>
@@ -250,6 +298,11 @@ export default function LoginPage() {
                       progress_activity
                     </span>
                     <span>Autenticando...</span>
+                  </>
+                ) : lockoutSeconds > 0 ? (
+                  <>
+                    <span className="material-symbols-outlined text-amber-400 text-[20px]">lock_clock</span>
+                    <span>Acesso Bloqueado ({lockoutSeconds}s)</span>
                   </>
                 ) : (
                   <>
@@ -384,7 +437,7 @@ export default function LoginPage() {
           </div>
 
           {/* Compliance & Regulatory Footer Notice */}
-          <div className="relative z-10 pt-space-md text-right text-[#5f748f] font-mono text-[11px]">
+          <div className="relative z-10 pt-space-md text-right text-[#5f748f] font-body-sm text-[12px]">
             Instituição autorizada pelo Banco Central do Brasil
           </div>
         </div>

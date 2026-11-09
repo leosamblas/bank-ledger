@@ -129,7 +129,7 @@ export function HeroSection() {
               <div className="absolute -bottom-3 left-6 z-40 bg-neutral-950/95 backdrop-blur-md text-amber-300 px-3.5 py-1 rounded-full shadow-xl flex items-center gap-2 border border-neutral-700/80">
                 <span className="material-symbols-outlined text-[15px] text-amber-300">lock</span>
                 <span className="font-code-sm text-code-sm tracking-wider font-semibold text-neutral-200">
-                  HSM FIPS 140-2 LEVEL 4
+                  PROTEÇÃO BANCÁRIA ATIVA
                 </span>
               </div>
             </div>

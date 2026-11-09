@@ -43,7 +43,7 @@ const FAQS: FaqItem[] = [
     id: 'pj-pf',
     question: 'Posso movimentar contas de Pessoa Jurídica (PJ) e Pessoa Física no mesmo app?',
     answer:
-      'Sim! Nosso Internet Banking conta com o recurso de comutação ágil de contas (Single Sign-On Corporativo), permitindo que você alterne instantaneamente entre seu perfil PF e suas empresas sem necessidade de novo login.',
+      'Sim! Nosso Internet Banking conta com o recurso de troca rápida de perfis, permitindo que você alterne instantaneamente entre sua conta pessoal e suas empresas sem necessidade de um novo login.',
   },
 ];
 

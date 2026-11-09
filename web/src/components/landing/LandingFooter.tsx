@@ -105,7 +105,7 @@ export function LandingFooter() {
                   lock
                 </span>
                 <span>
-                  Sistemas com criptografia pós-quântica e chaves HSM dedicadas.
+                  Sistemas com proteção de dados avançada e autenticação de ponta a ponta.
                 </span>
               </li>
             </ul>

@@ -19,9 +19,9 @@ const features = [
     icon: "enhanced_encryption",
     title: "Blindagem Soberana",
     description:
-      "Biometria de presença, módulo HSM corporativo e proteção anti-fraude preditiva com análise em menos de 12 milissegundos.",
+      "Biometria de presença, inteligência anti-fraude preditiva e proteção dos seus dados em tempo real.",
     badgeIcon: "lock",
-    badgeText: "CRIPTOGRAFIA FIPS 140-2",
+    badgeText: "SEGURANÇA MÁXIMA",
   },
   {
     icon: "support_agent",
@@ -47,7 +47,7 @@ export function CoreFeatures() {
             </h2>
           </div>
           <p className="font-body-md text-body-md text-on-surface-variant max-w-md mt-space-sm md:mt-0">
-            Eliminamos burocracias e fricções legadas com processamento de livros-razão de baixa latência e total transparência.
+            Eliminamos burocracias e fricções legadas com tecnologia financeira de ponta, agilidade e total transparência.
           </p>
         </div>
         

@@ -15,7 +15,6 @@ export function OpenAccountForm({ onNameChange }: Props) {
   const [nameValid, setNameValid] = useState(false);
 
   const [cpf, setCpf] = useState("");
-  const [isCpfValid, setIsCpfValid] = useState(false);
   const [cpfError, setCpfError] = useState("");
 
   const [birthDate, setBirthDate] = useState("");
@@ -175,7 +174,7 @@ export function OpenAccountForm({ onNameChange }: Props) {
           </div>
 
           <p className="text-body-md text-emerald-900 leading-relaxed">
-            Sua conta digital Nexus Bank foi criada e já está pré-ativada em nossa infraestrutura soberana.
+            Sua conta digital Nexus Bank foi criada e já está pronta para uso.
           </p>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-4 rounded-xl bg-surface-container-lowest border border-emerald-500/20 text-on-surface shadow-xs">
@@ -191,7 +190,7 @@ export function OpenAccountForm({ onNameChange }: Props) {
               <p className="font-label-caps text-label-caps text-on-surface-variant uppercase font-semibold">Status</p>
               <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full mt-1">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse"></span>
-                Ativa (Mock/Backend)
+                Conta Aprovada
               </span>
             </div>
           </div>
@@ -258,9 +257,8 @@ export function OpenAccountForm({ onNameChange }: Props) {
           label="CPF"
           variant="form"
           value={cpf}
-          onChange={(val, valid) => {
+          onChange={(val) => {
             setCpf(val);
-            setIsCpfValid(valid);
             if (cpfError) setCpfError("");
           }}
           errorMessage={cpfError}

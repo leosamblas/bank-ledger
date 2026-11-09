@@ -14,7 +14,7 @@ const jetbrainsMono = JetBrains_Mono({
 
 export const metadata: Metadata = {
   title: "Nexus Bank",
-  description: "Core Bancário - Bank Ledger",
+  description: "Nexus Bank — O controle do seu patrimônio com agilidade e clareza",
 };
 
 export default function RootLayout({

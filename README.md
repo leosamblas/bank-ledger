@@ -13,15 +13,21 @@ O sistema utiliza padrões modernos para garantir alta disponibilidade e escalab
 * **Tolerância e Resiliência**: Particionamento de tabelas por data (`pg_partman`), particionamento das contas de caixa (*shards* do Banco Central) para evitar concorrência/lock, e suporte a alta idempotência na ingestão de eventos.
 * **Real-Time Updates**: Utilização de *Server-Sent Events (SSE)* no Frontend em substituição ao polling, evitando gargalos de I/O em fluxos de atualização contínua.
 
-## 📚 Documentação Interna
+## 📚 Documentação Interna & Interfaces
 
 Todo o planejamento de negócio, topologia do sistema, diagramas de sequência, contratos e fluxos assíncronos foram detalhados e mantidos internamente.
 
-Você pode encontrar o projeto técnico e os fluxos de negócios detalhados neste documento:
-👉 **[Plano de Desenvolvimento e Arquitetura](./docs/plano_desenvolvimento_ledger.md)**
+* 👉 **[Plano de Desenvolvimento e Arquitetura](./docs/plano_desenvolvimento_ledger.md)**
+* 👉 **[Contratos de API (Swagger/OpenAPI)](./api-contracts/)**
+* 👉 **[Frontend Web Banking (Next.js 16 / App Router)](./web/)**: Interface de Web Banking completa e funcional em modo autônomo (mock reativo integrado), incluindo telas de Visão Geral de Saldo, Extrato Oficial, Transferência Segura entre Contas, Depósito e Saque, com linguagem 100% amigável ao cliente bancário e zero jargões de infraestrutura.
 
-Para facilitar o desenvolvimento, todas as **APIs REST** foram especificadas em OpenAPI (Swagger) na pasta de contratos:
-👉 **[Contratos de API (Swagger/OpenAPI)](./api-contracts/)**
+### 🚀 Como Rodar o Web Banking Localmente
+```bash
+cd web
+npm install
+npm run dev
+# Acesse http://localhost:3000
+```
 
 ---
 

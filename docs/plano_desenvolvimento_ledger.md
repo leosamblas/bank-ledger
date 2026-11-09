@@ -643,10 +643,20 @@ Regras de evolução: só adicionar campos opcionais na mesma versão; quebra de
 
 ## 11. Front-end e BFF
 
-- **Stack:** Vite + React + TypeScript + Tailwind v4. BFF em Node com Fastify e TypeScript.
-- **Telas:** (1) Abrir conta, (2) Login por CPF e senha, (3) Home com saldo, (4) Depósito, (5) Saque, (6) Transferência (busca o destino por agência e número e mostra o nome mascarado antes de confirmar), (7) Extrato com paginação.
-- **Comportamento:** o front gera um `Idempotency-Key` por tentativa de formulário (mantido em retry), envia a operação e faz polling de `GET /transactions/{id}` a cada 500 ms até estado final, depois atualiza saldo e extrato. Valores exibidos formatados em BRL a partir de centavos.
-- **BFF:** `/bff/login` troca credenciais, grava JWT em cookie httpOnly, SameSite=Strict; `/bff/*` repassa ao serviço correto adicionando o Bearer; propaga `X-Correlation-Id`.
+- **Stack do Front-end:** Next.js 16 (App Router com Turbopack, Partial Prerendering e Cache Components) + React 19 + TypeScript 5 + Tailwind CSS v4. Arquitetura orientada a componentes modulares e tokens institucionais (Material Design 3 adaptado). BFF em Node com Fastify e TypeScript para proxy e gestão segura de sessão.
+- **Telas Implementadas (100% Funcionais em Modo Autônomo/Mock-First):**
+  1. **Abertura de Conta (`/signup`):** Stepper em 3 passos, validação de CPF e live preview do cartão Nexus Black refletindo o nome do correntista em tempo real.
+  2. **Login por CPF e Senha (`/login`):** Validação matemática oficial de CPF da Receita Federal, sessão segura e redirecionamento automático para o dashboard.
+  3. **Visão Geral & Saldo (`/dashboard`):** Exibição ampla do saldo disponível em BRL a partir de centavos em tempo real, sub-métricas de saldo bloqueado e limite diário com barra de consumo, botões de ação rápida, histórico recente com status e cartão Nexus Black interativo.
+  4. **Extrato Oficial & Auditoria (`/dashboard/extrato`):** Extrato com filtros temporais rápidos (7, 15, 30, 90 dias, personalizado), busca textual de contraparte, filtros por natureza (Créditos, Débitos, Rejeitados), paginação e modal de comprovante com código de autenticação e contas de origem/destino.
+  5. **Transferência entre Contas (`/dashboard/transferir`):** Consulta em tempo real de contraparte mascarada por privacidade (RFC & LGPD compliance), validação de saldo e limites operacionais, gaveta de protocolo de segurança da operação (UUIDv4) e recibo instantâneo com geração de novo comprovante.
+  6. **Depositar & Sacar (`/dashboard/operacoes`):** Gestão de depósitos e saques em abas alternáveis, chips de valores rápidos (+R$ 100, +R$ 500, +R$ 1.000, +R$ 5.000, Máximo no saque), validação de saldo em tempo real, terminal autorizado e comprovante de caixa.
+- **Princípios de UX & Engenharia Financeira:**
+  - **Moeda estrita em centavos inteiros (`long`):** Todos os cálculos financeiros são processados em centavos, formatados para BRL exclusivamente na camada de renderização via `currency.ts`.
+  - **Linguagem Natural (Zero Jargões Técnicos):** A interface com o cliente oculta complexidades internas. Termos como *idempotência*, *CQRS*, *partidas dobradas*, *shards* e *invariantes contábeis* são traduzidos em conceitos naturais: *Protocolo da Operação*, *Extrato Oficial*, *Rede de Atendimento Seguro* e *Balanço Verificado*.
+  - **Idempotência no Cliente:** O front-end gera e mantém um protocolo único por tentativa de operação para evitar duplicidades em retentativas de rede de forma transparente para o usuário.
+  - **Store Reativo e Fallback Autônomo:** Durante a fase de desenvolvimento desacoplada do backend real, o `mockBankingStore.ts` (implementado via `useSyncExternalStore` do React 19) e o hook `useBanking.ts` mantêm a persistência e consistência dos lançamentos de forma local, permitindo o funcionamento completo da aplicação sem dependência de serviços externos.
+- **BFF (Backend for Frontend):** `/bff/login` troca credenciais, grava JWT em cookie `httpOnly`, `SameSite=Strict`; `/bff/*` repassa ao serviço correto adicionando o Bearer; propaga `X-Correlation-Id` e gerencia a conexão SSE persistente com o frontend.
 
 ## 12. Práticas transversais
 

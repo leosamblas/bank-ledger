@@ -1,5 +1,6 @@
 /**
- * Tipagens de Contratos da API Nexus Bank (Baseado em api-contracts/account-service.yaml)
+ * Tipagens de Contratos da API Nexus Bank (Baseado em api-contracts/account-service.yaml,
+ * transaction-service.yaml, query-service.yaml e ledger-service.yaml)
  */
 
 export interface ProblemDetail {
@@ -51,6 +52,9 @@ export interface AccountLookupResponse {
   agency: string;
   number: string;
   holderNameMasked: string;
+  documentMasked?: string;
+  bankName?: string;
+  accountType?: string;
 }
 
 export interface UpdateStatusRequest {
@@ -61,3 +65,89 @@ export interface UpdateStatusRequest {
 export type ApiResult<T> =
   | { success: true; data: T; isMock: boolean }
   | { success: false; error: ProblemDetail; isMock: boolean };
+
+// ==========================================
+// Tipos do Core Bancário e Ledger
+// ==========================================
+
+export type TransactionNature = 'CREDIT' | 'DEBIT' | 'NONE';
+
+export type TransactionCategory =
+  | 'ALL'
+  | 'CREDIT'
+  | 'DEBIT'
+  | 'TRANSFER'
+  | 'DEPOSIT'
+  | 'WITHDRAWAL'
+  | 'FAILED';
+
+export type TransactionType =
+  | 'TRANSFER_IN'
+  | 'TRANSFER_OUT'
+  | 'DEPOSIT'
+  | 'WITHDRAWAL'
+  | 'REJECTED';
+
+export type TransactionStatus = 'PENDING' | 'COMPLETED' | 'FAILED';
+
+export interface StatementItem {
+  id: string;
+  sequence: number;
+  transactionId: string;
+  journalId?: string;
+  timestamp: string; // ISO 8601 UTC
+  category: 'TRANSFER' | 'DEPOSIT' | 'WITHDRAWAL' | 'FAILED';
+  type: TransactionType;
+  description: string;
+  counterpartyName: string;
+  counterpartyDocumentMasked: string;
+  counterpartyAccount: string;
+  nature: TransactionNature;
+  amountCents: number; // Sempre positivo, natureza define crédito/débito
+  balanceAfterCents: number;
+  idempotencyKey: string;
+  failureReason?: string;
+  debitAccount?: string;
+  creditAccount?: string;
+  hashSignature?: string;
+}
+
+export interface BankingAccountInfo {
+  agency: string;
+  accountNumber: string;
+  digit: string;
+  holderName: string;
+  companyName: string;
+  cpfMasked: string;
+  status: 'ACTIVE' | 'BLOCKED' | 'PENDING';
+}
+
+export interface BalanceInfo {
+  availableCents: number;
+  blockedCents: number;
+  dailyLimitCents: number;
+  usedTodayCents: number;
+  monthlyVariationPercent: number;
+  asOfSequence: number;
+  updatedAt: string;
+}
+
+export interface TransferRequest {
+  destinationAgency: string;
+  destinationAccount: string;
+  amountCents: number;
+  description: string;
+  idempotencyKey: string;
+}
+
+export interface DepositRequest {
+  amountCents: number;
+  idempotencyKey: string;
+  terminalId?: string;
+}
+
+export interface WithdrawRequest {
+  amountCents: number;
+  idempotencyKey: string;
+  terminalId?: string;
+}

@@ -5,10 +5,10 @@ Plano definitivo para desenvolvimento iterativo e isolado do backend do **Bank L
 **Stack Base Oficial:**
 - **Linguagem & Runtime:** Java 25 com suporte nativo a Virtual Threads (`spring.threads.virtual.enabled=true`).
 - **Framework:** Spring Boot 4.1.2 (Spring Framework 7, Jackson 3 e starters modulares).
-- **Gerenciador de Build:** Gradle com sintaxe padrão (Groovy DSL em `build.gradle` e `settings.gradle`), estruturado em microsserviços 100% independentes via Composite Builds (`includeBuild`).
-- **API Gateway:** Nginx na porta `8080` (roteamento centralizado para os microsserviços).
-- **Persistência:** PostgreSQL com o padrão *Database-per-Service* (`account_db`, `ledger_db`, `transaction_db`, `query_db`) com migrações gerenciadas pelo Flyway.
-- **Mensageria & Consistência Eventual:** Apache Kafka local em modo KRaft (1 broker) com Transactional Outbox e Inbox idempotente.
+- **Gerenciador de Build:** Gradle 9.x com Wrapper na raiz do repositório (`./gradlew`), sintaxe padrão (Groovy DSL em `build.gradle` e `settings.gradle`), estruturado em microsserviços 100% independentes via Composite Builds (`includeBuild`).
+- **API Gateway:** Nginx na porta `8080` (roteamento centralizado para os microsserviços, CORS gerenciado centralmente para `http://localhost:3000`, DNS dinâmico e endpoint nativo `/health`).
+- **Persistência:** PostgreSQL 18 (`postgres:18-alpine`) na porta `5432`, usuário dedicado `bank_ledger` com o padrão *Database-per-Service* (`account_db`, `ledger_db`, `transaction_db`, `query_db`) inicializados via `/docker-entrypoint-initdb.d/init-databases.sql` e migrações gerenciadas pelo Flyway em cada serviço.
+- **Mensageria & Consistência Eventual:** Apache Kafka local em modo KRaft via `confluentinc/cp-kafka:8.4.0` (1 broker, sem Zookeeper), container `kafka-init` para criação declarativa de tópicos com 3 partições, `kafka-ui` na porta `8085`, Transactional Outbox com `SKIP LOCKED` em Virtual Threads e Inbox idempotente.
 - **Frontend:** Next.js 16.4.3 (App Router / TypeScript / Tailwind CSS v4) consumindo o Gateway na porta `8080`.
 
 ---
@@ -397,18 +397,31 @@ Cada serviço terá um teste automatizado de governança arquitetural que falha 
 O desenvolvimento é conduzido de forma estritamente incremental, integrando e validando cada tela no frontend antes de iniciar o próximo serviço.
 
 ### 🧱 Slice 0 — Fundação e Infraestrutura Base
-- **Objetivo:** Estabelecer o ambiente de execução local com Docker Compose e a biblioteca de mensageria compartilhada.
+- **Objetivo:** Estabelecer o ambiente de execução local com Docker Compose (Postgres 18, Confluent cp-kafka KRaft, Nginx Gateway com CORS e Kafka UI) e a biblioteca de mensageria compartilhada (`platform-commons`) com governança e testes isolados.
 - **Entregas:**
   1. `infra/docker/docker-compose.yml`:
-     - PostgreSQL 17 (com script de inicialização criando `account_db`, `ledger_db`, `transaction_db`, `query_db`).
-     - Apache Kafka em modo KRaft (1 broker local sem Zookeeper na porta 9092).
-     - Nginx configurado na porta 8080 com roteamento reverso para os microsserviços.
-  2. `platform-commons`:
-     - Projeto Gradle Groovy compartilhável.
-     - Classes de envelope canônico de evento (`EventEnvelope`).
-     - Entidade base e repositório de `OutboxEvent` e `InboxEvent`.
-     - Poller de outbox com `SKIP LOCKED`.
-- **Critério de Pronto:** `docker compose up` sobe Postgres, Kafka e Nginx com status saudável.
+     - PostgreSQL 18 (`postgres:18-alpine` na porta 5432) com script `init-databases.sql` criando `account_db`, `ledger_db`, `transaction_db`, `query_db` com o usuário `bank_ledger`.
+     - Apache Kafka em modo KRaft com `confluentinc/cp-kafka:8.4.0` (porta 9092 no host e 29092 interna).
+     - Container efêmero `kafka-init` para criar previamente os 6 tópicos do sistema (`account.events.v1`, `ledger.commands.v1`, `ledger.journal-results.v1`, `ledger.account-events.v1`, `ledger.entries.v1`, `transaction.events.v1`) com 3 partições.
+     - `kafka-ui` (`provectuslabs/kafka-ui:latest`) na porta 8085 para observabilidade em tempo de desenvolvimento.
+     - Nginx Gateway configurado na porta 8080 com CORS centralizado para `http://localhost:3000`, resolução de DNS dinâmica (`resolver 127.0.0.11`) e rota nativa `/health` retornando 200 OK.
+     - Healthchecks com ordenação por dependência (`condition: service_healthy`) em todos os containers.
+  2. Monorepo & Gradle:
+     - Gradle Wrapper na raiz do monorepo (`./gradlew`) compatível com Java 25.
+     - `settings.gradle` na raiz com Composite Build (`includeBuild('platform-commons')`).
+  3. `platform-commons`:
+     - Projeto Gradle Groovy compartilhável sobre Java 25 e Spring Boot 4.1.2.
+     - Pacote de Domínio Puro (`com.bankledger.commons.domain.event`): Records imutáveis `EventEnvelope<T>` e `EventMetadata` alinhados a CloudEvents, com serialização Jackson 3 em ISO-8601 UTC.
+     - Pacote de Infraestrutura (`com.bankledger.commons.outbox` e `inbox`):
+       - Entidade JPA e repositório de `OutboxEvent` com busca `FOR UPDATE SKIP LOCKED`.
+       - Poller do outbox executando sobre Virtual Threads com lote delimitado (50), delay configurável e controle de tentativas (`attempts`).
+       - Entidade JPA de `InboxEvent` e helper transacional `InboxHandler` para garantir efeito *exactly-once* nos consumidores.
+     - Script canônico DDL `schema/outbox-inbox-schema.sql` para testes e referência dos microsserviços.
+     - Suíte de testes automatizados unitários e de integração utilizando **Testcontainers** (PostgreSQL efêmero).
+- **Critério de Pronto:**
+  1. `docker compose up` sobe PostgreSQL 18, Kafka KRaft, `kafka-ui` e Nginx Gateway com status saudável (`healthy`).
+  2. Chamada `GET http://localhost:8080/health` responde HTTP `200 OK`.
+  3. `./gradlew test` executa com sucesso todos os testes de `platform-commons` via Testcontainers.
 
 ---
 

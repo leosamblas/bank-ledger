@@ -27,7 +27,7 @@ import java.util.Objects;
  * Handles authentication, attempt counting, lockout rules, and token generation.
  */
 @Service
-@Transactional
+@Transactional(noRollbackFor = {InvalidCredentialsException.class, CustomerLockedException.class})
 public class LoginService implements LoginUseCase {
 
     private final CustomerRepositoryPort customerRepositoryPort;

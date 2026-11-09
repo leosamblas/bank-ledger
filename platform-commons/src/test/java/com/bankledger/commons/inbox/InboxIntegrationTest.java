@@ -27,6 +27,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class InboxIntegrationTest {
 
     @Container
+    @SuppressWarnings("resource")
     static final PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:18-alpine")
             .withDatabaseName("test_db")
             .withUsername("test_user")

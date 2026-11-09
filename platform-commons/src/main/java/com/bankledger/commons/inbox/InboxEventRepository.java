@@ -1,14 +1,12 @@
 package com.bankledger.commons.inbox;
 
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.stereotype.Repository;
 
 import java.util.UUID;
 
 /**
  * Spring Data JPA repository for managing {@link InboxEvent} records in table {@code inbox_event}.
  */
-@Repository
 public interface InboxEventRepository extends JpaRepository<InboxEvent, InboxEventId> {
 
     /**

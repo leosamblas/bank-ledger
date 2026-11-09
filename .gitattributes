@@ -25,3 +25,4 @@ gradlew text eol=lf
 # Binary files
 *.jar binary
 *.zip binary
+

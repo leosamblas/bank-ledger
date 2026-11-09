@@ -15,7 +15,6 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 import java.time.Duration;
-import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
@@ -29,6 +28,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 class OutboxIntegrationTest {
 
     @Container
+    @SuppressWarnings("resource")
     static final PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:18-alpine")
             .withDatabaseName("test_db")
             .withUsername("test_user")
@@ -69,26 +69,26 @@ class OutboxIntegrationTest {
         List<OutboxEvent> published = new CopyOnWriteArrayList<>();
         OutboxPublisher publisher = published::add;
 
-        OutboxPoller poller = new OutboxPoller(repository, publisher, transactionManager, 50, 200, 5);
+        try (OutboxPoller poller = new OutboxPoller(repository, publisher, transactionManager, 50, 200, 5)) {
+            // Act
+            int count = poller.pollAndPublish();
 
-        // Act
-        int count = poller.pollAndPublish();
+            // Assert
+            assertThat(count).isEqualTo(2);
+            assertThat(published).hasSize(2);
 
-        // Assert
-        assertThat(count).isEqualTo(2);
-        assertThat(published).hasSize(2);
+            List<OutboxEvent> allInDb = repository.findAll();
+            assertThat(allInDb).hasSize(2);
+            for (OutboxEvent dbEvent : allInDb) {
+                assertThat(dbEvent.isPublished()).isTrue();
+                assertThat(dbEvent.getPublishedAt()).isNotNull();
+                assertThat(dbEvent.getAttempts()).isEqualTo(0);
+            }
 
-        List<OutboxEvent> allInDb = repository.findAll();
-        assertThat(allInDb).hasSize(2);
-        for (OutboxEvent dbEvent : allInDb) {
-            assertThat(dbEvent.isPublished()).isTrue();
-            assertThat(dbEvent.getPublishedAt()).isNotNull();
-            assertThat(dbEvent.getAttempts()).isEqualTo(0);
+            // Subsequent poll should find 0 pending
+            int nextPollCount = poller.pollAndPublish();
+            assertThat(nextPollCount).isEqualTo(0);
         }
-
-        // Subsequent poll should find 0 pending
-        int nextPollCount = poller.pollAndPublish();
-        assertThat(nextPollCount).isEqualTo(0);
     }
 
     @Test
@@ -184,27 +184,27 @@ class OutboxIntegrationTest {
             throw new RuntimeException("Simulated Kafka broker network outage");
         };
 
-        OutboxPoller poller = new OutboxPoller(repository, failingPublisher, transactionManager, 50, 200, 5);
+        try (OutboxPoller poller = new OutboxPoller(repository, failingPublisher, transactionManager, 50, 200, 5)) {
+            // Act: first failure
+            int processed1 = poller.pollAndPublish();
+            assertThat(processed1).isEqualTo(0);
 
-        // Act: first failure
-        int processed1 = poller.pollAndPublish();
-        assertThat(processed1).isEqualTo(0);
+            OutboxEvent afterFirstFail = repository.findById(event.getId()).orElseThrow();
+            assertThat(afterFirstFail.getAttempts()).isEqualTo(1);
+            assertThat(afterFirstFail.getPublishedAt()).isNull();
+            assertThat(afterFirstFail.isPublished()).isFalse();
 
-        OutboxEvent afterFirstFail = repository.findById(event.getId()).orElseThrow();
-        assertThat(afterFirstFail.getAttempts()).isEqualTo(1);
-        assertThat(afterFirstFail.getPublishedAt()).isNull();
-        assertThat(afterFirstFail.isPublished()).isFalse();
+            // Act: second failure
+            int processed2 = poller.pollAndPublish();
+            assertThat(processed2).isEqualTo(0);
 
-        // Act: second failure
-        int processed2 = poller.pollAndPublish();
-        assertThat(processed2).isEqualTo(0);
+            OutboxEvent afterSecondFail = repository.findById(event.getId()).orElseThrow();
+            assertThat(afterSecondFail.getAttempts()).isEqualTo(2);
+            assertThat(afterSecondFail.getPublishedAt()).isNull();
+            assertThat(afterSecondFail.isPublished()).isFalse();
 
-        OutboxEvent afterSecondFail = repository.findById(event.getId()).orElseThrow();
-        assertThat(afterSecondFail.getAttempts()).isEqualTo(2);
-        assertThat(afterSecondFail.getPublishedAt()).isNull();
-        assertThat(afterSecondFail.isPublished()).isFalse();
-
-        assertThat(failureAttempts.get()).isEqualTo(2);
+            assertThat(failureAttempts.get()).isEqualTo(2);
+        }
     }
 
     @Test

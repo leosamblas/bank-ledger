@@ -2,7 +2,8 @@ package com.bankledger.commons.outbox;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.springframework.transaction.support.SimpleTransactionStatus;
+import org.springframework.transaction.TransactionException;
+import org.springframework.transaction.support.TransactionCallback;
 import org.springframework.transaction.support.TransactionOperations;
 
 import java.util.ArrayList;
@@ -14,11 +15,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class OutboxPollerTest {
 
-    // Simple pass-through TransactionOperations for isolated unit testing
     private static final TransactionOperations NO_OP_TRANSACTION_OPERATIONS = new TransactionOperations() {
         @Override
-        public <T> T execute(org.springframework.transaction.support.TransactionCallback<T> action) {
-            return action.doInTransaction(new SimpleTransactionStatus());
+        public <T> T execute(TransactionCallback<T> action) throws TransactionException {
+            return action.doInTransaction(null);
         }
     };
 
@@ -35,24 +35,24 @@ class OutboxPollerTest {
         OutboxEventRepository stubRepo = createStubRepository(pending, saved);
         OutboxPublisher stubPublisher = published::add;
 
-        OutboxPoller poller = new OutboxPoller(
+        try (OutboxPoller poller = new OutboxPoller(
                 stubRepo,
                 stubPublisher,
                 NO_OP_TRANSACTION_OPERATIONS,
                 50,
                 200,
                 5
-        );
+        )) {
+            int count = poller.pollAndPublish();
 
-        int count = poller.pollAndPublish();
-
-        assertThat(count).isEqualTo(2);
-        assertThat(published).containsExactly(event1, event2);
-        assertThat(event1.isPublished()).isTrue();
-        assertThat(event1.getPublishedAt()).isNotNull();
-        assertThat(event2.isPublished()).isTrue();
-        assertThat(event2.getPublishedAt()).isNotNull();
-        assertThat(saved).contains(event1, event2);
+            assertThat(count).isEqualTo(2);
+            assertThat(published).containsExactly(event1, event2);
+            assertThat(event1.isPublished()).isTrue();
+            assertThat(event1.getPublishedAt()).isNotNull();
+            assertThat(event2.isPublished()).isTrue();
+            assertThat(event2.getPublishedAt()).isNotNull();
+            assertThat(saved).contains(event1, event2);
+        }
     }
 
     @Test
@@ -67,22 +67,22 @@ class OutboxPollerTest {
             throw new RuntimeException("Kafka unreachable");
         };
 
-        OutboxPoller poller = new OutboxPoller(
+        try (OutboxPoller poller = new OutboxPoller(
                 stubRepo,
                 failingPublisher,
                 NO_OP_TRANSACTION_OPERATIONS,
                 50,
                 200,
                 5
-        );
+        )) {
+            int count = poller.pollAndPublish();
 
-        int count = poller.pollAndPublish();
-
-        assertThat(count).isEqualTo(0);
-        assertThat(event.isPublished()).isFalse();
-        assertThat(event.getPublishedAt()).isNull();
-        assertThat(event.getAttempts()).isEqualTo(1);
-        assertThat(saved).contains(event);
+            assertThat(count).isEqualTo(0);
+            assertThat(event.isPublished()).isFalse();
+            assertThat(event.getPublishedAt()).isNull();
+            assertThat(event.getAttempts()).isEqualTo(1);
+            assertThat(saved).contains(event);
+        }
     }
 
     @Test
@@ -98,20 +98,20 @@ class OutboxPollerTest {
         OutboxEventRepository stubRepo = createStubRepository(pending, saved);
         OutboxPublisher publisher = e -> publishCalls.incrementAndGet();
 
-        OutboxPoller poller = new OutboxPoller(
+        try (OutboxPoller poller = new OutboxPoller(
                 stubRepo,
                 publisher,
                 NO_OP_TRANSACTION_OPERATIONS,
                 50,
                 200,
                 5
-        );
+        )) {
+            int count = poller.pollAndPublish();
 
-        int count = poller.pollAndPublish();
-
-        assertThat(count).isEqualTo(0);
-        assertThat(publishCalls.get()).isEqualTo(0);
-        assertThat(event.isPublished()).isFalse();
+            assertThat(count).isEqualTo(0);
+            assertThat(publishCalls.get()).isEqualTo(0);
+            assertThat(event.isPublished()).isFalse();
+        }
     }
 
     @Test
@@ -120,26 +120,25 @@ class OutboxPollerTest {
         OutboxEventRepository stubRepo = createStubRepository(new ArrayList<>(), new ArrayList<>());
         OutboxPublisher noOpPublisher = e -> {};
 
-        OutboxPoller poller = new OutboxPoller(
+        try (OutboxPoller poller = new OutboxPoller(
                 stubRepo,
                 noOpPublisher,
                 NO_OP_TRANSACTION_OPERATIONS,
                 10,
                 50,
                 3
-        );
+        )) {
+            poller.start();
+            assertThat(poller.isRunning()).isTrue();
+            assertThat(poller.getPollerThread()).isNotNull();
+            assertThat(poller.getPollerThread().isVirtual()).isTrue();
+            assertThat(poller.getPollerThread().getName()).startsWith("outbox-poller-");
 
-        poller.start();
-        assertThat(poller.isRunning()).isTrue();
-        assertThat(poller.getPollerThread()).isNotNull();
-        assertThat(poller.getPollerThread().isVirtual()).isTrue();
-        assertThat(poller.getPollerThread().getName()).startsWith("outbox-poller-");
-
-        poller.stop();
-        assertThat(poller.isRunning()).isFalse();
+            poller.stop();
+            assertThat(poller.isRunning()).isFalse();
+        }
     }
 
-    @SuppressWarnings("unchecked")
     private OutboxEventRepository createStubRepository(List<OutboxEvent> pending, List<OutboxEvent> saved) {
         return (OutboxEventRepository) java.lang.reflect.Proxy.newProxyInstance(
                 OutboxEventRepository.class.getClassLoader(),

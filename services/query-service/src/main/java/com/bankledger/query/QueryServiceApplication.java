@@ -10,3 +10,4 @@ public class QueryServiceApplication {
         SpringApplication.run(QueryServiceApplication.class, args);
     }
 }
+

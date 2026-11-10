@@ -17,3 +17,4 @@ COPY --from=builder /workspace/services/query-service/build/libs/query-service-0
 EXPOSE 8083
 
 ENTRYPOINT ["java", "--enable-preview", "-XX:+UseZGC", "-jar", "app.jar"]
+

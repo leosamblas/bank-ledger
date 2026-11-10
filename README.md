@@ -33,4 +33,79 @@ npm run dev
 
 ---
 
+## ⚙️ Como Rodar o Backend Localmente
+
+### Pré-requisitos
+* **Java 25** (ex: [Eclipse Temurin 25](https://adoptium.net/temurin/releases/?version=25))
+* **Docker & Docker Compose** (para PostgreSQL 18, Kafka KRaft, Nginx e Kafka UI)
+
+---
+
+### Opção 1: Subir Todo o Ambiente via Docker Compose (Recomendado para Demonstração)
+
+Sobe toda a infraestrutura e constrói a imagem do `account-service` em containers:
+
+```bash
+docker compose -f infra/docker/docker-compose.yml up --build -d
+```
+
+Para verificar o status dos containers e logs:
+```bash
+docker compose -f infra/docker/docker-compose.yml ps
+docker compose -f infra/docker/docker-compose.yml logs -f account-service
+```
+
+Para parar o ambiente:
+```bash
+docker compose -f infra/docker/docker-compose.yml down
+```
+
+---
+
+### Opção 2: Infraestrutura em Docker + Microsserviço Local (Modo Desenvolvimento)
+
+Ideal para desenvolvimento ativo no terminal ou na IDE (VS Code / IntelliJ):
+
+1. **Subir apenas a infraestrutura base (Postgres, Kafka KRaft, Nginx Gateway e Kafka UI):**
+   ```bash
+   docker compose -f infra/docker/docker-compose.yml up -d postgres kafka kafka-init nginx kafka-ui
+   ```
+
+2. **Executar a suíte de testes (utiliza Testcontainers automaticamente):**
+   * No Linux / macOS:
+     ```bash
+     ./gradlew test
+     ```
+   * No Windows (PowerShell / CMD):
+     ```powershell
+     .\gradlew.bat test
+     ```
+
+3. **Iniciar o microsserviço `account-service`:**
+   * A partir da raiz:
+     ```bash
+     ./gradlew :account-service:bootRun
+     ```
+   * Ou a partir do diretório `services`:
+     ```bash
+     cd services
+     ./gradlew :account-service:bootRun
+     ```
+
+---
+
+### 🌐 Portas e Endpoints Úteis
+
+| Recurso | URL / Host | Descrição |
+| :--- | :--- | :--- |
+| **API Gateway (Nginx)** | `http://localhost:8080` | Entrada central com CORS habilitado para o frontend |
+| **Account Service** | `http://localhost:8081` | Porta direta do microsserviço |
+| **Swagger UI** | [`http://localhost:8081/swagger-ui.html`](http://localhost:8081/swagger-ui.html) | Documentação interativa OpenAPI 3.0 com autenticação JWT |
+| **OpenAPI Docs** | [`http://localhost:8081/v3/api-docs`](http://localhost:8081/v3/api-docs) | Especificação JSON da API |
+| **Actuator Health** | [`http://localhost:8081/actuator/health`](http://localhost:8081/actuator/health) | Health check detalhado da aplicação |
+| **Kafka UI** | [`http://localhost:8085`](http://localhost:8085) | Painel visual para inspeção de tópicos e mensagens Kafka |
+| **PostgreSQL 18** | `localhost:5432` | Bancos: `account_db`, `ledger_db`, `transaction_db`, `query_db`<br>Usuário: `bank_ledger` / Senha: `bank_ledger_secret` |
+
+---
+
 *Repositório inicializado e mantido ativamente com base nas práticas modernas de engenharia de software.*

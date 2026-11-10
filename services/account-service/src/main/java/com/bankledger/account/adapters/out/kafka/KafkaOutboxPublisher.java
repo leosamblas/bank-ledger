@@ -11,21 +11,8 @@ import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 
 /**
- * Outgoing adapter implementing {@link OutboxPublisher} to publish transactional
- * outbox events to Apache Kafka topics asynchronously.
- * <p>
- * <b>Architectural Decoupling & Latency Guarantee:</b>
- * The REST API (e.g., {@code POST /api/v1/accounts}) NEVER calls Apache Kafka directly.
- * Instead, the application layer persists the domain entity along with its corresponding
- * {@link OutboxEvent} into PostgreSQL within the same local ACID transaction (&lt; 5 ms).
- * A background virtual-thread poller ({@link OutboxPollerLifecycle}) subsequently invokes
- * this adapter asynchronously outside the user HTTP request path.
- * <p>
- * Consequently, Kafka broker latency, rebalances, network partitions, or outages have
- * zero impact on API response times. Publication uses a non-blocking {@code CompletableFuture}
- * bounded by a small, configurable timeout ({@value DEFAULT_PUBLISH_TIMEOUT_MS} ms by default,
- * overridable via {@code OUTBOX_POLLER_PUBLISH_TIMEOUT_MS}) to fail fast and trigger
- * immediate retry/backoff in the poller loop.
+ * Outgoing adapter publishing transactional outbox events to Apache Kafka asynchronously
+ * with non-blocking timeout handling.
  */
 @Slf4j
 @Component

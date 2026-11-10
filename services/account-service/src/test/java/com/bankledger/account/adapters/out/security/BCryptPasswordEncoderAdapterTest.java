@@ -17,7 +17,7 @@ class BCryptPasswordEncoderAdapterTest {
     }
 
     @Test
-    @DisplayName("encode() gera hash BCrypt não nulo e diferente da senha original")
+    @DisplayName("encode() generates non-null BCrypt hash distinct from raw password")
     void shouldEncodePasswordSuccessfully() {
         String raw = "StrongPass@123";
         String encoded = adapter.encode(raw);
@@ -28,7 +28,7 @@ class BCryptPasswordEncoderAdapterTest {
     }
 
     @Test
-    @DisplayName("matches() retorna true quando a senha corresponde ao hash")
+    @DisplayName("matches() returns true when raw password matches hash")
     void shouldMatchCorrectPassword() {
         String raw = "StrongPass@123";
         String encoded = adapter.encode(raw);
@@ -37,7 +37,7 @@ class BCryptPasswordEncoderAdapterTest {
     }
 
     @Test
-    @DisplayName("matches() retorna false quando a senha é diferente do hash")
+    @DisplayName("matches() returns false when raw password differs from hash")
     void shouldNotMatchIncorrectPassword() {
         String raw = "StrongPass@123";
         String encoded = adapter.encode(raw);

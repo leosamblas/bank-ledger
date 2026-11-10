@@ -28,12 +28,7 @@ import java.util.UUID;
 
 /**
  * Application service for opening a new bank account.
- * Atomically creates Customer, Account, and records OutboxEvent.
- *
- * <p><strong>Note on Lifecycle:</strong> In Slice 1, newly opened accounts are initialized with
- * {@code ACTIVE} status to allow direct end-to-end testing without ledger dependency. This will be
- * switched to {@code PENDING_ACTIVATION} when the {@code LedgerAccountProvisioned} saga is introduced
- * in Slice 2.</p>
+ * Atomically creates Customer, Account, and records an OutboxEvent.
  */
 @Service
 @Transactional
@@ -46,17 +41,6 @@ public class CreateAccountService implements CreateAccountUseCase {
     private final ObjectMapper objectMapper;
     private final Clock clock;
 
-    public CreateAccountService(
-            CustomerRepositoryPort customerRepositoryPort,
-            AccountRepositoryPort accountRepositoryPort,
-            PasswordEncoderPort passwordEncoderPort,
-            OutboxPort outboxPort,
-            ObjectMapper objectMapper
-    ) {
-        this(customerRepositoryPort, accountRepositoryPort, passwordEncoderPort, outboxPort, objectMapper, Clock.systemUTC());
-    }
-
-    @org.springframework.beans.factory.annotation.Autowired
     public CreateAccountService(
             CustomerRepositoryPort customerRepositoryPort,
             AccountRepositoryPort accountRepositoryPort,

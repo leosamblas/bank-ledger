@@ -60,7 +60,7 @@ class JwtTokenAdapterTest {
     }
 
     @Test
-    @DisplayName("generateToken() produz JWT válido com 3 partes e claims decodificáveis")
+    @DisplayName("generateToken() produces valid 3-part JWT with decodable claims")
     void shouldGenerateAndParseTokenSuccessfully() {
         String token = adapter.generateToken(customer, account);
 
@@ -77,7 +77,7 @@ class JwtTokenAdapterTest {
     }
 
     @Test
-    @DisplayName("parseToken() falha com BadCredentialsException quando token está expirado")
+    @DisplayName("parseToken() fails with BadCredentialsException when token is expired")
     void shouldFailWhenTokenIsExpired() {
         Clock pastClock = Clock.fixed(FIXED_NOW.minusSeconds(7200), ZoneOffset.UTC);
         JwtTokenAdapter pastAdapter = new JwtTokenAdapter(JsonMapper.builder().build(), pastClock, SECRET, 3600L);
@@ -90,7 +90,7 @@ class JwtTokenAdapterTest {
     }
 
     @Test
-    @DisplayName("parseToken() falha quando a assinatura é adulterada")
+    @DisplayName("parseToken() fails when signature is tampered")
     void shouldFailWhenSignatureIsTampered() {
         String token = adapter.generateToken(customer, account);
         String[] parts = token.split("\\.");
@@ -104,7 +104,7 @@ class JwtTokenAdapterTest {
     }
 
     @Test
-    @DisplayName("parseToken() falha quando o token é nulo, em branco ou malformado")
+    @DisplayName("parseToken() fails when token is null, blank, or malformed")
     void shouldFailWhenTokenIsMalformed() {
         assertThatThrownBy(() -> adapter.parseToken(null))
                 .isInstanceOf(BadCredentialsException.class);
@@ -120,7 +120,7 @@ class JwtTokenAdapterTest {
     }
 
     @Test
-    @DisplayName("parseToken() falha quando o token não possui a claim exp")
+    @DisplayName("parseToken() fails when token is missing required exp claim")
     void shouldFailWhenTokenIsMissingExpClaim() throws Exception {
         String header = java.util.Base64.getUrlEncoder().withoutPadding()
                 .encodeToString("{\"alg\":\"HS256\",\"typ\":\"JWT\"}".getBytes(java.nio.charset.StandardCharsets.UTF_8));

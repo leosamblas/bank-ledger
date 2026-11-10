@@ -4,10 +4,10 @@ import com.bankledger.commons.TestApplication;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.test.context.TestConstructor;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.testcontainers.containers.PostgreSQLContainer;
@@ -25,6 +25,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 @SpringBootTest(classes = TestApplication.class)
 @Testcontainers
+@TestConstructor(autowireMode = TestConstructor.AutowireMode.ALL)
 class OutboxIntegrationTest {
 
     @Container
@@ -44,11 +45,13 @@ class OutboxIntegrationTest {
         registry.add("spring.jpa.hibernate.ddl-auto", () -> "none");
     }
 
-    @Autowired
-    private OutboxEventRepository repository;
+    private final OutboxEventRepository repository;
+    private final PlatformTransactionManager transactionManager;
 
-    @Autowired
-    private PlatformTransactionManager transactionManager;
+    public OutboxIntegrationTest(OutboxEventRepository repository, PlatformTransactionManager transactionManager) {
+        this.repository = repository;
+        this.transactionManager = transactionManager;
+    }
 
     @BeforeEach
     void cleanDatabase() {

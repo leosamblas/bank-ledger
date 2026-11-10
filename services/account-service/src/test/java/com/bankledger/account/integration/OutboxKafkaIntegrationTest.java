@@ -19,11 +19,11 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.test.context.TestConstructor;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
@@ -43,6 +43,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 @SpringBootTest
 @Testcontainers
 @DirtiesContext
+@TestConstructor(autowireMode = TestConstructor.AutowireMode.ALL)
 class OutboxKafkaIntegrationTest {
 
     @Container
@@ -67,25 +68,29 @@ class OutboxKafkaIntegrationTest {
         registry.add("bankledger.outbox.poller.auto-startup", () -> "false");
     }
 
-    @Autowired
-    private CreateAccountUseCase createAccountUseCase;
-
-    @Autowired
-    private OutboxEventRepository outboxEventRepository;
-
-    @Autowired
-    private AccountSpringDataRepository accountSpringDataRepository;
-
-    @Autowired
-    private CustomerSpringDataRepository customerSpringDataRepository;
-
-    @Autowired
-    private OutboxPollerLifecycle outboxPollerLifecycle;
-
-    @Autowired
-    private ObjectMapper objectMapper;
-
+    private final CreateAccountUseCase createAccountUseCase;
+    private final OutboxEventRepository outboxEventRepository;
+    private final AccountSpringDataRepository accountSpringDataRepository;
+    private final CustomerSpringDataRepository customerSpringDataRepository;
+    private final OutboxPollerLifecycle outboxPollerLifecycle;
+    private final ObjectMapper objectMapper;
     private KafkaConsumer<String, String> consumer;
+
+    public OutboxKafkaIntegrationTest(
+            CreateAccountUseCase createAccountUseCase,
+            OutboxEventRepository outboxEventRepository,
+            AccountSpringDataRepository accountSpringDataRepository,
+            CustomerSpringDataRepository customerSpringDataRepository,
+            OutboxPollerLifecycle outboxPollerLifecycle,
+            ObjectMapper objectMapper
+    ) {
+        this.createAccountUseCase = createAccountUseCase;
+        this.outboxEventRepository = outboxEventRepository;
+        this.accountSpringDataRepository = accountSpringDataRepository;
+        this.customerSpringDataRepository = customerSpringDataRepository;
+        this.outboxPollerLifecycle = outboxPollerLifecycle;
+        this.objectMapper = objectMapper;
+    }
 
     @BeforeEach
     void setUp() {

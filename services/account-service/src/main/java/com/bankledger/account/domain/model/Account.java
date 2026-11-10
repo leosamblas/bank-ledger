@@ -9,13 +9,7 @@ import java.util.Objects;
 import java.util.UUID;
 
 /**
- * Pure domain aggregate root representing a Bank Checking Account.
- * Zero framework dependencies.
- *
- * <p><strong>Note on Lifecycle:</strong> New accounts are initialized directly with
- * {@link AccountStatus#ACTIVE} in Slice 1 to allow direct end-to-end testing. This will be
- * switched to {@link AccountStatus#PENDING_ACTIVATION} when the {@code LedgerAccountProvisioned}
- * saga is introduced in Slice 2.</p>
+ * Domain aggregate root representing a Bank Checking Account.
  */
 public class Account implements Serializable {
 
@@ -56,9 +50,7 @@ public class Account implements Serializable {
     }
 
     /**
-     * Factory method to create a new account.
-     * Note: ACTIVE status initialization in Slice 1 is temporary to allow direct end-to-end testing,
-     * and will be switched to PENDING_ACTIVATION when the LedgerAccountProvisioned saga is introduced in Slice 2.
+     * Factory method to create a new active account.
      */
     public static Account create(
             UUID id,

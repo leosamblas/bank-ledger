@@ -4,7 +4,6 @@ import com.bankledger.account.application.port.out.TokenClaims;
 import com.bankledger.account.application.port.out.TokenServicePort;
 import com.bankledger.account.domain.model.Account;
 import com.bankledger.account.domain.model.Customer;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.stereotype.Component;
@@ -36,15 +35,6 @@ public class JwtTokenAdapter implements TokenServicePort {
     private final byte[] secretKeyBytes;
     private final long expirationSeconds;
 
-    public JwtTokenAdapter() {
-        this(JsonMapper.builder().build(), Clock.systemUTC(), DEFAULT_SECRET, DEFAULT_EXPIRATION_SECONDS);
-    }
-
-    public JwtTokenAdapter(ObjectMapper objectMapper, Clock clock) {
-        this(objectMapper, clock, DEFAULT_SECRET, DEFAULT_EXPIRATION_SECONDS);
-    }
-
-    @Autowired
     public JwtTokenAdapter(
             ObjectMapper objectMapper,
             Clock clock,

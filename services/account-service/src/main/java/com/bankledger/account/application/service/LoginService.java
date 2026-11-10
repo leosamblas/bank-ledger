@@ -41,16 +41,6 @@ public class LoginService implements LoginUseCase {
             CustomerRepositoryPort customerRepositoryPort,
             AccountRepositoryPort accountRepositoryPort,
             PasswordEncoderPort passwordEncoderPort,
-            TokenServicePort tokenServicePort
-    ) {
-        this(customerRepositoryPort, accountRepositoryPort, passwordEncoderPort, tokenServicePort, Clock.systemUTC());
-    }
-
-    @org.springframework.beans.factory.annotation.Autowired
-    public LoginService(
-            CustomerRepositoryPort customerRepositoryPort,
-            AccountRepositoryPort accountRepositoryPort,
-            PasswordEncoderPort passwordEncoderPort,
             TokenServicePort tokenServicePort,
             Clock clock
     ) {

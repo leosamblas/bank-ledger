@@ -40,7 +40,7 @@ class SecurityConfigTest {
     }
 
     @Test
-    @DisplayName("JwtAuthenticationFilter autentica e popula SecurityContext quando token é válido")
+    @DisplayName("JwtAuthenticationFilter authenticates and populates SecurityContext when token is valid")
     void shouldAuthenticateValidBearerToken() throws Exception {
         UUID customerId = UUID.randomUUID();
         UUID accountId = UUID.randomUUID();
@@ -62,7 +62,7 @@ class SecurityConfigTest {
     }
 
     @Test
-    @DisplayName("JwtAuthenticationFilter limpa SecurityContext quando token é inválido")
+    @DisplayName("JwtAuthenticationFilter clears SecurityContext when token is invalid")
     void shouldClearContextWhenTokenIsInvalid() throws Exception {
         when(tokenServicePort.parseToken("invalid-token")).thenThrow(new RuntimeException("Bad signature"));
 

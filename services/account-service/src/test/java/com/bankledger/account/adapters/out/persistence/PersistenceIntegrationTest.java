@@ -14,12 +14,12 @@ import com.bankledger.account.domain.vo.Phone;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.test.context.TestConstructor;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
@@ -34,6 +34,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @SpringBootTest
 @Testcontainers
+@TestConstructor(autowireMode = TestConstructor.AutowireMode.ALL)
 class PersistenceIntegrationTest {
 
     @Container
@@ -52,20 +53,25 @@ class PersistenceIntegrationTest {
         registry.add("spring.jpa.hibernate.ddl-auto", () -> "validate");
     }
 
-    @Autowired
-    private CustomerRepositoryPort customerRepository;
+    private final CustomerRepositoryPort customerRepository;
+    private final AccountRepositoryPort accountRepository;
+    private final AccountSpringDataRepository accountSpringDataRepository;
+    private final CustomerSpringDataRepository customerSpringDataRepository;
+    private final JdbcTemplate jdbcTemplate;
 
-    @Autowired
-    private AccountRepositoryPort accountRepository;
-
-    @Autowired
-    private AccountSpringDataRepository accountSpringDataRepository;
-
-    @Autowired
-    private CustomerSpringDataRepository customerSpringDataRepository;
-
-    @Autowired
-    private JdbcTemplate jdbcTemplate;
+    public PersistenceIntegrationTest(
+            CustomerRepositoryPort customerRepository,
+            AccountRepositoryPort accountRepository,
+            AccountSpringDataRepository accountSpringDataRepository,
+            CustomerSpringDataRepository customerSpringDataRepository,
+            JdbcTemplate jdbcTemplate
+    ) {
+        this.customerRepository = customerRepository;
+        this.accountRepository = accountRepository;
+        this.accountSpringDataRepository = accountSpringDataRepository;
+        this.customerSpringDataRepository = customerSpringDataRepository;
+        this.jdbcTemplate = jdbcTemplate;
+    }
 
     @BeforeEach
     void setUp() {

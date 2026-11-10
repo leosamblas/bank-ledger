@@ -8,13 +8,7 @@ import org.springframework.kafka.core.ConsumerFactory;
 import org.springframework.kafka.listener.ContainerProperties.AckMode;
 
 /**
- * Kafka infrastructure configuration for account-service.
- * <p>
- * Configures the {@link ConcurrentKafkaListenerContainerFactory} with
- * {@link AckMode#MANUAL_IMMEDIATE} to guarantee that all Kafka consumer listeners
- * have explicit, fine-grained control over partition offset commits via
- * {@code Acknowledgment.acknowledge()}, preventing automatic offset advancement
- * before business transactions complete.
+ * Kafka configuration setting MANUAL_IMMEDIATE AckMode on listener containers.
  */
 @Configuration
 @EnableKafka

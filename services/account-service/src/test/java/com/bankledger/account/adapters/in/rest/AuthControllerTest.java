@@ -53,7 +53,7 @@ class AuthControllerTest {
     }
 
     @Test
-    @DisplayName("200 OK com token e expiresIn quando credenciais são válidas")
+    @DisplayName("200 OK with token and expiresIn when credentials are valid")
     void shouldReturn200WithTokenWhenCredentialsValid() throws Exception {
         UUID customerId = UUID.randomUUID();
         UUID accountId = UUID.randomUUID();
@@ -79,7 +79,7 @@ class AuthControllerTest {
     }
 
     @Test
-    @DisplayName("401 Unauthorized com ProblemDetail quando credenciais são inválidas")
+    @DisplayName("401 Unauthorized with ProblemDetail when credentials are invalid")
     void shouldReturn401WhenInvalidCredentials() throws Exception {
         when(loginUseCase.login(any(LoginCommand.class)))
                 .thenThrow(new InvalidCredentialsException("Credenciais inválidas"));
@@ -97,7 +97,7 @@ class AuthControllerTest {
     }
 
     @Test
-    @DisplayName("401 Unauthorized com ProblemDetail quando conta está bloqueada")
+    @DisplayName("401 Unauthorized with ProblemDetail when customer is locked")
     void shouldReturn401WhenCustomerLocked() throws Exception {
         when(loginUseCase.login(any(LoginCommand.class)))
                 .thenThrow(new CustomerLockedException("Conta bloqueada temporariamente por excesso de tentativas"));
@@ -115,7 +115,7 @@ class AuthControllerTest {
     }
 
     @Test
-    @DisplayName("400 Bad Request com ProblemDetail quando dados obrigatórios estão ausentes")
+    @DisplayName("400 Bad Request with ProblemDetail when required fields are missing")
     void shouldReturn400WhenMissingFields() throws Exception {
         mockMvc.perform(post("/api/v1/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)

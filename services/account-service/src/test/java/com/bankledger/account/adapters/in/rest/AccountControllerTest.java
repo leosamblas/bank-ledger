@@ -82,7 +82,7 @@ class AccountControllerTest {
     class CreateAccountTests {
 
         @Test
-        @DisplayName("201 Created com header Location quando dados são válidos")
+        @DisplayName("201 Created with Location header when request data is valid")
         void shouldReturn201WithLocationHeaderWhenValid() throws Exception {
             UUID accountId = UUID.randomUUID();
             UUID customerId = UUID.randomUUID();
@@ -120,7 +120,7 @@ class AccountControllerTest {
         }
 
         @Test
-        @DisplayName("400 Bad Request com ProblemDetail quando campos obrigatórios estão ausentes")
+        @DisplayName("400 Bad Request with ProblemDetail when required fields are missing")
         void shouldReturn400WhenRequiredFieldsMissing() throws Exception {
             mockMvc.perform(post("/api/v1/accounts")
                             .contentType(MediaType.APPLICATION_JSON)
@@ -132,7 +132,7 @@ class AccountControllerTest {
         }
 
         @Test
-        @DisplayName("409 Conflict quando CPF já existe")
+        @DisplayName("409 Conflict when CPF already exists")
         void shouldReturn409WhenCpfAlreadyExists() throws Exception {
             when(createAccountUseCase.createAccount(any(CreateAccountCommand.class)))
                     .thenThrow(new CpfAlreadyExistsException("Customer already exists with CPF: 52998224725"));
@@ -157,7 +157,7 @@ class AccountControllerTest {
         }
 
         @Test
-        @DisplayName("409 Conflict quando Email já existe")
+        @DisplayName("409 Conflict when Email already exists")
         void shouldReturn409WhenEmailAlreadyExists() throws Exception {
             when(createAccountUseCase.createAccount(any(CreateAccountCommand.class)))
                     .thenThrow(new EmailAlreadyExistsException("Customer already exists with email: carlos@example.com"));
@@ -181,7 +181,7 @@ class AccountControllerTest {
         }
 
         @Test
-        @DisplayName("422 Unprocessable Entity quando cliente é menor de idade")
+        @DisplayName("422 Unprocessable Entity when customer is underage")
         void shouldReturn422WhenCustomerUnderage() throws Exception {
             when(createAccountUseCase.createAccount(any(CreateAccountCommand.class)))
                     .thenThrow(new CustomerUnderageException("Customer must be at least 18 years old"));
@@ -205,7 +205,7 @@ class AccountControllerTest {
         }
 
         @Test
-        @DisplayName("422 Unprocessable Entity quando CPF possui checksum inválido")
+        @DisplayName("422 Unprocessable Entity when CPF has invalid checksum")
         void shouldReturn422WhenInvalidCpfChecksum() throws Exception {
             when(createAccountUseCase.createAccount(any(CreateAccountCommand.class)))
                     .thenThrow(new InvalidCpfException("Invalid first check digit in CPF"));
@@ -233,7 +233,7 @@ class AccountControllerTest {
     class GetAccountMeTests {
 
         @Test
-        @DisplayName("200 OK com dados da conta quando autenticado")
+        @DisplayName("200 OK with account data when authenticated")
         void shouldReturn200WhenAuthenticated() throws Exception {
             UUID accountId = UUID.randomUUID();
             UUID customerId = UUID.randomUUID();
@@ -264,7 +264,7 @@ class AccountControllerTest {
         }
 
         @Test
-        @DisplayName("401 Unauthorized com ProblemDetail quando autenticação está ausente")
+        @DisplayName("401 Unauthorized with ProblemDetail when authentication is missing")
         void shouldReturn401WhenAuthenticationMissing() throws Exception {
             mockMvc.perform(get("/api/v1/accounts/me"))
                     .andExpect(status().isUnauthorized())
@@ -279,7 +279,7 @@ class AccountControllerTest {
     class LookupAccountTests {
 
         @Test
-        @DisplayName("200 OK com nome mascarado quando conta existe")
+        @DisplayName("200 OK with masked holder name when account exists")
         void shouldReturn200WithMaskedNameWhenAccountExists() throws Exception {
             UUID accountId = UUID.randomUUID();
             UUID customerId = UUID.randomUUID();
@@ -305,7 +305,7 @@ class AccountControllerTest {
         }
 
         @Test
-        @DisplayName("404 Not Found com ProblemDetail quando conta não existe")
+        @DisplayName("404 Not Found with ProblemDetail when account does not exist")
         void shouldReturn404WhenAccountNotFound() throws Exception {
             UUID accountId = UUID.randomUUID();
             UUID customerId = UUID.randomUUID();
@@ -329,7 +329,7 @@ class AccountControllerTest {
     class GetAccountByIdTests {
 
         @Test
-        @DisplayName("200 OK quando conta existe")
+        @DisplayName("200 OK when account exists")
         void shouldReturn200WhenAccountExists() throws Exception {
             UUID accountId = UUID.randomUUID();
             UUID customerId = UUID.randomUUID();
@@ -357,7 +357,7 @@ class AccountControllerTest {
         }
 
         @Test
-        @DisplayName("404 Not Found quando conta não existe")
+        @DisplayName("404 Not Found when account does not exist")
         void shouldReturn404WhenAccountNotFound() throws Exception {
             UUID accountId = UUID.randomUUID();
             UUID customerId = UUID.randomUUID();
@@ -373,7 +373,7 @@ class AccountControllerTest {
         }
 
         @Test
-        @DisplayName("403 Forbidden com ProblemDetail quando usuário tenta acessar conta de outro titular")
+        @DisplayName("403 Forbidden with ProblemDetail when user attempts to access account of another holder")
         void shouldReturn403WhenUserIsNotOwner() throws Exception {
             UUID userAccountId = UUID.randomUUID();
             UUID targetAccountId = UUID.randomUUID();
@@ -389,7 +389,7 @@ class AccountControllerTest {
         }
 
         @Test
-        @DisplayName("200 OK quando administrador acessa conta de qualquer titular")
+        @DisplayName("200 OK when administrator accesses account of any holder")
         void shouldReturn200WhenAdminAccessesAnyAccount() throws Exception {
             UUID adminAccountId = UUID.randomUUID();
             UUID targetAccountId = UUID.randomUUID();

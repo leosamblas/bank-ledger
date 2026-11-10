@@ -4,10 +4,10 @@ import com.bankledger.commons.TestApplication;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.test.context.TestConstructor;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
@@ -24,6 +24,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @SpringBootTest(classes = TestApplication.class)
 @Testcontainers
+@TestConstructor(autowireMode = TestConstructor.AutowireMode.ALL)
 class InboxIntegrationTest {
 
     @Container
@@ -43,11 +44,13 @@ class InboxIntegrationTest {
         registry.add("spring.jpa.hibernate.ddl-auto", () -> "none");
     }
 
-    @Autowired
-    private InboxEventRepository repository;
+    private final InboxEventRepository repository;
+    private final InboxHandler inboxHandler;
 
-    @Autowired
-    private InboxHandler inboxHandler;
+    public InboxIntegrationTest(InboxEventRepository repository, InboxHandler inboxHandler) {
+        this.repository = repository;
+        this.inboxHandler = inboxHandler;
+    }
 
     @BeforeEach
     void cleanDatabase() {

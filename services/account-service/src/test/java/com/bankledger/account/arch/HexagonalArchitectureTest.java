@@ -117,4 +117,14 @@ public class HexagonalArchitectureTest {
             .and().areAssignableTo(Repository.class)
             .should().resideInAPackage("..adapters.out.persistence.repository..")
             .allowEmptyShould(false);
+
+    /**
+     * Rule 10: Production code must never use @Autowired annotation.
+     */
+    @ArchTest
+    public static final ArchRule no_classes_should_use_autowired =
+        noClasses()
+            .should().dependOnClassesThat()
+            .haveFullyQualifiedName("org.springframework.beans.factory.annotation.Autowired")
+            .allowEmptyShould(false);
 }

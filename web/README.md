@@ -66,3 +66,25 @@ npm run start
 ```
 
 Acesse [http://localhost:3000](http://localhost:3000) no seu navegador.
+
+---
+
+## 🐳 Executando com Docker
+
+### 1. Build e Execução Standalone (Imagem Otimizada ~80MB)
+```bash
+# Build da imagem de produção
+docker build -t bank-ledger-web .
+
+# Execução do container
+docker run -d --name bank-ledger-web -p 3000:3000 bank-ledger-web
+
+# Logs e status
+docker logs -f bank-ledger-web
+```
+
+### 2. Execução Integrada via Docker Compose
+Na raiz do repositório:
+```bash
+docker compose -f infra/docker/docker-compose.yml up -d web
+```

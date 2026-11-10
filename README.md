@@ -24,10 +24,22 @@ Todo o planejamento de negócio, topologia do sistema, diagramas de sequência, 
 * 👉 **[Frontend Web Banking (Next.js 16 / App Router)](./web/)**: Interface de Web Banking completa e funcional em modo autônomo (mock reativo integrado), incluindo telas de Visão Geral de Saldo, Extrato Oficial, Transferência Segura entre Contas, Depósito e Saque, com linguagem 100% amigável ao cliente bancário e zero jargões de infraestrutura.
 
 ### 🚀 Como Rodar o Web Banking Localmente
+
+**Opção A — Desenvolvimento Local (Node.js):**
 ```bash
 cd web
 npm install
 npm run dev
+# Acesse http://localhost:3000
+```
+
+**Opção B — Via Docker (Container Otimizado):**
+```bash
+# Subir apenas o frontend web
+docker compose -f infra/docker/docker-compose.yml up --build -d web
+
+# Ou subir toda a stack (Frontend + Backend + Infraestrutura)
+docker compose -f infra/docker/docker-compose.yml up --build -d
 # Acesse http://localhost:3000
 ```
 
@@ -98,6 +110,7 @@ Ideal para desenvolvimento ativo no terminal ou na IDE (VS Code / IntelliJ):
 
 | Recurso | URL / Host | Descrição |
 | :--- | :--- | :--- |
+| **Web Banking (Next.js)** | [`http://localhost:3000`](http://localhost:3000) | Interface web do cliente bancário (Next.js 16 / App Router) |
 | **API Gateway (Nginx)** | `http://localhost:8080` | Entrada central com CORS habilitado para o frontend |
 | **Account Service** | `http://localhost:8081` | Porta direta do microsserviço |
 | **Swagger UI** | [`http://localhost:8081/swagger-ui.html`](http://localhost:8081/swagger-ui.html) | Documentação interativa OpenAPI 3.0 com autenticação JWT |

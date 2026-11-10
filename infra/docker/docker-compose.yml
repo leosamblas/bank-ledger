@@ -126,6 +126,90 @@ services:
     networks:
       - bank-ledger-network
 
+  ledger-service:
+    build:
+      context: ../../
+      dockerfile: services/ledger-service/Dockerfile
+    container_name: bank-ledger-ledger-service
+    restart: unless-stopped
+    ports:
+      - "8084:8084"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/ledger_db
+      SPRING_DATASOURCE_USERNAME: bank_ledger
+      SPRING_DATASOURCE_PASSWORD: bank_ledger_secret
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      SERVER_PORT: 8084
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://127.0.0.1:8084/actuator/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    networks:
+      - bank-ledger-network
+
+  transaction-service:
+    build:
+      context: ../../
+      dockerfile: services/transaction-service/Dockerfile
+    container_name: bank-ledger-transaction-service
+    restart: unless-stopped
+    ports:
+      - "8082:8082"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/transaction_db
+      SPRING_DATASOURCE_USERNAME: bank_ledger
+      SPRING_DATASOURCE_PASSWORD: bank_ledger_secret
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      SERVER_PORT: 8082
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://127.0.0.1:8082/actuator/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    networks:
+      - bank-ledger-network
+
+  query-service:
+    build:
+      context: ../../
+      dockerfile: services/query-service/Dockerfile
+    container_name: bank-ledger-query-service
+    restart: unless-stopped
+    ports:
+      - "8083:8083"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/query_db
+      SPRING_DATASOURCE_USERNAME: bank_ledger
+      SPRING_DATASOURCE_PASSWORD: bank_ledger_secret
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      SERVER_PORT: 8083
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://127.0.0.1:8083/actuator/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    networks:
+      - bank-ledger-network
+
   gateway:
     image: nginx:alpine
     container_name: bank-ledger-gateway

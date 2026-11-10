@@ -112,10 +112,12 @@ Ideal para desenvolvimento ativo no terminal ou na IDE (VS Code / IntelliJ):
 | :--- | :--- | :--- |
 | **Web Banking (Next.js)** | [`http://localhost:3000`](http://localhost:3000) | Interface web do cliente bancário (Next.js 16 / App Router) |
 | **API Gateway (Nginx)** | `http://localhost:8080` | Entrada central com CORS habilitado para o frontend |
-| **Account Service** | `http://localhost:8081` | Porta direta do microsserviço |
-| **Swagger UI** | [`http://localhost:8081/swagger-ui.html`](http://localhost:8081/swagger-ui.html) | Documentação interativa OpenAPI 3.0 com autenticação JWT |
-| **OpenAPI Docs** | [`http://localhost:8081/v3/api-docs`](http://localhost:8081/v3/api-docs) | Especificação JSON da API |
-| **Actuator Health** | [`http://localhost:8081/actuator/health`](http://localhost:8081/actuator/health) | Health check detalhado da aplicação |
+| **Account Service** | `http://localhost:8081` | Gestão de contas, clientes e autenticação JWT |
+| **Transaction Service** | `http://localhost:8082` | Orquestração de transações, depósitos, saques e transferências |
+| **Query Service** | `http://localhost:8083` | Projeções de leitura CQRS, extrato e saldos desnormalizados |
+| **Ledger Service** | `http://localhost:8084` | Core bancário interno (Partidas Dobradas, Shards de Caixa, Journal) |
+| **Swagger UI (Account)** | [`http://localhost:8081/swagger-ui.html`](http://localhost:8081/swagger-ui.html) | Documentação interativa OpenAPI 3.0 com autenticação JWT |
+| **Actuator Health (Account)** | [`http://localhost:8081/actuator/health`](http://localhost:8081/actuator/health) | Health check detalhado da aplicação |
 | **Kafka UI** | [`http://localhost:8085`](http://localhost:8085) | Painel visual para inspeção de tópicos e mensagens Kafka |
 | **PostgreSQL 18** | `localhost:5432` | Bancos: `account_db`, `ledger_db`, `transaction_db`, `query_db`<br>Usuário: `bank_ledger` / Senha: `bank_ledger_secret` |
 

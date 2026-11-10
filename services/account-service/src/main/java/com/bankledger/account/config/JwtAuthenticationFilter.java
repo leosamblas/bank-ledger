@@ -7,6 +7,7 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -20,13 +21,10 @@ import java.util.List;
 import java.util.Objects;
 
 @Component
+@RequiredArgsConstructor
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final TokenServicePort tokenServicePort;
-
-    public JwtAuthenticationFilter(TokenServicePort tokenServicePort) {
-        this.tokenServicePort = Objects.requireNonNull(tokenServicePort, "tokenServicePort must not be null");
-    }
 
     @Override
     protected void doFilterInternal(

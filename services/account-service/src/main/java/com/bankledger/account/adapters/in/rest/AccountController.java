@@ -5,6 +5,7 @@ import com.bankledger.account.adapters.in.rest.dto.AccountLookupResponse;
 import com.bankledger.account.adapters.in.rest.dto.AccountResponse;
 import com.bankledger.account.application.port.in.*;
 import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ProblemDetail;
@@ -18,21 +19,12 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/v1/accounts")
+@RequiredArgsConstructor
 public class AccountController {
 
     private final CreateAccountUseCase createAccountUseCase;
     private final GetAccountMeUseCase getAccountMeUseCase;
     private final LookupAccountUseCase lookupAccountUseCase;
-
-    public AccountController(
-            CreateAccountUseCase createAccountUseCase,
-            GetAccountMeUseCase getAccountMeUseCase,
-            LookupAccountUseCase lookupAccountUseCase
-    ) {
-        this.createAccountUseCase = createAccountUseCase;
-        this.getAccountMeUseCase = getAccountMeUseCase;
-        this.lookupAccountUseCase = lookupAccountUseCase;
-    }
 
     @PostMapping
     public ResponseEntity<AccountResponse> createAccount(@Valid @RequestBody AccountCreationRequest request) {

@@ -6,6 +6,7 @@ import com.bankledger.account.application.port.out.CustomerRepositoryPort;
 import com.bankledger.account.domain.model.Customer;
 import com.bankledger.account.domain.vo.Cpf;
 import com.bankledger.account.domain.vo.Email;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Repository;
 
 import java.util.Objects;
@@ -16,13 +17,10 @@ import java.util.UUID;
  * Persistence adapter implementing CustomerRepositoryPort using Spring Data JPA.
  */
 @Repository
+@RequiredArgsConstructor
 public class CustomerPersistenceAdapter implements CustomerRepositoryPort {
 
     private final CustomerSpringDataRepository customerRepository;
-
-    public CustomerPersistenceAdapter(CustomerSpringDataRepository customerRepository) {
-        this.customerRepository = Objects.requireNonNull(customerRepository, "customerRepository must not be null");
-    }
 
     @Override
     public Customer save(Customer customer) {

@@ -15,6 +15,7 @@ import com.bankledger.account.domain.model.Account;
 import com.bankledger.account.domain.model.AccountStatus;
 import com.bankledger.account.domain.model.Customer;
 import com.bankledger.account.domain.vo.Cpf;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -29,6 +30,7 @@ import java.util.Objects;
  */
 @Service
 @Transactional(noRollbackFor = {InvalidCredentialsException.class, CustomerLockedException.class})
+@RequiredArgsConstructor
 public class LoginService implements LoginUseCase {
 
     private final CustomerRepositoryPort customerRepositoryPort;
@@ -36,20 +38,6 @@ public class LoginService implements LoginUseCase {
     private final PasswordEncoderPort passwordEncoderPort;
     private final TokenServicePort tokenServicePort;
     private final Clock clock;
-
-    public LoginService(
-            CustomerRepositoryPort customerRepositoryPort,
-            AccountRepositoryPort accountRepositoryPort,
-            PasswordEncoderPort passwordEncoderPort,
-            TokenServicePort tokenServicePort,
-            Clock clock
-    ) {
-        this.customerRepositoryPort = Objects.requireNonNull(customerRepositoryPort, "customerRepositoryPort must not be null");
-        this.accountRepositoryPort = Objects.requireNonNull(accountRepositoryPort, "accountRepositoryPort must not be null");
-        this.passwordEncoderPort = Objects.requireNonNull(passwordEncoderPort, "passwordEncoderPort must not be null");
-        this.tokenServicePort = Objects.requireNonNull(tokenServicePort, "tokenServicePort must not be null");
-        this.clock = Objects.requireNonNull(clock, "clock must not be null");
-    }
 
     @Override
     public LoginResult login(LoginCommand command) {

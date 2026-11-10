@@ -17,6 +17,7 @@ import com.bankledger.account.domain.vo.Cpf;
 import com.bankledger.account.domain.vo.Email;
 import com.bankledger.account.domain.vo.Phone;
 import com.bankledger.commons.outbox.OutboxEvent;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import tools.jackson.databind.ObjectMapper;
@@ -32,6 +33,7 @@ import java.util.UUID;
  */
 @Service
 @Transactional
+@RequiredArgsConstructor
 public class CreateAccountService implements CreateAccountUseCase {
 
     private final CustomerRepositoryPort customerRepositoryPort;
@@ -40,22 +42,6 @@ public class CreateAccountService implements CreateAccountUseCase {
     private final OutboxPort outboxPort;
     private final ObjectMapper objectMapper;
     private final Clock clock;
-
-    public CreateAccountService(
-            CustomerRepositoryPort customerRepositoryPort,
-            AccountRepositoryPort accountRepositoryPort,
-            PasswordEncoderPort passwordEncoderPort,
-            OutboxPort outboxPort,
-            ObjectMapper objectMapper,
-            Clock clock
-    ) {
-        this.customerRepositoryPort = Objects.requireNonNull(customerRepositoryPort, "customerRepositoryPort must not be null");
-        this.accountRepositoryPort = Objects.requireNonNull(accountRepositoryPort, "accountRepositoryPort must not be null");
-        this.passwordEncoderPort = Objects.requireNonNull(passwordEncoderPort, "passwordEncoderPort must not be null");
-        this.outboxPort = Objects.requireNonNull(outboxPort, "outboxPort must not be null");
-        this.objectMapper = Objects.requireNonNull(objectMapper, "objectMapper must not be null");
-        this.clock = Objects.requireNonNull(clock, "clock must not be null");
-    }
 
     @Override
     public CreatedAccountResult createAccount(CreateAccountCommand command) {

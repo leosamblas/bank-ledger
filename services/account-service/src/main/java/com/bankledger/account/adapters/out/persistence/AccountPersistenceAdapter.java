@@ -4,6 +4,7 @@ import com.bankledger.account.adapters.out.persistence.entity.AccountJpaEntity;
 import com.bankledger.account.adapters.out.persistence.repository.AccountSpringDataRepository;
 import com.bankledger.account.application.port.out.AccountRepositoryPort;
 import com.bankledger.account.domain.model.Account;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Repository;
 
 import java.util.Objects;
@@ -14,13 +15,10 @@ import java.util.UUID;
  * Persistence adapter implementing AccountRepositoryPort using Spring Data JPA.
  */
 @Repository
+@RequiredArgsConstructor
 public class AccountPersistenceAdapter implements AccountRepositoryPort {
 
     private final AccountSpringDataRepository accountRepository;
-
-    public AccountPersistenceAdapter(AccountSpringDataRepository accountRepository) {
-        this.accountRepository = Objects.requireNonNull(accountRepository, "accountRepository must not be null");
-    }
 
     @Override
     public Account save(Account account) {

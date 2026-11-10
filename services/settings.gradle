@@ -1,7 +1,8 @@
 rootProject.name = 'bank-ledger-services'
 
-include 'platform-commons'
-include 'account-service'
-include 'ledger-service'
-include 'transaction-service'
-include 'query-service'
+['platform-commons', 'account-service', 'ledger-service', 'transaction-service', 'query-service'].each { projectName ->
+    if (file(projectName).exists()) {
+        include projectName
+    }
+}
+

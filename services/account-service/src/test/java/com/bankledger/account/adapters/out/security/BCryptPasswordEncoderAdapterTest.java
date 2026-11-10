@@ -3,6 +3,7 @@ package com.bankledger.account.adapters.out.security;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -13,7 +14,7 @@ class BCryptPasswordEncoderAdapterTest {
 
     @BeforeEach
     void setUp() {
-        adapter = new BCryptPasswordEncoderAdapter();
+        adapter = new BCryptPasswordEncoderAdapter(new BCryptPasswordEncoder());
     }
 
     @Test

@@ -7,6 +7,7 @@ import com.bankledger.account.domain.exception.AccountNotFoundException;
 import com.bankledger.account.domain.exception.CustomerNotFoundException;
 import com.bankledger.account.domain.model.Account;
 import com.bankledger.account.domain.model.Customer;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -19,15 +20,11 @@ import java.util.UUID;
  */
 @Service
 @Transactional(readOnly = true)
+@RequiredArgsConstructor
 public class AccountQueryService implements GetAccountMeUseCase, LookupAccountUseCase {
 
     private final AccountRepositoryPort accountRepositoryPort;
     private final CustomerRepositoryPort customerRepositoryPort;
-
-    public AccountQueryService(AccountRepositoryPort accountRepositoryPort, CustomerRepositoryPort customerRepositoryPort) {
-        this.accountRepositoryPort = Objects.requireNonNull(accountRepositoryPort, "accountRepositoryPort must not be null");
-        this.customerRepositoryPort = Objects.requireNonNull(customerRepositoryPort, "customerRepositoryPort must not be null");
-    }
 
     @Override
     public AccountLookupResult lookup(LookupAccountQuery query) {

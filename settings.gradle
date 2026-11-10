@@ -1,5 +1,0 @@
-rootProject.name = 'bank-ledger'
-
-// Composite build for platform-commons
-includeBuild('platform-commons')
-includeBuild('services/account-service')

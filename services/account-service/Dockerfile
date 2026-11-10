@@ -1,11 +1,12 @@
 FROM eclipse-temurin:25-jdk-alpine AS builder
 WORKDIR /workspace
 
-COPY gradlew settings.gradle build.gradle* ./
-COPY gradle ./gradle
-COPY platform-commons ./platform-commons
+COPY services/gradlew services/settings.gradle services/build.gradle* ./services/
+COPY services/gradle ./services/gradle
+COPY services/platform-commons ./services/platform-commons
 COPY services/account-service ./services/account-service
 
+WORKDIR /workspace/services
 RUN chmod +x gradlew && ./gradlew :account-service:bootJar --no-daemon -x test
 
 FROM eclipse-temurin:25-jre-alpine

@@ -32,8 +32,8 @@ dependencyManagement {
 }
 
 dependencies {
-    // Platform Commons (Composite Build)
-    implementation 'com.bankledger:platform-commons:0.1.0-SNAPSHOT'
+    // Platform Commons
+    implementation project(':platform-commons')
 
     // Spring Boot Starters
     implementation 'org.springframework.boot:spring-boot-starter-web'

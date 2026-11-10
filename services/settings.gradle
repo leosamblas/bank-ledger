@@ -1,0 +1,4 @@
+rootProject.name = 'bank-ledger-services'
+
+include 'platform-commons'
+include 'account-service'

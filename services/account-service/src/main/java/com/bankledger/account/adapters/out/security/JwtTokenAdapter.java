@@ -140,7 +140,7 @@ public class JwtTokenAdapter implements TokenServicePort {
             throw new BadCredentialsException("Token is missing required UUID claims", e);
         }
 
-        String branch = payloadNode.path("branch").asString("0001");
+        String branch = payloadNode.path("branch").asString(Account.DEFAULT_BRANCH);
         String accountNumber = payloadNode.path("accountNumber").asString("");
         String role = payloadNode.path("role").asString("ROLE_USER");
 

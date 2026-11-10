@@ -13,6 +13,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.converter.json.JacksonJsonHttpMessageConverter;
@@ -178,6 +179,56 @@ class AccountControllerTest {
                     .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
                     .andExpect(jsonPath("$.status").value(409))
                     .andExpect(jsonPath("$.detail").value(containsString("email")));
+        }
+
+        @Test
+        @DisplayName("409 Conflict when database unique constraint violation occurs")
+        void shouldReturn409WhenDataIntegrityViolationOccurs() throws Exception {
+            when(createAccountUseCase.createAccount(any(CreateAccountCommand.class)))
+                    .thenThrow(new DataIntegrityViolationException("duplicate key value violates unique constraint uk_customer_cpf"));
+
+            AccountCreationRequest request = new AccountCreationRequest(
+                    "Carlos Eduardo Silva",
+                    "52998224725",
+                    LocalDate.of(1990, 5, 15),
+                    "carlos@example.com",
+                    "11987654321",
+                    "SecurePass@123"
+            );
+
+            mockMvc.perform(post("/api/v1/accounts")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(request)))
+                    .andExpect(status().isConflict())
+                    .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+                    .andExpect(jsonPath("$.status").value(409))
+                    .andExpect(jsonPath("$.title").value("Conflict"))
+                    .andExpect(jsonPath("$.detail").value("Resource conflict: a record with the same unique identifier already exists"));
+        }
+
+        @Test
+        @DisplayName("500 Internal Server Error when unexpected runtime exception occurs")
+        void shouldReturn500WhenUnexpectedRuntimeExceptionOccurs() throws Exception {
+            when(createAccountUseCase.createAccount(any(CreateAccountCommand.class)))
+                    .thenThrow(new RuntimeException("Simulated unexpected failure"));
+
+            AccountCreationRequest request = new AccountCreationRequest(
+                    "Carlos Eduardo Silva",
+                    "52998224725",
+                    LocalDate.of(1990, 5, 15),
+                    "carlos@example.com",
+                    "11987654321",
+                    "SecurePass@123"
+            );
+
+            mockMvc.perform(post("/api/v1/accounts")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(request)))
+                    .andExpect(status().isInternalServerError())
+                    .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+                    .andExpect(jsonPath("$.status").value(500))
+                    .andExpect(jsonPath("$.title").value("Internal Server Error"))
+                    .andExpect(jsonPath("$.detail").value("An unexpected error occurred"));
         }
 
         @Test

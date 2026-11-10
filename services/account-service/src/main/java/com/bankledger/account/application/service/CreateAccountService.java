@@ -87,7 +87,7 @@ public class CreateAccountService implements CreateAccountUseCase {
         );
 
         long nextSeq = accountRepositoryPort.nextAccountNumber();
-        AccountNumber accountNumber = AccountNumber.ofBranchAndNumber(AccountNumber.DEFAULT_BRANCH, String.format("%06d", nextSeq));
+        AccountNumber accountNumber = AccountNumber.ofBranchAndNumber(Account.DEFAULT_BRANCH, String.format("%06d", nextSeq));
 
         Account account = Account.create(
                 customer.getId(),

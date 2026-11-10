@@ -40,13 +40,17 @@ public class AccountQueryService implements GetAccountMeUseCase, LookupAccountUs
         Objects.requireNonNull(branch, "branch must not be null");
         Objects.requireNonNull(accountNumber, "accountNumber must not be null");
 
-        String targetBranch = branch.trim();
+        String targetBranch = branch.trim().isEmpty() ? Account.DEFAULT_BRANCH : branch.trim();
         String cleanNumber = accountNumber.trim();
 
         if (cleanNumber.contains("/")) {
             String[] parts = cleanNumber.split("/", 2);
             targetBranch = parts[0].trim();
             cleanNumber = parts[1].trim();
+        }
+
+        if (targetBranch.isEmpty()) {
+            targetBranch = Account.DEFAULT_BRANCH;
         }
 
         if (cleanNumber.contains("-")) {

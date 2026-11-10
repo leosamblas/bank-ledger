@@ -1,6 +1,7 @@
 package com.bankledger.account.domain.vo;
 
 import com.bankledger.account.domain.exception.InvalidAccountNumberException;
+import com.bankledger.account.domain.model.Account;
 
 import java.io.Serializable;
 import java.util.Objects;
@@ -17,7 +18,7 @@ public record AccountNumber(
         String checkDigit
 ) implements Serializable {
 
-    public static final String DEFAULT_BRANCH = "0001";
+    public static final String DEFAULT_BRANCH = Account.DEFAULT_BRANCH;
 
     public AccountNumber {
         if (branch == null || branch.isBlank()) {

@@ -447,21 +447,21 @@ O desenvolvimento é conduzido de forma estritamente incremental, integrando e v
 - **Decisões Registradas:** [ADR 0001 (Alocação Híbrida de Shards)](adr/0001-cash-sharding-hybrid-allocation.md), [ADR 0002 (Lock Pessimista Anti-Deadlock)](adr/0002-ledger-pessimistic-locking-anti-deadlock.md), [ADR 0003 (Saga Assíncrona Kafka)](adr/0003-async-saga-choreography-transaction-ledger.md).
 - **Objetivo:** Estabelecer a fonte da verdade financeira (Partidas Dobradas) e viabilizar depósitos e saques com idempotência.
 - **Telas Integradas:**
-  - `/dashboard/operacoes` (Abas de Depósito e Saque com polling de 202 e emissão de comprovante oficial).
+  - [x] `/dashboard/operacoes` (Abas de Depósito e Saque com polling de 202 e emissão de comprovante oficial).
 - **Entregas Backend:**
   - `ledger-service`:
-    - Provisionamento contábil retroativo e contínuo consumindo `AccountOpened` (`auto-offset-reset: earliest`).
-    - Inicialização e cache em memória dos 16 shards `SYS-CASH-00` a `15`.
-    - Execução atômica do `PostJournalCommand` para depósito e saque com lock pessimista ordenado por UUID e validação estrita de saldo $\ge 0$.
-    - Publicação de `JournalPosted`, `JournalRejected` e `EntryPosted` no Transactional Outbox.
-    - Endpoints de auditoria interna: `/internal/v1/ledger/accounts/{id}/balance` e `/trial-balance`.
+    - [x] Provisionamento contábil retroativo e contínuo consumindo `AccountOpened` (`auto-offset-reset: earliest` com commit manual).
+    - [x] Inicialização e cache em memória dos 16 shards `SYS-CASH-00` a `15` com algoritmo híbrido (ADR 0001).
+    - [x] Execução atômica do `PostJournalCommand` para depósito e saque com lock pessimista ordenado por UUID (ADR 0002) e validação estrita de saldo $\ge 0$.
+    - [x] Publicação de `JournalPosted`, `JournalRejected` e `EntryPosted` no Transactional Outbox.
+    - [x] Endpoints de auditoria interna: `/internal/v1/ledger/accounts/{id}/balance` e `/trial-balance` (`difference == 0`).
   - `transaction-service`:
-    - Endpoints `/api/v1/transactions/deposits` e `/api/v1/transactions/withdrawals` retornando `202 Accepted` com `Location`.
-    - Validação de idempotência HTTP via `Idempotency-Key` (escopada por JWT, status `IN_PROGRESS`/`COMPLETED`, replay e hash SHA-256).
-    - Emissão do comando assíncrono para o Kafka e atualização de status para `COMPLETED` ou `FAILED` via Inbox.
+    - [x] Endpoints `/api/v1/transactions/deposits` e `/api/v1/transactions/withdrawals` retornando `202 Accepted` com `Location`.
+    - [x] Validação de idempotência HTTP via `Idempotency-Key` (escopada por JWT, status `IN_PROGRESS`/`COMPLETED`, replay e hash SHA-256).
+    - [x] Emissão do comando assíncrono para o Kafka e atualização de status para `COMPLETED` ou `FAILED` via consumidor Kafka com commit manual.
 - **Validação de Integração:**
-  - Realizar um depósito de R$ 500 no front e confirmar o status 202 com resolução para COMPLETED.
-  - Realizar um saque e validar a rejeição caso o valor solicitado seja superior ao saldo disponível.
+  - [x] Realizar um depósito de R$ 500 no front e confirmar o status 202 com resolução para COMPLETED.
+  - [x] Realizar um saque e validar a rejeição caso o valor solicitado seja superior ao saldo disponível.
 
 ---
 

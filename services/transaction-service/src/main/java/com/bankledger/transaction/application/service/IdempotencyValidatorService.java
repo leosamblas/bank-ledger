@@ -73,7 +73,7 @@ public class IdempotencyValidatorService implements IdempotencyValidatorUseCase 
         }
 
         if (existing.status() == IdempotencyStatus.COMPLETED) {
-            if (existing.requestHash().equals(requestHash)) {
+            if (existing.requestHash().equals(requestHash) && existing.endpoint().equals(endpoint)) {
                 return IdempotencyCheckResult.cached(
                         existing.responseStatus(),
                         existing.responseBody(),

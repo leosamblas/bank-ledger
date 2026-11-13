@@ -50,16 +50,6 @@ public class PostJournalService implements PostJournalUseCase {
     private final ObjectMapper objectMapper;
     private final Clock clock;
 
-    public PostJournalService(
-            LedgerAccountRepositoryPort ledgerAccountRepositoryPort,
-            JournalRepositoryPort journalRepositoryPort,
-            OutboxPort outboxPort,
-            CashShardResolver cashShardResolver,
-            ObjectMapper objectMapper
-    ) {
-        this(ledgerAccountRepositoryPort, journalRepositoryPort, outboxPort, cashShardResolver, objectMapper, Clock.systemUTC());
-    }
-
     @Override
     public Journal postJournal(PostJournalCommand command) {
         Objects.requireNonNull(command, "command must not be null");

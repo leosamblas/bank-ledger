@@ -6,6 +6,8 @@ import org.springframework.boot.ApplicationRunner;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+import java.time.Clock;
+
 /**
  * Spring configuration for cash shard infrastructure.
  * Warms up the in-memory cash shard cache on application startup.
@@ -23,5 +25,10 @@ public class CashShardConfig {
             log.info("Warming up cash shard cache on startup...");
             cashShardCache.loadShards();
         };
+    }
+
+    @Bean
+    public Clock clock() {
+        return Clock.systemUTC();
     }
 }

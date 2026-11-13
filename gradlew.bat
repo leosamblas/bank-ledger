@@ -1,5 +1,7 @@
 @echo off
-setlocal
+setlocal enabledelayedexpansion
 cd /d "%~dp0services"
-call gradlew.bat %*
+set "ARGS=%*"
+set "ARGS=!ARGS::services:=:!"
+call gradlew.bat !ARGS!
 endlocal

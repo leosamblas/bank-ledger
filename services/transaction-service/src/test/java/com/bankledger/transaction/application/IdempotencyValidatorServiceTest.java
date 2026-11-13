@@ -1,7 +1,7 @@
 package com.bankledger.transaction.application;
 
+import com.bankledger.transaction.application.port.in.IdempotencyCheckResult;
 import com.bankledger.transaction.application.port.out.IdempotencyRepositoryPort;
-import com.bankledger.transaction.application.service.IdempotencyCheckResult;
 import com.bankledger.transaction.application.service.IdempotencyValidatorService;
 import com.bankledger.transaction.domain.exception.IdempotencyConflictException;
 import com.bankledger.transaction.domain.exception.IdempotencyKeyReusedException;

@@ -1,11 +1,14 @@
 package com.bankledger.transaction.application.service;
 
+import com.bankledger.transaction.application.port.in.IdempotencyCheckResult;
+import com.bankledger.transaction.application.port.in.IdempotencyValidatorUseCase;
 import com.bankledger.transaction.application.port.out.IdempotencyRepositoryPort;
 import com.bankledger.transaction.domain.exception.IdempotencyConflictException;
 import com.bankledger.transaction.domain.exception.IdempotencyKeyReusedException;
 import com.bankledger.transaction.domain.model.IdempotencyRecord;
 import com.bankledger.transaction.domain.model.IdempotencyStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.nio.charset.StandardCharsets;
@@ -20,8 +23,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 @Service
-@Transactional
-public class IdempotencyValidatorService {
+public class IdempotencyValidatorService implements IdempotencyValidatorUseCase {
 
     private static final Duration DEFAULT_TTL = Duration.ofHours(24);
 
@@ -33,10 +35,8 @@ public class IdempotencyValidatorService {
         this.clock = clock != null ? clock : Clock.systemUTC();
     }
 
-    public IdempotencyValidatorService(IdempotencyRepositoryPort idempotencyRepositoryPort) {
-        this(idempotencyRepositoryPort, Clock.systemUTC());
-    }
-
+    @Override
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public IdempotencyCheckResult validateOrLock(
             UUID scope,
             UUID key,
@@ -86,10 +86,14 @@ public class IdempotencyValidatorService {
         return IdempotencyCheckResult.proceed();
     }
 
+    @Override
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public IdempotencyCheckResult validateOrLock(UUID scope, UUID key, String endpoint, String requestHash) {
         return validateOrLock(scope, key, endpoint, requestHash, clock.instant());
     }
 
+    @Override
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void complete(
             UUID scope,
             UUID key,
@@ -111,10 +115,13 @@ public class IdempotencyValidatorService {
         idempotencyRepositoryPort.save(completed);
     }
 
+    @Override
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void complete(UUID scope, UUID key, UUID transactionId, int responseStatus, String responseBody) {
         complete(scope, key, transactionId, responseStatus, responseBody, clock.instant());
     }
 
+    @Override
     public String computeHash(String rawBody) {
         String content = rawBody != null ? rawBody : "";
         try {

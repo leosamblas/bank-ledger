@@ -1,4 +1,4 @@
-package com.bankledger.transaction.application.service;
+package com.bankledger.transaction.application.port.in;
 
 import java.util.UUID;
 

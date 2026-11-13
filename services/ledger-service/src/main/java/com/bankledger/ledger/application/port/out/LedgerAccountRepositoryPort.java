@@ -21,7 +21,22 @@ public interface LedgerAccountRepositoryPort {
     Optional<LedgerAccount> findByIdForUpdate(UUID id);
 
     /**
+     * Finds a ledger account by its unique code.
+     */
+    Optional<LedgerAccount> findByCode(String code);
+
+    /**
      * Persists or updates a ledger account.
      */
     LedgerAccount save(LedgerAccount account);
+
+    /**
+     * Returns the sum of balances for all accounts with DEBIT normal balance.
+     */
+    long sumDebits();
+
+    /**
+     * Returns the sum of balances for all accounts with CREDIT normal balance.
+     */
+    long sumCredits();
 }

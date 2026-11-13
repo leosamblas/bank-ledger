@@ -145,10 +145,37 @@ export interface DepositRequest {
   amountCents: number;
   idempotencyKey: string;
   terminalId?: string;
+  description?: string;
 }
 
 export interface WithdrawRequest {
   amountCents: number;
   idempotencyKey: string;
   terminalId?: string;
+  description?: string;
+}
+
+export interface TransactionApiDepositRequest {
+  amount: number;
+  description?: string;
+}
+
+export interface TransactionApiWithdrawalRequest {
+  amount: number;
+  description?: string;
+}
+
+export type WithdrawalRequest = TransactionApiWithdrawalRequest;
+
+export interface TransactionResponse {
+  id: string;
+  type: 'DEPOSIT' | 'WITHDRAWAL' | 'TRANSFER';
+  status: 'PENDING' | 'COMPLETED' | 'FAILED';
+  sourceAccountId?: string | null;
+  destinationAccountId?: string | null;
+  amount: number; // centavos
+  currency: string;
+  failureCode?: string | null;
+  createdAt: string;
+  completedAt?: string | null;
 }

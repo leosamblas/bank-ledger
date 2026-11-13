@@ -5,18 +5,18 @@ import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { useBanking } from '@/hooks/useBanking';
 import { formatCentsToBrl, parseBrlToCents } from '@/utils/currency';
-import { generateUUID } from '@/services/mockBankingStore';
-import { StatementItem } from '@/services/types';
+import { mockBankingStore, generateUUID } from '@/services/mockBankingStore';
+import { transactionService, ApiError, StatementItem } from '@/services';
 
 function OperacoesContent() {
   const searchParams = useSearchParams();
   const initialTab = searchParams.get('tab') === 'withdraw' ? 'withdraw' : 'deposit';
 
-  const { balance, deposit, withdraw } = useBanking();
+  const { balance } = useBanking();
 
   const [activeTab, setActiveTab] = useState<'deposit' | 'withdraw'>(initialTab);
   const [amountStr, setAmountStr] = useState('500,00');
-  const [idempotencyKey, setIdempotencyKey] = useState('7f8c41ea-9a82-416b-a25b-de095cc1a89f');
+  const [idempotencyKey, setIdempotencyKey] = useState<string>(() => generateUUID());
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [successItem, setSuccessItem] = useState<StatementItem | null>(null);
@@ -39,17 +39,12 @@ function OperacoesContent() {
     setAmountStr((balance.availableCents / 100).toFixed(2).replace('.', ','));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage('');
 
     if (amountCents <= 0) {
       setErrorMessage('Informe um valor maior que zero.');
-      return;
-    }
-
-    if (!isDeposit && isOverBalance) {
-      setErrorMessage('Saldo insuficiente para efetuar este saque.');
       return;
     }
 
@@ -60,30 +55,125 @@ function OperacoesContent() {
 
     setIsSubmitting(true);
 
-    setTimeout(() => {
-      try {
-        let item: StatementItem;
-        if (isDeposit) {
-          item = deposit({
+    try {
+      const activeIdempotencyKey = idempotencyKey.trim() || generateUUID();
+      if (activeIdempotencyKey !== idempotencyKey) {
+        setIdempotencyKey(activeIdempotencyKey);
+      }
+
+      const terminalDescription = isDeposit
+        ? 'Terminal Autoatendimento 04 (Agência Centro)'
+        : 'Caixa Eletrônico 24h Nexus (SYS-CASH-11)';
+
+      // 1. Enviar requisição real/mock com Idempotency-Key
+      const initialResponse = isDeposit
+        ? await transactionService.createDeposit(
             amountCents,
-            idempotencyKey,
-            terminalId: 'Terminal Autoatendimento 04 (Agência Centro)',
-          });
-        } else {
-          item = withdraw({
+            activeIdempotencyKey,
+            terminalDescription
+          )
+        : await transactionService.createWithdrawal(
             amountCents,
-            idempotencyKey,
-            terminalId: 'Caixa Eletrônico 24h Nexus (SYS-CASH-11)',
-          });
+            activeIdempotencyKey,
+            terminalDescription
+          );
+
+      // 2. Capturar o HTTP 202 e executar polling até resolução contábil
+      const resolvedTx = await transactionService.pollTransactionUntilResolved(
+        initialResponse.id,
+        350,
+        15
+      );
+
+      // 3. Processar resolução
+      if (resolvedTx.status === 'COMPLETED') {
+        // Sincroniza estado local do mockBankingStore caso necessário
+        const storeState = mockBankingStore.getState();
+        let storeItem = storeState.statement.find(
+          (s) => s.idempotencyKey === activeIdempotencyKey
+        );
+
+        if (!storeItem) {
+          if (isDeposit) {
+            storeItem = mockBankingStore.executeDeposit({
+              amountCents,
+              idempotencyKey: activeIdempotencyKey,
+              terminalId: terminalDescription,
+            });
+          } else {
+            storeItem = mockBankingStore.executeWithdraw({
+              amountCents,
+              idempotencyKey: activeIdempotencyKey,
+              terminalId: terminalDescription,
+            });
+          }
         }
 
-        setSuccessItem(item);
-        setIsSubmitting(false);
-      } catch (err: unknown) {
-        setIsSubmitting(false);
-        setErrorMessage(err instanceof Error ? err.message : 'Falha na operação.');
+        const receiptItem: StatementItem = {
+          id: storeItem?.id || resolvedTx.id,
+          sequence: storeItem?.sequence || storeState.balance.asOfSequence,
+          transactionId: resolvedTx.id,
+          journalId: storeItem?.journalId,
+          timestamp: resolvedTx.completedAt || resolvedTx.createdAt || new Date().toISOString(),
+          category: isDeposit ? 'DEPOSIT' : 'WITHDRAWAL',
+          type: isDeposit ? 'DEPOSIT' : 'WITHDRAWAL',
+          description:
+            storeItem?.description ||
+            (isDeposit ? 'Depósito em Espécie ATM Seguro' : 'Saque em Caixa Eletrônico'),
+          counterpartyName: terminalDescription,
+          counterpartyDocumentMasked:
+            storeItem?.counterpartyDocumentMasked ||
+            (isDeposit ? 'SYS-CASH-CLEARING' : 'SYS-CASH-ATM'),
+          counterpartyAccount:
+            storeItem?.counterpartyAccount ||
+            (isDeposit ? 'Agência Centro 0001' : 'Caixa Eletrônico 24h Nexus'),
+          nature: isDeposit ? 'CREDIT' : 'DEBIT',
+          amountCents: resolvedTx.amount || amountCents,
+          balanceAfterCents:
+            storeItem?.balanceAfterCents ??
+            (isDeposit
+              ? balance.availableCents + amountCents
+              : balance.availableCents - amountCents),
+          idempotencyKey: activeIdempotencyKey,
+        };
+
+        setSuccessItem(receiptItem);
+      } else if (resolvedTx.status === 'FAILED') {
+        if (resolvedTx.failureCode === 'INSUFFICIENT_FUNDS') {
+          setErrorMessage('Saldo insuficiente para efetuar este saque.');
+        } else if (resolvedTx.failureCode === 'LIMIT_EXCEEDED') {
+          setErrorMessage('Limite operacional diário excedido.');
+        } else if (resolvedTx.failureCode === 'ACCOUNT_BLOCKED') {
+          setErrorMessage('Conta bloqueada para movimentações.');
+        } else {
+          setErrorMessage('A transação foi rejeitada pelo sistema de liquidação contábil.');
+        }
+      } else {
+        setErrorMessage(
+          'A transação continua em processamento. Por favor, consulte seu extrato em instantes.'
+        );
       }
-    }, 550);
+    } catch (err: unknown) {
+      if (err instanceof ApiError) {
+        if (err.problem?.status === 409) {
+          setErrorMessage('Operação já em processamento para esta chave de idempotência.');
+        } else if (err.problem?.status === 422) {
+          setErrorMessage('Chave de idempotência reutilizada com parâmetros divergentes.');
+        } else {
+          setErrorMessage(
+            err.problem?.detail ||
+              err.problem?.title ||
+              'Erro ao processar transação no sistema bancário.'
+          );
+        }
+      } else if (err instanceof Error) {
+        setErrorMessage(err.message);
+      } else {
+        setErrorMessage('Falha na operação bancária.');
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleReset = () => {
@@ -361,13 +451,13 @@ function OperacoesContent() {
               {/* CTA Submissão */}
               <button
                 type="submit"
-                disabled={isSubmitting || (!isDeposit && isOverBalance) || amountCents <= 0}
+                disabled={isSubmitting || amountCents <= 0}
                 className="w-full h-14 bg-[#0e1c2f] hover:bg-[#1a2d47] text-white font-headline-sm text-headline-sm font-semibold rounded-2xl flex items-center justify-center gap-2 transition-all shadow-md active:scale-[0.99] cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isSubmitting ? (
                   <>
                     <span className="inline-block w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
-                    <span>Confirmando Operação...</span>
+                    <span>Processando liquidação contábil...</span>
                   </>
                 ) : (
                   <>

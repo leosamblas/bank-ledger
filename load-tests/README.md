@@ -9,8 +9,12 @@ The suite utilizes native Node.js features (`fetch`, `node:perf_hooks`, `node:ut
 ## 🚀 Key Features
 
 * **Pure JavaScript & Zero-Overhead:** Powered by Node.js native `fetch` and async workers with strict concurrency control.
-* **Domain Rule Compliance:** Generates realistic mock payloads satisfying all domain constraints of `account-service`:
-  * **Strict Modulo-11 CPF Algorithm:** 100% parity with `com.bankledger.account.domain.vo.Cpf` (rejects identical digits, validates both check digits, guarantees uniqueness across iterations).
+* **Dedicated Brazilian CPF Engine (`cpf.js`):** Independent, native implementation of Receita Federal's official Modulo-11 algorithm:
+  * Strict parity with `com.bankledger.account.domain.vo.Cpf` (rejects identical digits, validates both check digits).
+  * Supports Brazilian fiscal regions (0-9) via the 9th digit.
+  * Exports `generateValidCpf()`, `validateCpf()`, `formatCpf()`, and `unformatCpf()`.
+  * Guarantees process-level uniqueness to prevent synthetic HTTP 409 Conflict errors.
+* **Realistic Demographics via `@faker-js/faker`:**
   * **Age & Calendar Validation:** Ensures date of birth results in age $\ge 18$ years relative to current date, avoiding `CustomerUnderageException`.
   * **E.164 Brazilian Phone Numbers:** Generates valid mobile numbers with official ANATEL DDD area codes (`+55<DDD>9<8-digits>`).
   * **Unique Emails:** Salted and deduplicated emails to prevent HTTP 409 Conflict errors during high-throughput runs.

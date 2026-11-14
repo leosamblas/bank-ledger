@@ -19,9 +19,9 @@ import java.util.regex.Pattern;
  *   <li>If {@code terminalId} contains a direct shard code (e.g. {@code SYS-CASH-11}),
  *       resolves directly to that shard.</li>
  *   <li>If {@code terminalId} is a generic terminal/agency string, resolves deterministically
- *       via {@code Math.abs(terminalId.hashCode()) % 16}.</li>
+ *       via {@code Math.floorMod(terminalId.hashCode(), 16)}.</li>
  *   <li>If {@code terminalId} is null or blank, falls back to transaction hash:
- *       {@code Math.abs(transactionId.hashCode()) % 16}.</li>
+ *       {@code Math.floorMod(transactionId.hashCode(), 16)}.</li>
  * </ol>
  */
 @Service
@@ -47,14 +47,14 @@ public class CashShardResolver {
                 String directCode = matcher.group(0).toUpperCase(Locale.ROOT);
                 return cashShardPort.getShardId(directCode);
             }
-            int shardIndex = Math.abs(terminalId.hashCode()) % CashShardPort.TOTAL_SHARDS;
+            int shardIndex = Math.floorMod(terminalId.hashCode(), CashShardPort.TOTAL_SHARDS);
             return cashShardPort.getShardIdByIndex(shardIndex);
         }
 
         if (transactionId == null) {
             throw new IllegalArgumentException("transactionId cannot be null when terminalId is absent");
         }
-        int shardIndex = Math.abs(transactionId.hashCode()) % CashShardPort.TOTAL_SHARDS;
+        int shardIndex = Math.floorMod(transactionId.hashCode(), CashShardPort.TOTAL_SHARDS);
         return cashShardPort.getShardIdByIndex(shardIndex);
     }
 
@@ -81,14 +81,14 @@ public class CashShardResolver {
             if (matcher.find()) {
                 return matcher.group(0).toUpperCase(Locale.ROOT);
             }
-            int shardIndex = Math.abs(terminalId.hashCode()) % CashShardPort.TOTAL_SHARDS;
+            int shardIndex = Math.floorMod(terminalId.hashCode(), CashShardPort.TOTAL_SHARDS);
             return formatShardCode(shardIndex);
         }
 
         if (transactionId == null) {
             throw new IllegalArgumentException("transactionId cannot be null when terminalId is absent");
         }
-        int shardIndex = Math.abs(transactionId.hashCode()) % CashShardPort.TOTAL_SHARDS;
+        int shardIndex = Math.floorMod(transactionId.hashCode(), CashShardPort.TOTAL_SHARDS);
         return formatShardCode(shardIndex);
     }
 

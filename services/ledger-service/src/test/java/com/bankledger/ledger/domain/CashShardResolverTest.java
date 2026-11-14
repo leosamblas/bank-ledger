@@ -123,7 +123,7 @@ class CashShardResolverTest {
             UUID txId = UUID.randomUUID();
             // SYS-CASH-99 is not in range 00-15, so Rule 2 applies
             String terminal = "SYS-CASH-99";
-            int expectedIndex = Math.abs(terminal.hashCode()) % 16;
+            int expectedIndex = Math.floorMod(terminal.hashCode(), 16);
             UUID expectedId = shardsByIndex.get(expectedIndex);
 
             UUID resolved = resolver.resolveShardId(terminal, txId);
@@ -137,11 +137,11 @@ class CashShardResolverTest {
     class Rule2GenericTerminalString {
 
         @Test
-        @DisplayName("Should resolve deterministically via Math.abs(terminalId.hashCode()) % 16")
+        @DisplayName("Should resolve deterministically via Math.floorMod(terminalId.hashCode(), 16)")
         void shouldResolveGenericTerminalDeterministically() {
             UUID txId = UUID.randomUUID();
             String terminalId = "Caixa Central";
-            int expectedIndex = Math.abs(terminalId.hashCode()) % 16;
+            int expectedIndex = Math.floorMod(terminalId.hashCode(), 16);
             UUID expectedId = shardsByIndex.get(expectedIndex);
 
             UUID resolved = resolver.resolveShardId(terminalId, txId);
@@ -170,10 +170,10 @@ class CashShardResolverTest {
     class Rule3TransactionFallback {
 
         @Test
-        @DisplayName("Should resolve via Math.abs(transactionId.hashCode()) % 16 when terminalId is null")
+        @DisplayName("Should resolve via Math.floorMod(transactionId.hashCode(), 16) when terminalId is null")
         void shouldResolveFromTransactionIdWhenTerminalNull() {
             UUID txId = UUID.fromString("123e4567-e89b-12d3-a456-426614174000");
-            int expectedIndex = Math.abs(txId.hashCode()) % 16;
+            int expectedIndex = Math.floorMod(txId.hashCode(), 16);
             UUID expectedId = shardsByIndex.get(expectedIndex);
 
             UUID resolved = resolver.resolveShardId(null, txId);
@@ -188,7 +188,7 @@ class CashShardResolverTest {
         @DisplayName("Should resolve from transactionId when terminalId is empty or whitespace")
         void shouldResolveFromTransactionIdWhenTerminalBlank(String blankTerminal) {
             UUID txId = UUID.randomUUID();
-            int expectedIndex = Math.abs(txId.hashCode()) % 16;
+            int expectedIndex = Math.floorMod(txId.hashCode(), 16);
             UUID expectedId = shardsByIndex.get(expectedIndex);
 
             UUID resolved = resolver.resolveShardId(blankTerminal, txId);
@@ -217,6 +217,42 @@ class CashShardResolverTest {
             assertThatThrownBy(() -> resolver.resolveShardId("   ", null))
                     .isInstanceOf(IllegalArgumentException.class)
                     .hasMessageContaining("transactionId");
+        }
+    }
+
+    @Nested
+    @DisplayName("Hash Collision & Integer.MIN_VALUE Overflow Protection")
+    class IntegerMinValueOverflowProtection {
+
+        @Test
+        @DisplayName("Should resolve valid non-negative shard when terminalId hashCode is Integer.MIN_VALUE")
+        void shouldResolveValidShardWhenTerminalIdHashCodeIsIntegerMinValue() {
+            String terminalIdWithMinHash = "xfjfxtf";
+            assertThat(terminalIdWithMinHash.hashCode()).isEqualTo(Integer.MIN_VALUE);
+
+            UUID txId = UUID.randomUUID();
+            UUID resolved = resolver.resolveShardId(terminalIdWithMinHash, txId);
+            String shardCode = resolver.resolveShardCode(terminalIdWithMinHash, txId);
+
+            int expectedIndex = Math.floorMod(Integer.MIN_VALUE, CashShardPort.TOTAL_SHARDS);
+            assertThat(expectedIndex).isGreaterThanOrEqualTo(0);
+            assertThat(resolved).isEqualTo(shardsByIndex.get(expectedIndex));
+            assertThat(shardCode).isEqualTo(String.format("SYS-CASH-%02d", expectedIndex));
+        }
+
+        @Test
+        @DisplayName("Should resolve valid non-negative shard when transactionId hashCode is Integer.MIN_VALUE")
+        void shouldResolveValidShardWhenTransactionIdHashCodeIsIntegerMinValue() {
+            UUID txIdWithMinHash = new UUID(0x8000000000000000L, 0L);
+            assertThat(txIdWithMinHash.hashCode()).isEqualTo(Integer.MIN_VALUE);
+
+            UUID resolved = resolver.resolveShardId(txIdWithMinHash);
+            String shardCode = resolver.resolveShardCode(null, txIdWithMinHash);
+
+            int expectedIndex = Math.floorMod(Integer.MIN_VALUE, CashShardPort.TOTAL_SHARDS);
+            assertThat(expectedIndex).isGreaterThanOrEqualTo(0);
+            assertThat(resolved).isEqualTo(shardsByIndex.get(expectedIndex));
+            assertThat(shardCode).isEqualTo(String.format("SYS-CASH-%02d", expectedIndex));
         }
     }
 }

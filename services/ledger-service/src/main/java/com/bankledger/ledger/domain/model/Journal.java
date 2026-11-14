@@ -84,15 +84,15 @@ public class Journal {
             throw new IllegalArgumentException("Total amount must be greater than zero, was: " + totalAmount);
         }
 
-        long debitSum = 0L;
-        long creditSum = 0L;
-        for (Entry entry : entries) {
-            if (entry.direction() == EntryDirection.DEBIT) {
-                debitSum += entry.amount();
-            } else if (entry.direction() == EntryDirection.CREDIT) {
-                creditSum += entry.amount();
-            }
-        }
+        long debitSum = entries.stream()
+                .filter(e -> e.direction() == EntryDirection.DEBIT)
+                .mapToLong(Entry::amount)
+                .sum();
+
+        long creditSum = entries.stream()
+                .filter(e -> e.direction() == EntryDirection.CREDIT)
+                .mapToLong(Entry::amount)
+                .sum();
 
         if (debitSum != creditSum || debitSum != totalAmount) {
             throw new UnbalancedJournalException(debitSum, creditSum, totalAmount);

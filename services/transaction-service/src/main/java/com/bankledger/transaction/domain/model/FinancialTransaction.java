@@ -2,6 +2,8 @@ package com.bankledger.transaction.domain.model;
 
 import java.io.Serializable;
 import java.time.Instant;
+import java.util.EnumMap;
+import java.util.EnumSet;
 import java.util.Objects;
 import java.util.UUID;
 
@@ -13,6 +15,15 @@ public class FinancialTransaction implements Serializable {
 
     private static final long serialVersionUID = 1L;
     public static final String DEFAULT_CURRENCY = "BRL";
+
+    private static final EnumMap<TransactionStatus, EnumSet<TransactionStatus>> VALID_TRANSITIONS =
+            new EnumMap<>(TransactionStatus.class);
+
+    static {
+        VALID_TRANSITIONS.put(TransactionStatus.PENDING, EnumSet.of(TransactionStatus.COMPLETED, TransactionStatus.FAILED));
+        VALID_TRANSITIONS.put(TransactionStatus.COMPLETED, EnumSet.noneOf(TransactionStatus.class));
+        VALID_TRANSITIONS.put(TransactionStatus.FAILED, EnumSet.noneOf(TransactionStatus.class));
+    }
 
     private final UUID id;
     private final TransactionType type;
@@ -159,8 +170,8 @@ public class FinancialTransaction implements Serializable {
      * Transition transaction to COMPLETED.
      */
     public void complete(Instant now) {
+        transitionTo(TransactionStatus.COMPLETED);
         Instant timestamp = now != null ? now : Instant.now();
-        this.status = TransactionStatus.COMPLETED;
         this.completedAt = timestamp;
         this.updatedAt = timestamp;
     }
@@ -169,12 +180,20 @@ public class FinancialTransaction implements Serializable {
      * Transition transaction to FAILED with failure reason.
      */
     public void fail(String failureCode, String failureReason, Instant now) {
+        transitionTo(TransactionStatus.FAILED);
         Instant timestamp = now != null ? now : Instant.now();
-        this.status = TransactionStatus.FAILED;
         this.failureCode = failureCode;
         this.failureReason = failureReason;
         this.completedAt = timestamp;
         this.updatedAt = timestamp;
+    }
+
+    private void transitionTo(TransactionStatus target) {
+        EnumSet<TransactionStatus> allowed = VALID_TRANSITIONS.getOrDefault(this.status, EnumSet.noneOf(TransactionStatus.class));
+        if (!allowed.contains(target)) {
+            throw new IllegalStateException("Illegal transaction transition from " + this.status + " to " + target);
+        }
+        this.status = target;
     }
 
     // Getters

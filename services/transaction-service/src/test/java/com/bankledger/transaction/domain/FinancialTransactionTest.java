@@ -145,6 +145,58 @@ class FinancialTransactionTest {
     }
 
     @Test
+    @DisplayName("attempting to fail a completed transaction throws IllegalStateException")
+    void shouldThrowWhenFailingCompletedTransaction() {
+        FinancialTransaction tx = FinancialTransaction.createDeposit(
+                txId, accountId, 1000L, "desc", requestedBy, correlationId, now
+        );
+        tx.complete(now.plusSeconds(1));
+
+        assertThatThrownBy(() -> tx.fail("ERR", "Reason", now.plusSeconds(2)))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("Illegal transaction transition from COMPLETED to FAILED");
+    }
+
+    @Test
+    @DisplayName("attempting to complete a failed transaction throws IllegalStateException")
+    void shouldThrowWhenCompletingFailedTransaction() {
+        FinancialTransaction tx = FinancialTransaction.createWithdrawal(
+                txId, accountId, 1000L, "desc", requestedBy, correlationId, now
+        );
+        tx.fail("INSUFFICIENT_FUNDS", "Saldo insuficiente", now.plusSeconds(1));
+
+        assertThatThrownBy(() -> tx.complete(now.plusSeconds(2)))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("Illegal transaction transition from FAILED to COMPLETED");
+    }
+
+    @Test
+    @DisplayName("attempting to complete an already completed transaction throws IllegalStateException")
+    void shouldThrowWhenCompletingAlreadyCompletedTransaction() {
+        FinancialTransaction tx = FinancialTransaction.createDeposit(
+                txId, accountId, 1000L, "desc", requestedBy, correlationId, now
+        );
+        tx.complete(now.plusSeconds(1));
+
+        assertThatThrownBy(() -> tx.complete(now.plusSeconds(2)))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("Illegal transaction transition from COMPLETED to COMPLETED");
+    }
+
+    @Test
+    @DisplayName("attempting to fail an already failed transaction throws IllegalStateException")
+    void shouldThrowWhenFailingAlreadyFailedTransaction() {
+        FinancialTransaction tx = FinancialTransaction.createWithdrawal(
+                txId, accountId, 1000L, "desc", requestedBy, correlationId, now
+        );
+        tx.fail("ERR_1", "Reason 1", now.plusSeconds(1));
+
+        assertThatThrownBy(() -> tx.fail("ERR_2", "Reason 2", now.plusSeconds(2)))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("Illegal transaction transition from FAILED to FAILED");
+    }
+
+    @Test
     @DisplayName("equals and hashCode contract based on ID")
     void shouldVerifyEqualsAndHashCode() {
         FinancialTransaction tx1 = FinancialTransaction.createDeposit(

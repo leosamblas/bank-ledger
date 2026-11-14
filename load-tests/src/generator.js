@@ -1,21 +1,13 @@
 /**
  * Mock Customer Data Generator for Bank Ledger Account Service Load Tests.
- * Pure Vanilla JavaScript (ES Module) with zero external dependencies.
+ * Powered by @faker-js/faker (fakerPT_BR) for realistic Brazilian customer data.
  */
 
-const FIRST_NAMES = [
-  'Lucas', 'Ana', 'Gabriel', 'Beatriz', 'Mateus', 'Juliana', 'Rodrigo', 'Camila',
-  'Thiago', 'Mariana', 'Felipe', 'Larissa', 'Bruno', 'Fernanda', 'Diego', 'Patricia',
-  'Rafael', 'Amanda', 'Gustavo', 'Letícia', 'Carlos', 'Carolina', 'Eduardo', 'Helena'
-];
+import { fakerPT_BR, faker } from '@faker-js/faker';
 
-const LAST_NAMES = [
-  'Silva', 'Santos', 'Oliveira', 'Souza', 'Rodrigues', 'Ferreira', 'Alves', 'Pereira',
-  'Lima', 'Gomes', 'Costa', 'Ribeiro', 'Carvalho', 'Martins', 'Araújo', 'Melo',
-  'Barbosa', 'Cardoso', 'Nascimento', 'Almeida'
-];
+export { fakerPT_BR, faker };
 
-const VALID_DDDS = [
+export const VALID_DDDS = [
   11, 12, 13, 14, 15, 16, 17, 18, 19,
   21, 22, 24, 27, 28,
   31, 32, 33, 34, 35, 37, 38,
@@ -42,10 +34,10 @@ export function generateValidCpf() {
   while (true) {
     const digits = [];
     for (let i = 0; i < 9; i++) {
-      digits.push(Math.floor(Math.random() * 10));
+      digits.push(fakerPT_BR.number.int({ min: 0, max: 9 }));
     }
 
-    // Rejection of identical digits in base
+    // Rejection of identical digits in base (e.g. 111111111)
     if (digits.every(d => d === digits[0])) {
       continue;
     }
@@ -85,45 +77,87 @@ export function generateValidCpf() {
 
 /**
  * Generates a birth date formatted as YYYY-MM-DD for a customer aged between minAge and maxAge.
- * Guarantees that the customer has strictly reached their minAge birthday relative to today (UTC),
+ * Uses fakerPT_BR.date.birthdate({ min, max, mode: 'age' }) while guaranteeing that the customer
+ * has strictly reached their minAge birthday relative to today (UTC),
  * preventing CustomerUnderageException in Account Service domain validation.
  *
  * @param {number} [minAge=18]
  * @param {number} [maxAge=65]
  * @returns {string} ISO date string (YYYY-MM-DD)
  */
-function generateBirthDate(minAge = 18, maxAge = 65) {
-  const now = new Date();
-  const maxBirth = new Date(Date.UTC(now.getUTCFullYear() - minAge, now.getUTCMonth(), now.getUTCDate()));
-  const minBirth = new Date(Date.UTC(now.getUTCFullYear() - maxAge, now.getUTCMonth(), now.getUTCDate()));
+export function generateBirthDate(minAge = 18, maxAge = 65) {
+  while (true) {
+    const birthDateObj = fakerPT_BR.date.birthdate({ min: minAge, max: maxAge, mode: 'age' });
+    const year = birthDateObj.getUTCFullYear();
+    const month = String(birthDateObj.getUTCMonth() + 1).padStart(2, '0');
+    const day = String(birthDateObj.getUTCDate()).padStart(2, '0');
+    const dateStr = `${year}-${month}-${day}`;
 
-  const birthTimestamp = minBirth.getTime() + Math.random() * (maxBirth.getTime() - minBirth.getTime());
-  const birthDate = new Date(birthTimestamp);
+    // Verify UTC calendar age strictly >= minAge and <= maxAge
+    const now = new Date();
+    const refYear = now.getUTCFullYear();
+    const refMonth = now.getUTCMonth() + 1;
+    const refDay = now.getUTCDate();
+    let age = refYear - year;
+    if (refMonth < Number(month) || (refMonth === Number(month) && refDay < Number(day))) {
+      age -= 1;
+    }
 
-  const year = birthDate.getUTCFullYear();
-  const month = String(birthDate.getUTCMonth() + 1).padStart(2, '0');
-  const day = String(birthDate.getUTCDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
+    if (age >= minAge && age <= maxAge) {
+      return dateStr;
+    }
+  }
 }
 
 /**
- * Generates a valid Brazilian phone number with international prefix +55 and valid DDD.
+ * Generates a valid Brazilian mobile phone number with international prefix +55 and valid DDD.
  * Format: +55<DDD>9<8 digits>
  *
  * @returns {string} E.164-compatible phone number
  */
-function generatePhoneNumber() {
-  const ddd = VALID_DDDS[Math.floor(Math.random() * VALID_DDDS.length)];
-  let subscriberNumber = '9';
-  for (let i = 0; i < 8; i++) {
-    subscriberNumber += Math.floor(Math.random() * 10);
-  }
+export function generatePhoneNumber() {
+  const ddd = fakerPT_BR.helpers.arrayElement(VALID_DDDS);
+  const subscriberNumber = `9${fakerPT_BR.string.numeric(8)}`;
   return `+55${ddd}${subscriberNumber}`;
 }
 
 /**
- * Generates a customer payload compliant with AccountCreationRequest DTO.
+ * Generates a realistic and unique email using fakerPT_BR.internet.email,
+ * salted with sequence and timestamp to guarantee uniqueness across high-throughput load tests.
  *
+ * @param {string} [firstName]
+ * @param {string} [lastName]
+ * @returns {string} unique email
+ */
+export function generateUniqueEmail(firstName, lastName) {
+  sequenceCounter += 1;
+  while (true) {
+    const salt = `${sequenceCounter}_${Date.now()}`;
+    const emailCandidate = fakerPT_BR.internet.email({
+      firstName: firstName ? `${firstName}_${salt}` : `user_${salt}`,
+      lastName: lastName || undefined,
+      provider: 'loadtest.bankledger.com'
+    }).toLowerCase();
+
+    if (!generatedEmails.has(emailCandidate)) {
+      generatedEmails.add(emailCandidate);
+      return emailCandidate;
+    }
+  }
+}
+
+/**
+ * Generates a customer payload compliant with AccountCreationRequest DTO
+ * using fakerPT_BR for highly realistic Brazilian customer mock data.
+ *
+ * @param {Partial<{
+ *   fullName: string,
+ *   cpf: string,
+ *   birthDate: string,
+ *   email: string,
+ *   phone: string,
+ *   password: string
+ * }>} [overrides={}]
  * @returns {{
  *   fullName: string,
  *   cpf: string,
@@ -133,29 +167,16 @@ function generatePhoneNumber() {
  *   password: string
  * }}
  */
-export function generateCustomerPayload() {
-  sequenceCounter += 1;
-
-  const firstName = FIRST_NAMES[Math.floor(Math.random() * FIRST_NAMES.length)];
-  const lastName = LAST_NAMES[Math.floor(Math.random() * LAST_NAMES.length)];
-  const fullName = `${firstName} ${lastName}`;
+export function generateCustomerPayload(overrides = {}) {
+  const firstName = fakerPT_BR.person.firstName();
+  const lastName = fakerPT_BR.person.lastName();
+  const fullName = fakerPT_BR.person.fullName({ firstName, lastName });
 
   const cpf = generateValidCpf();
   const birthDate = generateBirthDate(18, 65);
-
-  let email;
-  while (true) {
-    const timestamp = Date.now();
-    const randomSuffix = Math.random().toString(36).substring(2, 8);
-    email = `user_${timestamp}_${sequenceCounter}_${randomSuffix}@loadtest.bankledger.com`;
-    if (!generatedEmails.has(email)) {
-      generatedEmails.add(email);
-      break;
-    }
-  }
-
+  const email = generateUniqueEmail(firstName, lastName);
   const phone = generatePhoneNumber();
-  const password = 'Password@123';
+  const password = fakerPT_BR.internet.password({ length: 12, memorable: false });
 
   return {
     fullName,
@@ -163,6 +184,7 @@ export function generateCustomerPayload() {
     birthDate,
     email,
     phone,
-    password
+    password,
+    ...overrides
   };
 }

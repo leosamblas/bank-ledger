@@ -12,5 +12,8 @@
     "bank-ledger"
   ],
   "author": "",
-  "license": "ISC"
+  "license": "ISC",
+  "dependencies": {
+    "@faker-js/faker": "^10.6.0"
+  }
 }

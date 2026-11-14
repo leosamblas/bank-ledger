@@ -1,0 +1,23 @@
+{
+  "name": "bank-ledger-load-tests",
+  "version": "1.0.0",
+  "description": "Pure JavaScript load testing suite for Bank Ledger Account Service",
+  "type": "module",
+  "bin": {
+    "load-test": "./run.js"
+  },
+  "scripts": {
+    "start": "node run.js",
+    "test": "node --test"
+  },
+  "keywords": [
+    "load-test",
+    "performance",
+    "bank-ledger"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@faker-js/faker": "^10.6.0"
+  }
+}

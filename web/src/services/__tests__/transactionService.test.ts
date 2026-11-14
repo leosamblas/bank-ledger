@@ -1,130 +1,201 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { transactionService } from '../transactionService';
-import { mockBankingStore } from '../mockBankingStore';
 import { ApiError } from '../apiClient';
+import { TransactionResponse } from '../types';
+
+function createMockResponse(body: unknown, status = 200, statusText = 'OK'): Response {
+  return {
+    ok: status >= 200 && status < 300,
+    status,
+    statusText,
+    headers: new Headers({ 'content-type': 'application/json' }),
+    json: async () => body,
+    text: async () => JSON.stringify(body),
+  } as unknown as Response;
+}
 
 test('transactionService - createDeposit and polling', async (t) => {
-  mockBankingStore.reset();
-  const idempotencyKey = 'dep-test-key-001';
+  const originalFetch = globalThis.fetch;
 
-  await t.test('creates deposit with PENDING status initially', async () => {
-    const tx = await transactionService.createDeposit(50000, idempotencyKey, 'ATM Teste');
-    assert.ok(tx.id, 'Transaction should have an ID');
+  t.afterEach(() => {
+    globalThis.fetch = originalFetch;
+  });
+
+  await t.test('creates deposit with correct POST payload and headers', async () => {
+    let capturedUrl = '';
+    let capturedOptions: RequestInit | undefined;
+
+    const mockTx: TransactionResponse = {
+      id: 'tx-dep-100',
+      type: 'DEPOSIT',
+      status: 'PENDING',
+      sourceAccountId: null,
+      destinationAccountId: 'acc-dest-1',
+      amount: 50000,
+      currency: 'BRL',
+      failureCode: null,
+      createdAt: '2026-11-14T20:00:00.000Z',
+    };
+
+    globalThis.fetch = (async (url: string | URL | Request, options?: RequestInit) => {
+      capturedUrl = String(url);
+      capturedOptions = options;
+      return createMockResponse(mockTx, 202);
+    }) as typeof fetch;
+
+    const tx = await transactionService.createDeposit(50000, 'dep-test-key-001', 'ATM Teste');
+
+    assert.ok(capturedUrl.includes('/transactions/deposits'));
+    assert.strictEqual(capturedOptions?.method, 'POST');
+    const headers = capturedOptions?.headers as Record<string, string>;
+    assert.strictEqual(headers['Idempotency-Key'], 'dep-test-key-001');
+    assert.deepStrictEqual(JSON.parse(capturedOptions?.body as string), {
+      amount: 50000,
+      description: 'ATM Teste',
+    });
+
+    assert.strictEqual(tx.id, 'tx-dep-100');
     assert.strictEqual(tx.type, 'DEPOSIT');
     assert.strictEqual(tx.status, 'PENDING');
     assert.strictEqual(tx.amount, 50000);
-    assert.strictEqual(tx.currency, 'BRL');
-    assert.strictEqual(tx.failureCode, null);
   });
 
-  await t.test('idempotency key returns same transaction', async () => {
-    const tx2 = await transactionService.createDeposit(50000, idempotencyKey, 'ATM Teste');
-    assert.strictEqual(tx2.status, 'PENDING');
+  await t.test('pollTransactionUntilResolved polls until status is COMPLETED', async () => {
+    let callCount = 0;
+
+    globalThis.fetch = (async (url: string | URL | Request) => {
+      const urlStr = String(url);
+      if (urlStr.includes('/transactions/tx-poll-1')) {
+        callCount++;
+        const status = callCount >= 2 ? 'COMPLETED' : 'PENDING';
+        return createMockResponse({
+          id: 'tx-poll-1',
+          type: 'DEPOSIT',
+          status,
+          amount: 25000,
+          currency: 'BRL',
+          createdAt: '2026-11-14T20:00:00.000Z',
+          completedAt: status === 'COMPLETED' ? '2026-11-14T20:00:01.000Z' : null,
+        });
+      }
+      return createMockResponse({}, 404);
+    }) as typeof fetch;
+
+    const resolved = await transactionService.pollTransactionUntilResolved('tx-poll-1', 10, 5);
+    assert.strictEqual(resolved.id, 'tx-poll-1');
+    assert.strictEqual(resolved.status, 'COMPLETED');
+    assert.ok(callCount >= 2, 'Should have polled at least twice');
   });
 
-  await t.test('pollTransactionUntilResolved waits until COMPLETED', async () => {
-    const initialTx = await transactionService.createDeposit(25000, 'dep-test-key-002');
-    const resolvedTx = await transactionService.pollTransactionUntilResolved(
-      initialTx.id,
-      100, // interval 100ms
-      10  // maxAttempts 10
-    );
+  await t.test('pollTransactionUntilResolved returns last state if maxAttempts is reached', async () => {
+    globalThis.fetch = (async () => {
+      return createMockResponse({
+        id: 'tx-timeout',
+        type: 'DEPOSIT',
+        status: 'PENDING',
+        amount: 15000,
+        currency: 'BRL',
+        createdAt: '2026-11-14T20:00:00.000Z',
+      });
+    }) as typeof fetch;
 
-    assert.strictEqual(resolvedTx.id, initialTx.id);
-    assert.strictEqual(resolvedTx.status, 'COMPLETED');
-    assert.ok(resolvedTx.completedAt, 'Should have completedAt set');
-    assert.strictEqual(resolvedTx.failureCode, null);
-  });
-
-  await t.test('pollTransactionUntilResolved returns last state if maxAttempts is reached before resolution', async () => {
-    const tx = await transactionService.createDeposit(15000, 'dep-timeout-test');
-    // We set interval to 10ms and maxAttempts to 2 (total 20ms, while resolution is 400ms)
-    const polledTx = await transactionService.pollTransactionUntilResolved(tx.id, 10, 2);
-    assert.strictEqual(polledTx.id, tx.id);
+    const polledTx = await transactionService.pollTransactionUntilResolved('tx-timeout', 10, 2);
+    assert.strictEqual(polledTx.id, 'tx-timeout');
     assert.strictEqual(polledTx.status, 'PENDING');
   });
-
-  await t.test('rejects negative or zero amount', async () => {
-    await assert.rejects(
-      async () => {
-        await transactionService.createDeposit(-100, 'dep-invalid-1');
-      },
-      (err: unknown) => {
-        assert.ok(err instanceof ApiError);
-        assert.strictEqual(err.problem.status, 400);
-        return true;
-      }
-    );
-  });
-
-  await t.test('rejects amount above max regulatory limit', async () => {
-    await assert.rejects(
-      async () => {
-        await transactionService.createDeposit(6000000, 'dep-too-high');
-      },
-      (err: unknown) => {
-        assert.ok(err instanceof ApiError);
-        assert.strictEqual(err.problem.status, 400);
-        return true;
-      }
-    );
-  });
 });
 
-test('transactionService - createWithdrawal and polling', async (t) => {
-  mockBankingStore.reset();
+test('transactionService - createWithdrawal and createTransfer', async (t) => {
+  const originalFetch = globalThis.fetch;
 
-  await t.test('creates withdrawal and resolves to COMPLETED when balance is sufficient', async () => {
-    const tx = await transactionService.createWithdrawal(10000, 'with-test-key-001', 'ATM 24h');
+  t.afterEach(() => {
+    globalThis.fetch = originalFetch;
+  });
+
+  await t.test('creates withdrawal with correct POST payload', async () => {
+    let capturedUrl = '';
+    let capturedOptions: RequestInit | undefined;
+
+    globalThis.fetch = (async (url: string | URL | Request, options?: RequestInit) => {
+      capturedUrl = String(url);
+      capturedOptions = options;
+      return createMockResponse({
+        id: 'tx-with-01',
+        type: 'WITHDRAWAL',
+        status: 'PENDING',
+        amount: 10000,
+        currency: 'BRL',
+        createdAt: '2026-11-14T20:00:00.000Z',
+      }, 202);
+    }) as typeof fetch;
+
+    const tx = await transactionService.createWithdrawal(10000, 'with-key-001', 'ATM 24h');
+    assert.ok(capturedUrl.includes('/transactions/withdrawals'));
+    assert.strictEqual(capturedOptions?.method, 'POST');
     assert.strictEqual(tx.type, 'WITHDRAWAL');
-    assert.strictEqual(tx.status, 'PENDING');
     assert.strictEqual(tx.amount, 10000);
-
-    const resolved = await transactionService.pollTransactionUntilResolved(tx.id, 100, 10);
-    assert.strictEqual(resolved.status, 'COMPLETED');
-    assert.strictEqual(resolved.failureCode, null);
-    assert.ok(resolved.completedAt);
   });
 
-  await t.test('creates withdrawal and resolves to FAILED with INSUFFICIENT_FUNDS when balance is insufficient', async () => {
-    const state = mockBankingStore.getState();
-    const excessiveAmount = state.balance.availableCents + 100000;
+  await t.test('creates transfer with destinationAccountId and Idempotency-Key', async () => {
+    let capturedUrl = '';
+    let capturedOptions: RequestInit | undefined;
 
-    const tx = await transactionService.createWithdrawal(excessiveAmount, 'with-insufficient-001');
-    assert.strictEqual(tx.status, 'PENDING');
+    globalThis.fetch = (async (url: string | URL | Request, options?: RequestInit) => {
+      capturedUrl = String(url);
+      capturedOptions = options;
+      return createMockResponse({
+        id: 'tx-transfer-01',
+        type: 'TRANSFER',
+        status: 'PENDING',
+        destinationAccountId: 'dest-account-uuid',
+        amount: 30000,
+        currency: 'BRL',
+        createdAt: '2026-11-14T20:00:00.000Z',
+      }, 202);
+    }) as typeof fetch;
 
-    const resolved = await transactionService.pollTransactionUntilResolved(tx.id, 100, 10);
-    assert.strictEqual(resolved.status, 'FAILED');
-    assert.strictEqual(resolved.failureCode, 'INSUFFICIENT_FUNDS');
-    assert.ok(resolved.completedAt);
-  });
-
-  await t.test('rejects invalid withdrawal amounts with 400', async () => {
-    await assert.rejects(
-      async () => {
-        await transactionService.createWithdrawal(0, 'with-zero');
-      },
-      (err: unknown) => {
-        assert.ok(err instanceof ApiError);
-        assert.strictEqual(err.problem.status, 400);
-        return true;
-      }
+    const tx = await transactionService.createTransfer(
+      'dest-account-uuid',
+      30000,
+      'transfer-key-001',
+      'Pix fornecedor'
     );
+
+    assert.ok(capturedUrl.includes('/transactions/transfers'));
+    assert.strictEqual(capturedOptions?.method, 'POST');
+    const headers = capturedOptions?.headers as Record<string, string>;
+    assert.strictEqual(headers['Idempotency-Key'], 'transfer-key-001');
+    assert.deepStrictEqual(JSON.parse(capturedOptions?.body as string), {
+      destinationAccountId: 'dest-account-uuid',
+      amount: 30000,
+      description: 'Pix fornecedor',
+    });
+    assert.strictEqual(tx.type, 'TRANSFER');
+    assert.strictEqual(tx.amount, 30000);
   });
 });
 
-test('transactionService - getTransactionById error cases and statement fallback', async (t) => {
-  mockBankingStore.reset();
+test('transactionService - getTransactionById error cases', async (t) => {
+  const originalFetch = globalThis.fetch;
 
-  await t.test('finds initial statement transactions', async () => {
-    const tx = await transactionService.getTransactionById('tx-77e8a9');
-    assert.ok(tx);
-    assert.strictEqual(tx.status, 'COMPLETED');
-    assert.strictEqual(tx.amount, 450000);
+  t.afterEach(() => {
+    globalThis.fetch = originalFetch;
   });
 
-  await t.test('throws 404 for unknown transaction ID', async () => {
+  await t.test('throws ApiError 404 for unknown transaction ID', async () => {
+    globalThis.fetch = (async () => {
+      return createMockResponse(
+        {
+          status: 404,
+          title: 'Not Found',
+          detail: 'Transaction not found',
+        },
+        404,
+        'Not Found'
+      );
+    }) as typeof fetch;
+
     await assert.rejects(
       async () => {
         await transactionService.getTransactionById('non-existent-id-999');

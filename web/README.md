@@ -23,9 +23,9 @@ Interface web institucional e de Web Banking corporativo do **Nexus Bank**, dese
 | **`/login`** | Pública / Auth | **Acesso Seguro:** Autenticação de 2 colunas com validação matemática de CPF (RFB), senha eletrônica, feedback de ambiente seguro e redirecionamento automático para o dashboard. |
 | **`/signup`** | Pública / Auth | **Abertura de Conta Digital:** Stepper guiado em 3 etapas com live-preview reativo do cartão Nexus Black refletindo o nome digitado em tempo real. |
 | **`/dashboard`** | Autenticada | **Visão Geral & Saldo:** Card de saldo disponível amplo em tempo real, sub-métricas de saldo bloqueado e limites diários operacionais com barra de progresso, atalhos de transação rápida, histórico recente com status e cartão Nexus Black interativo. |
-| **`/dashboard/extrato`** | Autenticada | **Extrato Oficial & Auditoria:** Histórico detalhado com filtros temporais rápidos (7, 15, 30, 90 dias, personalizado), busca textual de contraparte, filtros por natureza (Créditos, Débitos, Rejeitados), paginação e modal de comprovante com código de autenticação. |
-| **`/dashboard/transferir`** | Autenticada | **Transferência Entre Contas:** Consulta em tempo real (Lookup) de contraparte com nome mascarado (conformidade LGPD/RFC), validação de limite diário e saldo, gaveta de protocolo de segurança da operação e recibo instantâneo. |
-| **`/dashboard/operacoes`** | Autenticada | **Depositar & Sacar:** Interface unificada em abas com chips de valores rápidos (+R$ 100, +R$ 500, +R$ 1.000, +R$ 5.000, Máximo), simulador visual de saldo antes da confirmação e comprovante de terminal autorizado. |
+| **`/dashboard/statement`** | Autenticada | **Extrato Oficial & Auditoria:** Histórico detalhado com filtros temporais rápidos (7, 15, 30, 90 dias, personalizado), busca textual de contraparte, filtros por natureza (Créditos, Débitos, Rejeitados), paginação e modal de comprovante com código de autenticação (redirecionamento legado de `/dashboard/extrato`). |
+| **`/dashboard/transfer`** | Autenticada | **Transferência Entre Contas:** Consulta em tempo real (Lookup) de contraparte com nome mascarado (conformidade LGPD/RFC), validação de limite diário e saldo, gaveta de protocolo de segurança da operação e recibo instantâneo (redirecionamento legado de `/dashboard/transferir`). |
+| **`/dashboard/operations`** | Autenticada | **Depositar & Sacar:** Interface unificada em abas com chips de valores rápidos (+R$ 100, +R$ 500, +R$ 1.000, +R$ 5.000, Máximo), simulador visual de saldo antes da confirmação e comprovante de terminal autorizado (redirecionamento legado de `/dashboard/operacoes`). |
 
 ---
 
@@ -39,8 +39,8 @@ Interface web institucional e de Web Banking corporativo do **Nexus Bank**, dese
    - Geração automática de identificador único de protocolo por tentativa de transferência, depósito ou saque, garantindo conformidade com a RFC 7231 e prevenindo duplicidades em falhas transitórias de rede sem sobrecarregar o usuário com jargões técnicos.
 4. **Lookup e Privacidade (RFC & LGPD Compliance):**
    - Na transferência entre contas, o nome do destinatário é verificado e mascarado antes do envio (`Jo** Si*** dos Sa****`), conferindo segurança contra fraudes e conformidade com a LGPD.
-5. **Shell Autenticado e Estado Reativo Independente:**
-   - O `mockBankingStore.ts` e o hook `useBanking.ts` utilizam o padrão moderno `useSyncExternalStore` do React 19 para gerenciar as movimentações e atualizar em tempo real o saldo, limites e extrato em todas as abas e componentes da aplicação de forma determinística, permitindo o funcionamento 100% autônomo mesmo antes da disponibilidade dos serviços de backend.
+5. **Shell Autenticado e Estado Reativo:**
+   - O hook `useBanking.ts` gerencia o estado reativo da conta e integra-se diretamente com os serviços de API (`accountService`, `queryService`, `transactionService`), atualizando em tempo real o saldo, limites e extrato a partir dos microserviços e Gateway do Nexus Bank.
 
 ---
 

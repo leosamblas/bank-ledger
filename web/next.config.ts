@@ -32,6 +32,13 @@ const nextConfig: NextConfig = {
   output: 'standalone',
   cacheComponents: true,
   partialPrefetching: true,
+  async redirects() {
+    return [
+      { source: '/dashboard/operacoes', destination: '/dashboard/operations', permanent: false },
+      { source: '/dashboard/transferir', destination: '/dashboard/transfer', permanent: false },
+      { source: '/dashboard/extrato', destination: '/dashboard/statement', permanent: false },
+    ];
+  },
   async headers() {
     return [
       {

@@ -7,7 +7,7 @@ import { formatCentsToBrl } from '@/utils/currency';
 import { formatRelativeTime } from '@/utils/date';
 
 export default function DashboardPage() {
-  const { account, balance, statement, resetData } = useBanking();
+  const { account, balance, statement, refresh, isLoading } = useBanking();
   const [showCardDetails, setShowCardDetails] = useState(false);
   const [cardBlocked, setCardBlocked] = useState(false);
   const [adjustLimitOpen, setAdjustLimitOpen] = useState(false);
@@ -50,7 +50,7 @@ export default function DashboardPage() {
             </span>
             <span className="text-outline-variant">•</span>
             <span>
-              Titular: <strong className="text-on-surface font-semibold">{account.companyName}</strong>
+              Titular: <strong className="text-on-surface font-semibold">{account.holderName || account.companyName}</strong>
             </span>
           </div>
         </div>
@@ -72,16 +72,19 @@ export default function DashboardPage() {
             </div>
           </div>
           <button
-            onClick={() => {
-              resetData();
-              setLimitNotice('Dados restaurados ao estado padrão.');
+            disabled={isLoading}
+            onClick={async () => {
+              await refresh();
+              setLimitNotice('Dados sincronizados com sucesso.');
               setTimeout(() => setLimitNotice(''), 3000);
             }}
-            className="p-1.5 hover:bg-surface-container rounded-lg text-secondary transition-transform active:rotate-180 cursor-pointer"
-            title="Restaurar dados iniciais de demonstração"
+            className="p-1.5 hover:bg-surface-container rounded-lg text-secondary transition-transform active:rotate-180 cursor-pointer disabled:opacity-50"
+            title="Atualizar dados em tempo real"
             type="button"
           >
-            <span className="material-symbols-outlined text-[18px]">refresh</span>
+            <span className={`material-symbols-outlined text-[18px] ${isLoading ? 'animate-spin' : ''}`}>
+              refresh
+            </span>
           </button>
         </div>
       </div>
@@ -170,28 +173,28 @@ export default function DashboardPage() {
             {/* Botões de Ação Rápida em Destaque */}
             <div className="flex items-center gap-3 flex-wrap pt-2 z-10 border-t border-surface-container">
               <Link
-                href="/dashboard/transferir"
+                href="/dashboard/transfer"
                 className="px-5 py-2.5 rounded-xl bg-[#0e1c2f] text-white font-headline-sm text-[14px] flex items-center gap-2 hover:bg-[#1a2d47] active:scale-[0.99] transition-all shadow-sm font-semibold no-underline"
               >
                 <span className="material-symbols-outlined text-[18px] text-emerald-400">arrow_outward</span>
                 Nova Transferência
               </Link>
               <Link
-                href="/dashboard/operacoes?tab=deposit"
+                href="/dashboard/operations?tab=deposit"
                 className="px-4 py-2.5 rounded-xl bg-surface-container-high text-on-surface font-headline-sm text-[14px] flex items-center gap-2 hover:bg-surface-variant transition-colors shadow-xs font-semibold no-underline"
               >
                 <span className="material-symbols-outlined text-[18px] text-emerald-600">arrow_downward</span>
                 Depositar Fundos
               </Link>
               <Link
-                href="/dashboard/operacoes?tab=withdraw"
+                href="/dashboard/operations?tab=withdraw"
                 className="px-4 py-2.5 rounded-xl bg-surface-container-high text-on-surface font-headline-sm text-[14px] flex items-center gap-2 hover:bg-surface-variant transition-colors shadow-xs font-semibold no-underline"
               >
                 <span className="material-symbols-outlined text-[18px] text-secondary">atm</span>
                 Efetuar Saque
               </Link>
               <Link
-                href="/dashboard/extrato"
+                href="/dashboard/statement"
                 className="px-4 py-2.5 rounded-xl bg-surface-container-low text-on-surface-variant font-headline-sm text-[14px] flex items-center gap-2 hover:text-on-surface hover:bg-surface-container transition-colors ml-auto font-medium no-underline"
               >
                 <span className="material-symbols-outlined text-[18px]">receipt_long</span>
@@ -221,82 +224,106 @@ export default function DashboardPage() {
 
             {/* Lista de Transações Recentes */}
             <div className="flex flex-col gap-3">
-              {recentTransactions.map((tx) => {
-                const isCredit = tx.nature === 'CREDIT';
-                const isFailed = tx.category === 'FAILED';
+              {statement.length === 0 ? (
+                <div className="p-8 rounded-xl bg-surface-container-low border border-surface-container/80 flex flex-col items-center justify-center text-center gap-3">
+                  <span className="material-symbols-outlined text-4xl text-surface-container-highest">
+                    receipt_long
+                  </span>
+                  <div className="flex flex-col gap-1">
+                    <span className="font-headline-sm text-[15px] font-semibold text-on-surface">
+                      Nenhuma movimentação realizada ainda
+                    </span>
+                    <span className="font-body-sm text-[13px] text-on-surface-variant max-w-sm">
+                      Sua conta está ativa e pronta para uso. Realize seu primeiro depósito ou transferência para começar a movimentar.
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2 mt-2">
+                    <Link
+                      href="/dashboard/operations?tab=deposit"
+                      className="px-4 py-2 rounded-xl bg-[#0e1c2f] text-white font-headline-sm text-[13px] font-semibold hover:bg-[#1a2d47] transition-all no-underline"
+                    >
+                      Realizar Primeiro Depósito
+                    </Link>
+                  </div>
+                </div>
+              ) : (
+                recentTransactions.map((tx) => {
+                  const isCredit = tx.nature === 'CREDIT';
+                  const isFailed = tx.category === 'FAILED';
 
-                return (
-                  <div
-                    key={tx.id}
-                    className="p-4 rounded-xl bg-surface-container-low hover:bg-surface-container/60 transition-colors border border-surface-container/80 flex items-center justify-between gap-4"
-                  >
-                    <div className="flex items-center gap-3.5 min-w-0">
-                      <div
-                        className={`w-10 h-10 rounded-lg flex-shrink-0 flex items-center justify-center ${
-                          isFailed
-                            ? 'bg-error-container/40 text-error'
-                            : isCredit
-                            ? 'bg-emerald-500/10 text-emerald-700'
-                            : 'bg-error-container/40 text-error'
-                        }`}
-                      >
-                        <span className="material-symbols-outlined text-[22px]">
-                          {isFailed
-                            ? 'error'
-                            : tx.type === 'DEPOSIT'
-                            ? 'payments'
-                            : tx.type === 'WITHDRAWAL'
-                            ? 'local_atm'
-                            : isCredit
-                            ? 'call_received'
-                            : 'call_made'}
-                        </span>
-                      </div>
-                      <div className="flex flex-col min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="font-headline-sm text-headline-sm text-[15px] text-on-surface font-semibold truncate">
-                            {tx.description}
-                          </span>
-                          <span
-                            className={`px-2 py-0.5 rounded font-code-sm text-[11px] font-bold ${
-                              isFailed
-                                ? 'bg-error-container text-on-error-container'
-                                : isCredit
-                                ? 'bg-emerald-500/15 text-emerald-900'
-                                : 'bg-error-container text-on-error-container'
-                            }`}
-                          >
-                            {isFailed ? 'REJEITADO' : isCredit ? 'CRÉDITO' : 'DÉBITO'}
+                  return (
+                    <div
+                      key={tx.id}
+                      className="p-4 rounded-xl bg-surface-container-low hover:bg-surface-container/60 transition-colors border border-surface-container/80 flex items-center justify-between gap-4"
+                    >
+                      <div className="flex items-center gap-3.5 min-w-0">
+                        <div
+                          className={`w-10 h-10 rounded-lg flex-shrink-0 flex items-center justify-center ${
+                            isFailed
+                              ? 'bg-error-container/40 text-error'
+                              : isCredit
+                              ? 'bg-emerald-500/10 text-emerald-700'
+                              : 'bg-error-container/40 text-error'
+                          }`}
+                        >
+                          <span className="material-symbols-outlined text-[22px]">
+                            {isFailed
+                              ? 'error'
+                              : tx.type === 'DEPOSIT'
+                              ? 'payments'
+                              : tx.type === 'WITHDRAWAL'
+                              ? 'local_atm'
+                              : isCredit
+                              ? 'call_received'
+                              : 'call_made'}
                           </span>
                         </div>
-                        <span className="font-body-sm text-body-sm text-on-surface-variant truncate">
-                          Contraparte: <strong className="text-on-surface font-medium">{tx.counterpartyName}</strong> • {tx.counterpartyAccount}
+                        <div className="flex flex-col min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-headline-sm text-headline-sm text-[15px] text-on-surface font-semibold truncate">
+                              {tx.description}
+                            </span>
+                            <span
+                              className={`px-2 py-0.5 rounded font-code-sm text-[11px] font-bold ${
+                                isFailed
+                                  ? 'bg-error-container text-on-error-container'
+                                  : isCredit
+                                  ? 'bg-emerald-500/15 text-emerald-900'
+                                  : 'bg-error-container text-on-error-container'
+                              }`}
+                            >
+                              {isFailed ? 'REJEITADO' : isCredit ? 'CRÉDITO' : 'DÉBITO'}
+                            </span>
+                          </div>
+                          <span className="font-body-sm text-body-sm text-on-surface-variant truncate">
+                            Contraparte: <strong className="text-on-surface font-medium">{tx.counterpartyName}</strong> • {tx.counterpartyAccount}
+                          </span>
+                          <span className="font-code-sm text-[11px] text-on-surface-variant/80 mt-0.5">
+                            {formatRelativeTime(tx.timestamp)} • Protocolo #{tx.sequence}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="flex flex-col items-end flex-shrink-0">
+                        <span
+                          className={`font-code-lg text-code-lg font-bold ${
+                            isFailed
+                              ? 'text-on-surface-variant line-through'
+                              : isCredit
+                              ? 'text-emerald-700'
+                              : 'text-error'
+                          }`}
+                        >
+                          {isCredit ? '+' : isFailed ? '' : '-'}
+                          {formatCentsToBrl(tx.amountCents)}
                         </span>
-                        <span className="font-code-sm text-[11px] text-on-surface-variant/80 mt-0.5">
-                          {formatRelativeTime(tx.timestamp)} • Protocolo #{tx.sequence}
+                        <span className="font-code-sm text-[11px] px-2 py-0.5 mt-1 rounded bg-surface-container text-on-surface-variant">
+                          Saldo após: <strong className="text-on-surface">{formatCentsToBrl(tx.balanceAfterCents)}</strong>
                         </span>
                       </div>
                     </div>
-                    <div className="flex flex-col items-end flex-shrink-0">
-                      <span
-                        className={`font-code-lg text-code-lg font-bold ${
-                          isFailed
-                            ? 'text-on-surface-variant line-through'
-                            : isCredit
-                            ? 'text-emerald-700'
-                            : 'text-error'
-                        }`}
-                      >
-                        {isCredit ? '+' : isFailed ? '' : '-'}
-                        {formatCentsToBrl(tx.amountCents)}
-                      </span>
-                      <span className="font-code-sm text-[11px] px-2 py-0.5 mt-1 rounded bg-surface-container text-on-surface-variant">
-                        Saldo após: <strong className="text-on-surface">{formatCentsToBrl(tx.balanceAfterCents)}</strong>
-                      </span>
-                    </div>
-                  </div>
-                );
-              })}
+                  );
+                })
+              )}
             </div>
 
             {/* Rodapé da Lista */}
@@ -305,7 +332,7 @@ export default function DashboardPage() {
                 Exibindo {recentTransactions.length} de {statement.length} lançamentos
               </span>
               <Link
-                href="/dashboard/extrato"
+                href="/dashboard/statement"
                 className="px-4 py-2 rounded-xl bg-surface-container hover:bg-surface-container-high text-on-surface font-headline-sm text-[13px] font-semibold transition-colors flex items-center gap-1.5 shadow-xs no-underline"
               >
                 Visualizar Extrato Completo com Filtros

@@ -22,6 +22,7 @@ Todo o planejamento de negócio, topologia do sistema, diagramas de sequência, 
 * 👉 **[Plano de Desenvolvimento e Arquitetura (Spring Boot 4.1.2 & Java 25)](./docs/plano_desenvolvimento_ledger.md)**: Roteiro técnico completo, decisões arquiteturais, requisitos de governança com ArchUnit e modelagem de domínios bancários.
 * 👉 **[Contratos de API (Swagger/OpenAPI)](./api-contracts/)**
 * 👉 **[Frontend Web Banking (Next.js 16 / App Router)](./web/)**: Interface de Web Banking completa e funcional em modo autônomo (mock reativo integrado), incluindo telas de Visão Geral de Saldo, Extrato Oficial, Transferência Segura entre Contas, Depósito e Saque, com linguagem 100% amigável ao cliente bancário e zero jargões de infraestrutura.
+* 👉 **[Suíte de Testes de Carga (Pure JS)](./load-tests/README.md)**: Ferramenta de teste de carga e estresse para o `account-service`, sem dependências externas pesadas (k6/JMeter), com geração de dados realistas brasileiros (CPF módulo 11, idade >= 18 anos) e métricas detalhadas de latência e throughput.
 
 ### 🚀 Como Rodar o Web Banking Localmente
 
@@ -83,14 +84,21 @@ Ideal para desenvolvimento ativo no terminal ou na IDE (VS Code / IntelliJ):
    docker compose -f infra/docker/docker-compose.yml up -d postgres kafka kafka-init nginx kafka-ui
    ```
 
-2. **Executar a suíte de testes (utiliza Testcontainers automaticamente):**
-   * No Linux / macOS:
+2. **Executar as suítes de testes:**
+   * **Testes Backend (Java / Testcontainers):**
+     * No Linux / macOS:
+       ```bash
+       ./gradlew test
+       ```
+     * No Windows (PowerShell / CMD):
+       ```powershell
+       .\gradlew.bat test
+       ```
+   * **Testes da Suíte de Carga (Pure JS):**
      ```bash
-     ./gradlew test
-     ```
-   * No Windows (PowerShell / CMD):
-     ```powershell
-     .\gradlew.bat test
+     npm --prefix load-tests test
+     # ou
+     node --test load-tests/tests/*.test.js
      ```
 
 3. **Iniciar o microsserviço `account-service`:**
@@ -123,6 +131,41 @@ Ideal para desenvolvimento ativo no terminal ou na IDE (VS Code / IntelliJ):
 | **OTLP Exporter (HTTP)** | `http://localhost:4318` | Endpoint de recepção de telemetria OpenTelemetry via HTTP |
 | **OTLP Exporter (gRPC)** | `http://localhost:4317` | Endpoint de recepção de telemetria OpenTelemetry via gRPC |
 | **PostgreSQL 18** | `localhost:5432` | Bancos: `account_db`, `ledger_db`, `transaction_db`, `query_db`<br>Usuário: `bank_ledger` / Senha: `bank_ledger_secret` |
+
+---
+
+## ⚡ Testes de Carga & Estresse (Pure JS Load Testing)
+
+O repositório inclui uma ferramenta autônoma de teste de carga em JavaScript moderno (`load-tests/`) para avaliar a capacidade e latência do `account-service` sob concorrência, sem a necessidade de instalar ferramentas externas pesadas (zero k6, zero JMeter).
+
+### Principais Características
+* **Geração Realista de Clientes Brasileiros**: Integração com `@faker-js/faker` (`fakerPT_BR`), validação estrita de CPF por Módulo 11 (100% aderente a `Cpf.java`), data de nascimento com garantia de idade $\ge 18$ anos (evitando `CustomerUnderageException`) e telefones no padrão E.164 com DDDs válidos da ANATEL.
+* **Métricas Completas de Performance**: Percentis de latência (mínimo, médio, p50, p90, p95, p99, máximo), taxa de transferência (RPS) e distribuição percentual de códigos HTTP.
+* **Execução Assíncrona com Concorrência Estrita**: Pool concorrente de workers disparando chamadas HTTP `fetch` nativas do Node.js.
+
+### Como Executar
+
+```bash
+# Execução padrão (10 conexões simultâneas, 100 requisições)
+node load-tests/run.js
+
+# Customizar concorrência (-c) e total de requisições (-n)
+node load-tests/run.js -c 20 -n 500
+node load-tests/run.js --concurrency 50 --requests 1000
+
+# Executar via npm script
+npm --prefix load-tests start -- -c 5 -n 50
+
+# Customizar endpoint de destino (padrão: http://localhost:8081/api/v1/accounts)
+node load-tests/run.js -u http://localhost:8080/api/v1/accounts -c 10 -n 100
+# Ou via variável de ambiente
+TARGET_URL=http://localhost:8081/api/v1/accounts node load-tests/run.js -c 10 -n 100
+
+# Exibir ajuda e opções de CLI
+node load-tests/run.js --help
+```
+
+Para mais detalhes de arquitetura, parâmetros CLI e documentação completa, consulte [load-tests/README.md](./load-tests/README.md).
 
 ---
 

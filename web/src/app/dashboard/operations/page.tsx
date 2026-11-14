@@ -5,18 +5,19 @@ import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { useBanking } from '@/hooks/useBanking';
 import { formatCentsToBrl, parseBrlToCents } from '@/utils/currency';
-import { mockBankingStore, generateUUID } from '@/services/mockBankingStore';
-import { transactionService, ApiError, StatementItem } from '@/services';
+import { generateUUID } from '@/utils/uuid';
+import { ApiError } from '@/services/apiClient';
+import { StatementItem } from '@/services/types';
 
-function OperacoesContent() {
+function OperationsContent() {
   const searchParams = useSearchParams();
   const initialTab = searchParams.get('tab') === 'withdraw' ? 'withdraw' : 'deposit';
 
-  const { balance } = useBanking();
+  const { balance, deposit, withdraw, refresh } = useBanking();
 
   const [activeTab, setActiveTab] = useState<'deposit' | 'withdraw'>(initialTab);
   const [amountStr, setAmountStr] = useState('500,00');
-  const [idempotencyKey, setIdempotencyKey] = useState<string>(() => generateUUID());
+  const [idempotencyKey, setIdempotencyKey] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [successItem, setSuccessItem] = useState<StatementItem | null>(null);
@@ -48,6 +49,11 @@ function OperacoesContent() {
       return;
     }
 
+    if (!isDeposit && isOverBalance) {
+      setErrorMessage('Saldo insuficiente para efetuar este saque.');
+      return;
+    }
+
     if (amountCents > 5000000) {
       setErrorMessage('Valor máximo por operação de caixa é de R$ 50.000,00.');
       return;
@@ -65,79 +71,42 @@ function OperacoesContent() {
         ? 'Terminal Autoatendimento 04 (Agência Centro)'
         : 'Caixa Eletrônico 24h Nexus (SYS-CASH-11)';
 
-      // 1. Enviar requisição real/mock com Idempotency-Key
-      const initialResponse = isDeposit
-        ? await transactionService.createDeposit(
+      // Chama deposit ou withdraw do useBanking (já inclui criação, polling e refresh)
+      const resolvedTx = isDeposit
+        ? await deposit({
             amountCents,
-            activeIdempotencyKey,
-            terminalDescription
-          )
-        : await transactionService.createWithdrawal(
+            idempotencyKey: activeIdempotencyKey,
+            terminalId: terminalDescription,
+          })
+        : await withdraw({
             amountCents,
-            activeIdempotencyKey,
-            terminalDescription
-          );
+            idempotencyKey: activeIdempotencyKey,
+            terminalId: terminalDescription,
+          });
 
-      // 2. Capturar o HTTP 202 e executar polling até resolução contábil
-      const resolvedTx = await transactionService.pollTransactionUntilResolved(
-        initialResponse.id,
-        350,
-        15
-      );
-
-      // 3. Processar resolução
+      // Processar resolução contábil
       if (resolvedTx.status === 'COMPLETED') {
-        // Sincroniza estado local do mockBankingStore caso necessário
-        const storeState = mockBankingStore.getState();
-        let storeItem = storeState.statement.find(
-          (s) => s.idempotencyKey === activeIdempotencyKey
-        );
-
-        if (!storeItem) {
-          if (isDeposit) {
-            storeItem = mockBankingStore.executeDeposit({
-              amountCents,
-              idempotencyKey: activeIdempotencyKey,
-              terminalId: terminalDescription,
-            });
-          } else {
-            storeItem = mockBankingStore.executeWithdraw({
-              amountCents,
-              idempotencyKey: activeIdempotencyKey,
-              terminalId: terminalDescription,
-            });
-          }
-        }
-
         const receiptItem: StatementItem = {
-          id: storeItem?.id || resolvedTx.id,
-          sequence: storeItem?.sequence || storeState.balance.asOfSequence,
+          id: resolvedTx.id,
+          sequence: 0,
           transactionId: resolvedTx.id,
-          journalId: storeItem?.journalId,
           timestamp: resolvedTx.completedAt || resolvedTx.createdAt || new Date().toISOString(),
           category: isDeposit ? 'DEPOSIT' : 'WITHDRAWAL',
           type: isDeposit ? 'DEPOSIT' : 'WITHDRAWAL',
-          description:
-            storeItem?.description ||
-            (isDeposit ? 'Depósito em Espécie ATM Seguro' : 'Saque em Caixa Eletrônico'),
+          description: isDeposit ? 'Depósito em Espécie ATM Seguro' : 'Saque em Caixa Eletrônico',
           counterpartyName: terminalDescription,
-          counterpartyDocumentMasked:
-            storeItem?.counterpartyDocumentMasked ||
-            (isDeposit ? 'SYS-CASH-CLEARING' : 'SYS-CASH-ATM'),
-          counterpartyAccount:
-            storeItem?.counterpartyAccount ||
-            (isDeposit ? 'Agência Centro 0001' : 'Caixa Eletrônico 24h Nexus'),
+          counterpartyDocumentMasked: isDeposit ? 'SYS-CASH-CLEARING' : 'SYS-CASH-ATM',
+          counterpartyAccount: isDeposit ? 'Agência Centro 0001' : 'Caixa Eletrônico 24h Nexus',
           nature: isDeposit ? 'CREDIT' : 'DEBIT',
           amountCents: resolvedTx.amount || amountCents,
-          balanceAfterCents:
-            storeItem?.balanceAfterCents ??
-            (isDeposit
-              ? balance.availableCents + amountCents
-              : balance.availableCents - amountCents),
+          balanceAfterCents: isDeposit
+            ? balance.availableCents + amountCents
+            : balance.availableCents - amountCents,
           idempotencyKey: activeIdempotencyKey,
         };
 
         setSuccessItem(receiptItem);
+        await refresh();
       } else if (resolvedTx.status === 'FAILED') {
         if (resolvedTx.failureCode === 'INSUFFICIENT_FUNDS') {
           setErrorMessage('Saldo insuficiente para efetuar este saque.');
@@ -178,7 +147,7 @@ function OperacoesContent() {
 
   const handleReset = () => {
     setSuccessItem(null);
-    setIdempotencyKey(generateUUID());
+    setIdempotencyKey('');
     setAmountStr('100,00');
     setErrorMessage('');
   };
@@ -218,7 +187,7 @@ function OperacoesContent() {
 
         <div className="flex items-center gap-3">
           <Link
-            href="/dashboard/extrato"
+            href="/dashboard/statement"
             className="px-4 py-2 rounded-xl bg-surface-container-high text-on-surface hover:bg-surface-variant font-headline-sm text-body-md font-semibold transition-colors flex items-center gap-1.5 shadow-xs no-underline"
           >
             <span className="material-symbols-outlined text-[18px]">receipt_long</span>
@@ -293,7 +262,7 @@ function OperacoesContent() {
               Voltar à Visão Geral
             </Link>
             <Link
-              href="/dashboard/extrato"
+              href="/dashboard/statement"
               className="px-4 py-2.5 rounded-xl bg-surface-container text-on-surface font-semibold text-sm hover:bg-surface-container-high transition-colors no-underline ml-auto"
             >
               Ver no Extrato
@@ -434,7 +403,7 @@ function OperacoesContent() {
                       Protocolo de Segurança da Operação
                     </span>
                     <span className="font-code-sm text-xs text-on-surface font-medium truncate">
-                      {idempotencyKey}
+                      {idempotencyKey || 'Chave gerada automaticamente no envio'}
                     </span>
                   </div>
                 </div>
@@ -451,7 +420,7 @@ function OperacoesContent() {
               {/* CTA Submissão */}
               <button
                 type="submit"
-                disabled={isSubmitting || amountCents <= 0}
+                disabled={isSubmitting || amountCents <= 0 || (!isDeposit && isOverBalance)}
                 className="w-full h-14 bg-[#0e1c2f] hover:bg-[#1a2d47] text-white font-headline-sm text-headline-sm font-semibold rounded-2xl flex items-center justify-center gap-2 transition-all shadow-md active:scale-[0.99] cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isSubmitting ? (
@@ -545,7 +514,7 @@ function OperacoesContent() {
   );
 }
 
-export default function OperacoesPage() {
+export default function OperationsPage() {
   return (
     <Suspense
       fallback={
@@ -557,7 +526,7 @@ export default function OperacoesPage() {
         </div>
       }
     >
-      <OperacoesContent />
+      <OperationsContent />
     </Suspense>
   );
 }

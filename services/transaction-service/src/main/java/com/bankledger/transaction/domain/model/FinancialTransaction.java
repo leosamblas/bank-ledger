@@ -169,6 +169,52 @@ public class FinancialTransaction implements Serializable {
     }
 
     /**
+     * Factory to instantiate a new TRANSFER transaction in PENDING status.
+     */
+    public static FinancialTransaction createTransfer(
+            UUID id,
+            UUID sourceAccountId,
+            UUID destinationAccountId,
+            long amount,
+            String description,
+            UUID requestedBy,
+            UUID correlationId,
+            Instant now
+    ) {
+        UUID txId = id != null ? id : UUID.randomUUID();
+        Objects.requireNonNull(sourceAccountId, "sourceAccountId must not be null");
+        Objects.requireNonNull(destinationAccountId, "destinationAccountId must not be null");
+        if (sourceAccountId.equals(destinationAccountId)) {
+            throw new IllegalArgumentException("sourceAccountId and destinationAccountId must be different");
+        }
+        Objects.requireNonNull(requestedBy, "requestedBy must not be null");
+        if (amount <= 0) {
+            throw new IllegalArgumentException("amount must be greater than zero, was: " + amount);
+        }
+        UUID corrId = correlationId != null ? correlationId : UUID.randomUUID();
+        Instant timestamp = now != null ? now : Instant.now();
+
+        return new FinancialTransaction(
+                txId,
+                TransactionType.TRANSFER,
+                TransactionStatus.PENDING,
+                sourceAccountId,
+                destinationAccountId,
+                amount,
+                DEFAULT_CURRENCY,
+                description,
+                requestedBy,
+                null,
+                null,
+                corrId,
+                timestamp,
+                timestamp,
+                null,
+                0L
+        );
+    }
+
+    /**
      * Transition transaction to COMPLETED.
      */
     public void complete(Instant now) {

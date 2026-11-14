@@ -8,7 +8,7 @@ import { formatCentsToBrl } from '@/utils/currency';
 import { formatDateTimeBr } from '@/utils/date';
 import { exportStatementToCsv, exportStatementToOfx } from '@/utils/exportStatement';
 
-export default function ExtratoPage() {
+export default function StatementPage() {
   const { balance, statement, account } = useBanking();
 
   const [selectedCategory, setSelectedCategory] = useState<TransactionCategory>('ALL');
@@ -469,46 +469,55 @@ export default function ExtratoPage() {
 
         {/* Mobile Card List View */}
         <div className="lg:hidden divide-y divide-surface-container">
-          {filteredStatement.map((tx) => {
-            const isCredit = tx.nature === 'CREDIT';
-            const isFailed = tx.category === 'FAILED';
-            const { date, time } = formatDateTimeBr(tx.timestamp);
+          {filteredStatement.length === 0 ? (
+            <div className="p-8 text-center text-on-surface-variant font-body-md">
+              <span className="material-symbols-outlined text-4xl block mb-2 text-surface-container-highest">
+                receipt_long
+              </span>
+              Nenhuma movimentação encontrada com os filtros selecionados.
+            </div>
+          ) : (
+            filteredStatement.map((tx) => {
+              const isCredit = tx.nature === 'CREDIT';
+              const isFailed = tx.category === 'FAILED';
+              const { date, time } = formatDateTimeBr(tx.timestamp);
 
-            return (
-              <div key={tx.id} className="p-4 flex flex-col gap-2">
-                <div className="flex items-center justify-between">
-                  <span className="font-code-sm text-xs font-bold text-secondary">#{tx.sequence}</span>
-                  <span className="font-code-sm text-xs text-on-surface-variant">{date} {time}</span>
-                </div>
-                <div className="flex items-start justify-between gap-2">
-                  <div>
-                    <span className="font-semibold text-sm text-on-surface block">{tx.description}</span>
-                    <span className="text-xs text-on-surface-variant block">{tx.counterpartyName}</span>
+              return (
+                <div key={tx.id} className="p-4 flex flex-col gap-2">
+                  <div className="flex items-center justify-between">
+                    <span className="font-code-sm text-xs font-bold text-secondary">#{tx.sequence}</span>
+                    <span className="font-code-sm text-xs text-on-surface-variant">{date} {time}</span>
                   </div>
-                  <span
-                    className={`font-code-md text-sm font-bold whitespace-nowrap ${
-                      isFailed ? 'text-on-surface-variant line-through' : isCredit ? 'text-emerald-700' : 'text-error'
-                    }`}
-                  >
-                    {isCredit ? '+' : isFailed ? '' : '-'}{formatCentsToBrl(tx.amountCents)}
-                  </span>
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <span className="font-semibold text-sm text-on-surface block">{tx.description}</span>
+                      <span className="text-xs text-on-surface-variant block">{tx.counterpartyName}</span>
+                    </div>
+                    <span
+                      className={`font-code-md text-sm font-bold whitespace-nowrap ${
+                        isFailed ? 'text-on-surface-variant line-through' : isCredit ? 'text-emerald-700' : 'text-error'
+                      }`}
+                    >
+                      {isCredit ? '+' : isFailed ? '' : '-'}{formatCentsToBrl(tx.amountCents)}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between pt-1 border-t border-surface-container/60">
+                    <span className="text-xs text-on-surface-variant">
+                      Saldo após: <strong>{formatCentsToBrl(tx.balanceAfterCents)}</strong>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedReceipt(tx)}
+                      className="text-xs text-secondary font-semibold flex items-center gap-1 cursor-pointer"
+                    >
+                      <span className="material-symbols-outlined text-[15px]">receipt_long</span>
+                      Comprovante
+                    </button>
+                  </div>
                 </div>
-                <div className="flex items-center justify-between pt-1 border-t border-surface-container/60">
-                  <span className="text-xs text-on-surface-variant">
-                    Saldo após: <strong>{formatCentsToBrl(tx.balanceAfterCents)}</strong>
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => setSelectedReceipt(tx)}
-                    className="text-xs text-secondary font-semibold flex items-center gap-1 cursor-pointer"
-                  >
-                    <span className="material-symbols-outlined text-[15px]">receipt_long</span>
-                    Comprovante
-                  </button>
-                </div>
-              </div>
-            );
-          })}
+              );
+            })
+          )}
         </div>
 
         {/* Pagination & Controls Bar */}
@@ -758,4 +767,3 @@ export default function ExtratoPage() {
     </div>
   );
 }
-

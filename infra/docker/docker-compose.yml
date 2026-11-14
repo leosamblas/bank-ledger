@@ -111,6 +111,24 @@ services:
     networks:
       - bank-ledger-network
 
+  otel-lgtm:
+    image: grafana/otel-lgtm:latest
+    container_name: bank-ledger-otel-lgtm
+    restart: unless-stopped
+    ports:
+      - "3001:3000" # Grafana UI on port 3001 (keeping web on 3000)
+      - "4317:4317" # OTLP gRPC receiver
+      - "4318:4318" # OTLP HTTP receiver
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    deploy:
+      resources:
+        limits:
+          memory: 1024M
+    networks:
+      - bank-ledger-network
+
   account-service:
     build:
       context: ../../
@@ -125,6 +143,7 @@ services:
       SPRING_DATASOURCE_PASSWORD: bank_ledger_secret
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
       SERVER_PORT: 8081
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-lgtm:4318
     deploy:
       resources:
         limits:
@@ -157,6 +176,7 @@ services:
       SPRING_DATASOURCE_PASSWORD: bank_ledger_secret
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
       SERVER_PORT: 8084
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-lgtm:4318
     deploy:
       resources:
         limits:
@@ -189,6 +209,7 @@ services:
       SPRING_DATASOURCE_PASSWORD: bank_ledger_secret
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
       SERVER_PORT: 8082
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-lgtm:4318
     deploy:
       resources:
         limits:
@@ -223,6 +244,7 @@ services:
       SPRING_DATASOURCE_PASSWORD: bank_ledger_secret
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
       SERVER_PORT: 8083
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-lgtm:4318
     deploy:
       resources:
         limits:

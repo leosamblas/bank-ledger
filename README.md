@@ -142,7 +142,7 @@ A stack de observabilidade é executada localmente via container All-in-One (`gr
 
 ### 🏷️ Padrão de Logs e Correlação de Traces
 
-Todos os microsserviços utilizam o starter oficial `io.opentelemetry.instrumentation:opentelemetry-spring-boot-starter` configurado com propagação de MDC (`service_name`, `trace_id`, `span_id`). O padrão de log configurado é:
+Todos os microsserviços utilizam o starter oficial `org.springframework.boot:spring-boot-starter-opentelemetry` configurado com propagação de MDC (`service_name`, `trace_id`, `span_id`). O padrão de log configurado é:
 
 ```text
 [service-name,traceId,spanId]
@@ -150,10 +150,10 @@ Todos os microsserviços utilizam o starter oficial `io.opentelemetry.instrument
 
 Exemplo real capturado no console:
 ```text
-2026-11-14 17:30:15.123 [INFO ] [transaction-service,67362a7b10f84a3b8e2d4f119a733d4e,01f84a3b8e2d4f11] [virtual-28] c.b.t.a.i.w.TransactionController : Received deposit request for account 01923456-789a-7b8c-9d0e-1f2a3b4c5d6e
+2026-11-14T20:30:15.123Z  INFO [transaction-service,67362a7b10f84a3b8e2d4f119a733d4e,01f84a3b8e2d4f11] 1 --- [transaction-service] [virtual-28] c.b.t.a.i.w.TransactionController : Received deposit request for account 01923456-789a-7b8c-9d0e-1f2a3b4c5d6e
 ```
 
-O contexto W3C Trace Context (`traceparent`) é automaticamente propagado entre serviços síncronos (HTTP via RestClient/RestTemplate) e assíncronos (mensagens Kafka através de headers OpenTelemetry), garantindo rastreabilidade contínua ponta a ponta sem perda de contexto entre o `transaction-service`, os tópicos Kafka e o `ledger-service`.
+O contexto W3C Trace Context (`traceparent`) é propagado automaticamente nas chamadas síncronas HTTP (via RestClient/RestTemplate/WebClient). Para fluxos assíncronos desacoplados via Transactional Outbox e Kafka, a propagação contínua de trace entre fronteiras assíncronas requer a captura do `traceparent` no momento da criação do evento de Outbox e a habilitação de `spring.kafka.template.observation-enabled: true` e `spring.kafka.listener.observation-enabled: true`, planejada para evolução das sagas assíncronas.
 
 ### 🔍 Como Testar e Rastrear uma Transação Ponta a Ponta
 
@@ -182,7 +182,7 @@ Utilize a coleção oficial do projeto localizada em:
    * **Timeline em Cascata no Tempo**:
      Selecione o datasource **Tempo**, cole o `traceId` no campo de busca ou TraceQL, e visualize a cascata detalhada (*waterfall*):
      - `HTTP POST /api/v1/transactions/deposits` (`transaction-service`)
-     - Publicação no tópico Kafka `transaction-events`
+     - Publicação no tópico Kafka `transaction.events.v1` / `ledger.commands.v1`
      - Consumo do evento pelo `ledger-service`
      - Gravação contábil em partidas dobradas e persistência no PostgreSQL
 

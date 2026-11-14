@@ -1,6 +1,7 @@
 package com.bankledger.ledger.application.port.out;
 
 import com.bankledger.ledger.domain.model.LedgerAccount;
+import com.bankledger.ledger.domain.model.TrialBalanceTotals;
 
 import java.util.Optional;
 import java.util.UUID;
@@ -31,12 +32,21 @@ public interface LedgerAccountRepositoryPort {
     LedgerAccount save(LedgerAccount account);
 
     /**
+     * Calculates atomic trial balance totals (aggregate debits and credits in a single query).
+     */
+    TrialBalanceTotals getTrialBalanceTotals();
+
+    /**
      * Returns the sum of balances for all accounts with DEBIT normal balance.
      */
-    long sumDebits();
+    default long sumDebits() {
+        return getTrialBalanceTotals().debits();
+    }
 
     /**
      * Returns the sum of balances for all accounts with CREDIT normal balance.
      */
-    long sumCredits();
+    default long sumCredits() {
+        return getTrialBalanceTotals().credits();
+    }
 }

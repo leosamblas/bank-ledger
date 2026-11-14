@@ -8,6 +8,7 @@ import com.bankledger.ledger.application.port.out.JournalRepositoryPort;
 import com.bankledger.ledger.application.port.out.LedgerAccountRepositoryPort;
 import com.bankledger.ledger.domain.model.Journal;
 import com.bankledger.ledger.domain.model.LedgerAccount;
+import com.bankledger.ledger.domain.model.TrialBalanceTotals;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -46,9 +47,10 @@ public class LedgerQueryService implements GetLedgerAccountUseCase, GetJournalUs
 
     @Override
     public TrialBalanceResult getTrialBalance() {
-        long debits = ledgerAccountRepositoryPort.sumDebits();
-        long credits = ledgerAccountRepositoryPort.sumCredits();
-        long difference = debits - credits;
+        TrialBalanceTotals totals = ledgerAccountRepositoryPort.getTrialBalanceTotals();
+        long debits = totals.debits();
+        long credits = totals.credits();
+        long difference = totals.difference();
 
         log.debug("Computed trial balance: debits={}, credits={}, difference={}", debits, credits, difference);
         return new TrialBalanceResult(debits, credits, difference);

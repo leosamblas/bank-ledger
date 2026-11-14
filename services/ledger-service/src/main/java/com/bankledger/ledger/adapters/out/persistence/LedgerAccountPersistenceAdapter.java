@@ -2,9 +2,10 @@ package com.bankledger.ledger.adapters.out.persistence;
 
 import com.bankledger.ledger.adapters.out.persistence.entity.LedgerAccountEntity;
 import com.bankledger.ledger.adapters.out.persistence.repository.LedgerAccountSpringDataRepository;
+import com.bankledger.ledger.adapters.out.persistence.repository.TrialBalanceProjection;
 import com.bankledger.ledger.application.port.out.LedgerAccountRepositoryPort;
 import com.bankledger.ledger.domain.model.LedgerAccount;
-import com.bankledger.ledger.domain.model.NormalBalance;
+import com.bankledger.ledger.domain.model.TrialBalanceTotals;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Repository;
 
@@ -60,12 +61,21 @@ public class LedgerAccountPersistenceAdapter implements LedgerAccountRepositoryP
     }
 
     @Override
+    public TrialBalanceTotals getTrialBalanceTotals() {
+        TrialBalanceProjection projection = repository.getTrialBalanceAggregate();
+        if (projection == null) {
+            return new TrialBalanceTotals(0L, 0L);
+        }
+        return new TrialBalanceTotals(projection.getDebits(), projection.getCredits());
+    }
+
+    @Override
     public long sumDebits() {
-        return repository.sumBalanceByNormalBalance(NormalBalance.DEBIT);
+        return getTrialBalanceTotals().debits();
     }
 
     @Override
     public long sumCredits() {
-        return repository.sumBalanceByNormalBalance(NormalBalance.CREDIT);
+        return getTrialBalanceTotals().credits();
     }
 }

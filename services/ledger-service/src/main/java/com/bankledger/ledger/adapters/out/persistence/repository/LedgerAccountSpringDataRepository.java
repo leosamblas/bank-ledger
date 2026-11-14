@@ -24,4 +24,12 @@ public interface LedgerAccountSpringDataRepository extends JpaRepository<LedgerA
 
     @Query("SELECT COALESCE(SUM(a.balance), 0) FROM LedgerAccountEntity a WHERE a.normalBalance = :normalBalance")
     long sumBalanceByNormalBalance(@Param("normalBalance") NormalBalance normalBalance);
+
+    @Query(value = """
+        SELECT
+            COALESCE(SUM(CASE WHEN a.normal_balance = 'DEBIT' THEN a.balance ELSE 0 END), 0) AS debits,
+            COALESCE(SUM(CASE WHEN a.normal_balance = 'CREDIT' THEN a.balance ELSE 0 END), 0) AS credits
+        FROM ledger_account a
+        """, nativeQuery = true)
+    TrialBalanceProjection getTrialBalanceAggregate();
 }

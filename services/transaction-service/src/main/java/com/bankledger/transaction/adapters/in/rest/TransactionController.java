@@ -3,9 +3,12 @@ package com.bankledger.transaction.adapters.in.rest;
 import com.bankledger.commons.constant.HttpHeaderConstants;
 import com.bankledger.transaction.adapters.in.rest.dto.DepositRequest;
 import com.bankledger.transaction.adapters.in.rest.dto.TransactionResponse;
+import com.bankledger.transaction.adapters.in.rest.dto.TransferRequest;
 import com.bankledger.transaction.adapters.in.rest.dto.WithdrawalRequest;
 import com.bankledger.transaction.application.port.in.CreateDepositCommand;
 import com.bankledger.transaction.application.port.in.CreateDepositUseCase;
+import com.bankledger.transaction.application.port.in.CreateTransferCommand;
+import com.bankledger.transaction.application.port.in.CreateTransferUseCase;
 import com.bankledger.transaction.application.port.in.CreateWithdrawalCommand;
 import com.bankledger.transaction.application.port.in.CreateWithdrawalUseCase;
 import com.bankledger.transaction.application.port.in.GetTransactionUseCase;
@@ -39,9 +42,11 @@ public class TransactionController {
 
     private static final String ENDPOINT_DEPOSITS = "/api/v1/transactions/deposits";
     private static final String ENDPOINT_WITHDRAWALS = "/api/v1/transactions/withdrawals";
+    private static final String ENDPOINT_TRANSFERS = "/api/v1/transactions/transfers";
 
     private final CreateDepositUseCase createDepositUseCase;
     private final CreateWithdrawalUseCase createWithdrawalUseCase;
+    private final CreateTransferUseCase createTransferUseCase;
     private final GetTransactionUseCase getTransactionUseCase;
     private final IdempotencyValidatorUseCase idempotencyValidatorUseCase;
     private final ObjectMapper objectMapper;
@@ -155,6 +160,77 @@ public class TransactionController {
         );
 
         FinancialTransaction tx = createWithdrawalUseCase.createWithdrawal(command);
+        TransactionResponse response = TransactionResponse.fromDomain(tx);
+
+        String responseBody;
+        try {
+            responseBody = objectMapper.writeValueAsString(response);
+        } catch (Exception e) {
+            throw new IllegalStateException("Failed to serialize TransactionResponse", e);
+        }
+
+        idempotencyValidatorUseCase.complete(
+                user.customerId(),
+                idempotencyKey,
+                tx.getId(),
+                HttpStatus.ACCEPTED.value(),
+                responseBody
+        );
+
+        URI location = URI.create("/api/v1/transactions/" + tx.getId());
+        return ResponseEntity.accepted()
+                .location(location)
+                .body(response);
+    }
+
+    @PostMapping("/transfers")
+    public ResponseEntity<?> createTransfer(
+            @RequestHeader(HttpHeaderConstants.IDEMPOTENCY_KEY) UUID idempotencyKey,
+            @Valid @RequestBody TransferRequest request,
+            @AuthenticationPrincipal AuthenticatedUser user
+    ) {
+        if (user == null || user.customerId() == null || user.accountId() == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        if (user.accountId().equals(request.destinationAccountId())) {
+            throw new IllegalArgumentException("Source and destination accounts must be different");
+        }
+
+        String rawBody;
+        try {
+            rawBody = objectMapper.writeValueAsString(request);
+        } catch (Exception e) {
+            throw new IllegalArgumentException("Failed to serialize request body", e);
+        }
+        String requestHash = idempotencyValidatorUseCase.computeHash(rawBody);
+
+        IdempotencyCheckResult checkResult = idempotencyValidatorUseCase.validateOrLock(
+                user.customerId(),
+                idempotencyKey,
+                ENDPOINT_TRANSFERS,
+                requestHash
+        );
+
+        if (checkResult.isCached()) {
+            URI location = URI.create("/api/v1/transactions/" + checkResult.cachedTransactionId());
+            return ResponseEntity.status(checkResult.cachedStatus())
+                    .location(location)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(checkResult.cachedBody());
+        }
+
+        CreateTransferCommand command = new CreateTransferCommand(
+                user.accountId(),
+                request.destinationAccountId(),
+                request.amount(),
+                request.description(),
+                "API",
+                user.customerId(),
+                UUID.randomUUID()
+        );
+
+        FinancialTransaction tx = createTransferUseCase.createTransfer(command);
         TransactionResponse response = TransactionResponse.fromDomain(tx);
 
         String responseBody;

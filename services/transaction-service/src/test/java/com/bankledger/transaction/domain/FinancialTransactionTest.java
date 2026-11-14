@@ -83,6 +83,45 @@ class FinancialTransactionTest {
     }
 
     @Test
+    @DisplayName("createTransfer initializes fields correctly with PENDING status, source, and destination accounts")
+    void shouldCreateTransferTransaction() {
+        UUID destId = UUID.fromString("99999999-9999-9999-9999-999999999999");
+        FinancialTransaction tx = FinancialTransaction.createTransfer(
+                txId,
+                accountId,
+                destId,
+                30000L,
+                "Transferência PIX",
+                requestedBy,
+                correlationId,
+                now
+        );
+
+        assertThat(tx.getId()).isEqualTo(txId);
+        assertThat(tx.getType()).isEqualTo(TransactionType.TRANSFER);
+        assertThat(tx.getStatus()).isEqualTo(TransactionStatus.PENDING);
+        assertThat(tx.getSourceAccountId()).isEqualTo(accountId);
+        assertThat(tx.getDestinationAccountId()).isEqualTo(destId);
+        assertThat(tx.getAmount()).isEqualTo(30000L);
+        assertThat(tx.getCurrency()).isEqualTo(BankingConstants.DEFAULT_CURRENCY);
+        assertThat(tx.getDescription()).isEqualTo("Transferência PIX");
+        assertThat(tx.getRequestedBy()).isEqualTo(requestedBy);
+        assertThat(tx.getCorrelationId()).isEqualTo(correlationId);
+        assertThat(tx.getCreatedAt()).isEqualTo(now);
+        assertThat(tx.getUpdatedAt()).isEqualTo(now);
+        assertThat(tx.getCompletedAt()).isNull();
+        assertThat(tx.getVersion()).isEqualTo(0L);
+    }
+
+    @Test
+    @DisplayName("createTransfer throws IllegalArgumentException when source and destination are the same")
+    void shouldThrowWhenSameAccountInTransfer() {
+        assertThatThrownBy(() -> FinancialTransaction.createTransfer(txId, accountId, accountId, 1000L, "desc", requestedBy, correlationId, now))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("must be different");
+    }
+
+    @Test
     @DisplayName("createDeposit throws IllegalArgumentException when amount <= 0")
     void shouldThrowExceptionWhenDepositAmountIsZeroOrNegative() {
         assertThatThrownBy(() -> FinancialTransaction.createDeposit(txId, accountId, 0L, "desc", requestedBy, correlationId, now))

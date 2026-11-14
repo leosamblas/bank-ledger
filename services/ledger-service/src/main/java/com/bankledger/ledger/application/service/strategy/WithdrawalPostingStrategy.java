@@ -7,6 +7,7 @@ import com.bankledger.ledger.domain.exception.InsufficientFundsException;
 import com.bankledger.ledger.domain.model.Entry;
 import com.bankledger.ledger.domain.model.EntryApplicationResult;
 import com.bankledger.ledger.domain.model.EntryDirection;
+import com.bankledger.ledger.domain.model.JournalType;
 import com.bankledger.ledger.domain.model.LedgerAccount;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -26,7 +27,7 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class WithdrawalPostingStrategy implements JournalPostingStrategy {
 
-    public static final String TRANSACTION_TYPE = "WITHDRAWAL";
+    public static final String TRANSACTION_TYPE = JournalType.WITHDRAWAL.name();
     public static final String DESCRIPTION = "Saque contábil";
     public static final String REJECTION_CODE = BankingErrorCodes.INSUFFICIENT_FUNDS;
     public static final String REJECTION_REASON = "Saldo insuficiente para efetuar o saque.";

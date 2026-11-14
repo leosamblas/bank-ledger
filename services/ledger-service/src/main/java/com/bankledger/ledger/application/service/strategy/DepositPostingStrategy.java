@@ -5,6 +5,7 @@ import com.bankledger.ledger.domain.command.PostJournalCommand;
 import com.bankledger.ledger.domain.model.Entry;
 import com.bankledger.ledger.domain.model.EntryApplicationResult;
 import com.bankledger.ledger.domain.model.EntryDirection;
+import com.bankledger.ledger.domain.model.JournalType;
 import com.bankledger.ledger.domain.model.LedgerAccount;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
@@ -21,7 +22,7 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class DepositPostingStrategy implements JournalPostingStrategy {
 
-    public static final String TRANSACTION_TYPE = "DEPOSIT";
+    public static final String TRANSACTION_TYPE = JournalType.DEPOSIT.name();
     public static final String DESCRIPTION = "Depósito contábil";
 
     private final CashShardResolver cashShardResolver;

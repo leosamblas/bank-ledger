@@ -1,0 +1,16 @@
+{
+  "name": "bank-ledger-load-tests",
+  "version": "1.0.0",
+  "description": "Pure JavaScript load testing suite for Bank Ledger Account Service",
+  "type": "module",
+  "scripts": {
+    "test": "node --test"
+  },
+  "keywords": [
+    "load-test",
+    "performance",
+    "bank-ledger"
+  ],
+  "author": "",
+  "license": "ISC"
+}

@@ -239,3 +239,21 @@ test('runLoadTest supports custom HTTP headers and method', async () => {
   assert.equal(capturedHeaders['X-Custom-Header'], 'test-val');
 });
 
+test('runLoadTest handles JSON serialization failure gracefully', async () => {
+  const circularPayload = {};
+  circularPayload.self = circularPayload;
+
+  const summary = await runLoadTest({
+    url: 'http://localhost:8081/api/v1/accounts',
+    concurrency: 2,
+    totalRequests: 3,
+    payloadGenerator: () => circularPayload,
+  });
+
+  assert.equal(summary.totalRequests, 3);
+  assert.equal(summary.failedRequests, 3);
+  assert.equal(summary.successfulRequests, 0);
+  assert.equal(summary.statusCodes['ERR'], 3);
+});
+
+

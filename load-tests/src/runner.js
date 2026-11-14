@@ -66,7 +66,13 @@ export async function runLoadTest(options = {}) {
         continue;
       }
 
-      const body = JSON.stringify(payload);
+      let body;
+      try {
+        body = JSON.stringify(payload);
+      } catch (err) {
+        tracker.record(0, 0, err);
+        continue;
+      }
       let response = null;
       let error = null;
       const reqStart = performance.now();

@@ -6,6 +6,10 @@ import com.bankledger.ledger.application.port.out.LedgerAccountRepositoryPort;
 import com.bankledger.ledger.application.port.out.OutboxPort;
 import com.bankledger.ledger.application.service.CashShardResolver;
 import com.bankledger.ledger.application.service.PostJournalService;
+import com.bankledger.ledger.application.service.strategy.DepositPostingStrategy;
+import com.bankledger.ledger.application.service.strategy.JournalPostingStrategy;
+import com.bankledger.ledger.application.service.strategy.TransferPostingStrategy;
+import com.bankledger.ledger.application.service.strategy.WithdrawalPostingStrategy;
 import com.bankledger.ledger.domain.command.PostJournalCommand;
 import com.bankledger.ledger.domain.event.EntryPostedEvent;
 import com.bankledger.ledger.domain.event.JournalPostedEvent;
@@ -72,11 +76,16 @@ class PostJournalServiceTest {
     void setUp() {
         objectMapper = JsonMapper.builder().build();
         fixedClock = Clock.fixed(FIXED_NOW, ZoneOffset.UTC);
+        List<JournalPostingStrategy> strategies = List.of(
+                new DepositPostingStrategy(cashShardResolver),
+                new WithdrawalPostingStrategy(cashShardResolver),
+                new TransferPostingStrategy()
+        );
         postJournalService = new PostJournalService(
                 ledgerAccountRepositoryPort,
                 journalRepositoryPort,
                 outboxPort,
-                cashShardResolver,
+                strategies,
                 objectMapper,
                 fixedClock
         );

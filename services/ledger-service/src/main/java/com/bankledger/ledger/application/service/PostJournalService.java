@@ -5,15 +5,15 @@ import com.bankledger.ledger.application.port.in.PostJournalUseCase;
 import com.bankledger.ledger.application.port.out.JournalRepositoryPort;
 import com.bankledger.ledger.application.port.out.LedgerAccountRepositoryPort;
 import com.bankledger.ledger.application.port.out.OutboxPort;
+import com.bankledger.ledger.application.service.strategy.JournalPostingStrategy;
+import com.bankledger.ledger.application.service.strategy.PostingAccountsPair;
+import com.bankledger.ledger.application.service.strategy.PostingEntriesResult;
 import com.bankledger.ledger.domain.command.PostJournalCommand;
 import com.bankledger.ledger.domain.event.EntryPostedEvent;
 import com.bankledger.ledger.domain.event.JournalPostedEvent;
 import com.bankledger.ledger.domain.event.JournalRejectedEvent;
-import com.bankledger.ledger.domain.exception.InsufficientFundsException;
 import com.bankledger.ledger.domain.exception.LedgerAccountNotFoundException;
 import com.bankledger.ledger.domain.model.Entry;
-import com.bankledger.ledger.domain.model.EntryApplicationResult;
-import com.bankledger.ledger.domain.model.EntryDirection;
 import com.bankledger.ledger.domain.model.Journal;
 import com.bankledger.ledger.domain.model.LedgerAccount;
 import lombok.RequiredArgsConstructor;
@@ -26,14 +26,14 @@ import java.time.Clock;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 
 /**
  * Core application service executing double-entry bookkeeping transactions atomically.
- * Enforces pessimistic locking ordered by account UUID to prevent deadlocks (ADR 0002),
+ * Orchestrates posting strategies for account resolution and entry generation,
+ * enforces pessimistic locking ordered by account UUID to prevent deadlocks (ADR 0002),
  * checks idempotency, evaluates balance constraints, persists journal & entries,
  * and publishes events to transactional outbox.
  */
@@ -46,7 +46,7 @@ public class PostJournalService implements PostJournalUseCase {
     private final LedgerAccountRepositoryPort ledgerAccountRepositoryPort;
     private final JournalRepositoryPort journalRepositoryPort;
     private final OutboxPort outboxPort;
-    private final CashShardResolver cashShardResolver;
+    private final List<JournalPostingStrategy> strategies;
     private final ObjectMapper objectMapper;
     private final Clock clock;
 
@@ -61,217 +61,66 @@ public class PostJournalService implements PostJournalUseCase {
             return existing.get();
         }
 
-        String type = command.type().toUpperCase(Locale.ROOT);
-        return switch (type) {
-            case "DEPOSIT" -> processDeposit(command);
-            case "WITHDRAWAL" -> processWithdrawal(command);
-            case "TRANSFER" -> processTransfer(command);
-            default -> throw new IllegalArgumentException("Unsupported transaction type: " + command.type());
-        };
-    }
+        // 2. Resolve matching strategy for transaction type
+        JournalPostingStrategy strategy = strategies.stream()
+                .filter(s -> s.supports(command.type()))
+                .findFirst()
+                .orElseThrow(() -> new IllegalArgumentException("Unsupported transaction type: " + command.type()));
 
-    private Journal processDeposit(PostJournalCommand command) {
-        if (command.destinationAccountId() == null) {
-            throw new IllegalArgumentException("Destination account ID is required for deposit");
-        }
-        UUID cashShardId = cashShardResolver.resolveShardId(command.terminalId(), command.transactionId());
-        UUID customerAccountId = command.destinationAccountId();
+        // 3. Resolve accounts to lock
+        PostingAccountsPair accountsPair = strategy.resolveAccountsToLock(command);
 
-        LockedAccounts locked = lockAccountsInOrder(cashShardId, customerAccountId);
-        LedgerAccount cashAccount = locked.accountA();
-        LedgerAccount customerAccount = locked.accountB();
+        // 4. Pessimistic lock in deterministic UUID order (ADR 0002)
+        LockedAccounts locked = lockAccountsInOrder(accountsPair.accountIdA(), accountsPair.accountIdB());
 
         Instant now = Instant.now(clock);
         UUID journalId = UUID.randomUUID();
 
-        // Debit cash shard (Asset increases), Credit customer (Liability to customer increases)
-        EntryApplicationResult cashResult = cashAccount.applyEntry(EntryDirection.DEBIT, command.amount());
-        EntryApplicationResult customerResult = customerAccount.applyEntry(EntryDirection.CREDIT, command.amount());
+        // 5. Generate entries via strategy
+        PostingEntriesResult result = strategy.generateEntries(
+                command,
+                locked.accountA(),
+                locked.accountB(),
+                journalId,
+                now
+        );
 
-        Entry cashEntry = new Entry(
-                UUID.randomUUID(),
-                journalId,
-                cashAccount.getId(),
-                EntryDirection.DEBIT,
-                command.amount(),
-                cashResult.balanceAfter(),
-                cashResult.sequence(),
-                now
-        );
-        Entry customerEntry = new Entry(
-                UUID.randomUUID(),
-                journalId,
-                customerAccount.getId(),
-                EntryDirection.CREDIT,
-                command.amount(),
-                customerResult.balanceAfter(),
-                customerResult.sequence(),
-                now
-        );
-        List<Entry> entries = List.of(cashEntry, customerEntry);
+        // 6. Handle rejection if strategy rejected transaction
+        if (result.isRejected()) {
+            return handleRejection(command, now, journalId, result.rejectionCode(), result.rejectionReason());
+        }
+
+        // 7. Persist updated accounts and balanced journal
+        ledgerAccountRepositoryPort.save(locked.accountA());
+        ledgerAccountRepositoryPort.save(locked.accountB());
 
         Journal journal = Journal.createPosted(
                 journalId,
                 command.transactionId(),
                 command.type(),
-                "Depósito contábil",
+                strategy.getJournalDescription(command),
                 command.amount(),
                 command.currency(),
                 command.correlationId(),
                 now,
-                entries
+                result.entries()
         );
 
-        ledgerAccountRepositoryPort.save(cashAccount);
-        ledgerAccountRepositoryPort.save(customerAccount);
         Journal savedJournal = journalRepositoryPort.save(journal);
 
-        publishPostedOutboxEvents(savedJournal, entries);
+        // 8. Publish outbox events (JournalPostedEvent & EntryPostedEvents)
+        publishPostedOutboxEvents(savedJournal, result.entries());
 
         return savedJournal;
     }
 
-    private Journal processWithdrawal(PostJournalCommand command) {
-        if (command.sourceAccountId() == null) {
-            throw new IllegalArgumentException("Source account ID is required for withdrawal");
-        }
-        UUID customerAccountId = command.sourceAccountId();
-        UUID cashShardId = cashShardResolver.resolveShardId(command.terminalId(), command.transactionId());
-
-        LockedAccounts locked = lockAccountsInOrder(customerAccountId, cashShardId);
-        LedgerAccount customerAccount = locked.accountA();
-        LedgerAccount cashAccount = locked.accountB();
-
-        Instant now = Instant.now(clock);
-
-        EntryApplicationResult customerResult;
-        try {
-            customerResult = customerAccount.applyEntry(EntryDirection.DEBIT, command.amount());
-        } catch (InsufficientFundsException ex) {
-            log.warn("Withdrawal rejected due to insufficient funds: transactionId={}, accountId={}",
-                    command.transactionId(), customerAccountId);
-            return handleInsufficientFunds(command, now, "Saldo insuficiente para efetuar o saque.");
-        }
-
-        EntryApplicationResult cashResult = cashAccount.applyEntry(EntryDirection.CREDIT, command.amount());
-
-        UUID journalId = UUID.randomUUID();
-        Entry customerEntry = new Entry(
-                UUID.randomUUID(),
-                journalId,
-                customerAccount.getId(),
-                EntryDirection.DEBIT,
-                command.amount(),
-                customerResult.balanceAfter(),
-                customerResult.sequence(),
-                now
-        );
-        Entry cashEntry = new Entry(
-                UUID.randomUUID(),
-                journalId,
-                cashAccount.getId(),
-                EntryDirection.CREDIT,
-                command.amount(),
-                cashResult.balanceAfter(),
-                cashResult.sequence(),
-                now
-        );
-        List<Entry> entries = List.of(customerEntry, cashEntry);
-
-        Journal journal = Journal.createPosted(
-                journalId,
-                command.transactionId(),
-                command.type(),
-                "Saque contábil",
-                command.amount(),
-                command.currency(),
-                command.correlationId(),
-                now,
-                entries
-        );
-
-        ledgerAccountRepositoryPort.save(customerAccount);
-        ledgerAccountRepositoryPort.save(cashAccount);
-        Journal savedJournal = journalRepositoryPort.save(journal);
-
-        publishPostedOutboxEvents(savedJournal, entries);
-
-        return savedJournal;
-    }
-
-    private Journal processTransfer(PostJournalCommand command) {
-        if (command.sourceAccountId() == null) {
-            throw new IllegalArgumentException("Source account ID is required for transfer");
-        }
-        if (command.destinationAccountId() == null) {
-            throw new IllegalArgumentException("Destination account ID is required for transfer");
-        }
-        UUID sourceAccountId = command.sourceAccountId();
-        UUID destAccountId = command.destinationAccountId();
-
-        LockedAccounts locked = lockAccountsInOrder(sourceAccountId, destAccountId);
-        LedgerAccount sourceAccount = locked.accountA();
-        LedgerAccount destAccount = locked.accountB();
-
-        Instant now = Instant.now(clock);
-
-        EntryApplicationResult sourceResult;
-        try {
-            sourceResult = sourceAccount.applyEntry(EntryDirection.DEBIT, command.amount());
-        } catch (InsufficientFundsException ex) {
-            log.warn("Transfer rejected due to insufficient funds: transactionId={}, accountId={}",
-                    command.transactionId(), sourceAccountId);
-            return handleInsufficientFunds(command, now, "Saldo insuficiente para efetuar a transferência.");
-        }
-
-        EntryApplicationResult destResult = destAccount.applyEntry(EntryDirection.CREDIT, command.amount());
-
-        UUID journalId = UUID.randomUUID();
-        Entry sourceEntry = new Entry(
-                UUID.randomUUID(),
-                journalId,
-                sourceAccount.getId(),
-                EntryDirection.DEBIT,
-                command.amount(),
-                sourceResult.balanceAfter(),
-                sourceResult.sequence(),
-                now
-        );
-        Entry destEntry = new Entry(
-                UUID.randomUUID(),
-                journalId,
-                destAccount.getId(),
-                EntryDirection.CREDIT,
-                command.amount(),
-                destResult.balanceAfter(),
-                destResult.sequence(),
-                now
-        );
-        List<Entry> entries = List.of(sourceEntry, destEntry);
-
-        Journal journal = Journal.createPosted(
-                journalId,
-                command.transactionId(),
-                command.type(),
-                "Transferência contábil",
-                command.amount(),
-                command.currency(),
-                command.correlationId(),
-                now,
-                entries
-        );
-
-        ledgerAccountRepositoryPort.save(sourceAccount);
-        ledgerAccountRepositoryPort.save(destAccount);
-        Journal savedJournal = journalRepositoryPort.save(journal);
-
-        publishPostedOutboxEvents(savedJournal, entries);
-
-        return savedJournal;
-    }
-
-    private Journal handleInsufficientFunds(PostJournalCommand command, Instant now, String rejectReason) {
-        UUID journalId = UUID.randomUUID();
+    private Journal handleRejection(
+            PostJournalCommand command,
+            Instant now,
+            UUID journalId,
+            String rejectCode,
+            String rejectReason
+    ) {
         Journal rejectedJournal = Journal.createRejected(
                 journalId,
                 command.transactionId(),
@@ -281,7 +130,7 @@ public class PostJournalService implements PostJournalUseCase {
                 command.currency(),
                 command.correlationId(),
                 now,
-                "INSUFFICIENT_FUNDS",
+                rejectCode,
                 rejectReason
         );
 

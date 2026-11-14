@@ -4,7 +4,7 @@ import com.bankledger.commons.outbox.OutboxEvent;
 import com.bankledger.ledger.application.port.out.LedgerAccountRepositoryPort;
 import com.bankledger.ledger.application.port.out.OutboxPort;
 import com.bankledger.ledger.application.service.ProvisionAccountService;
-import com.bankledger.ledger.domain.event.AccountOpenedPayload;
+import com.bankledger.commons.events.v1.account.AccountOpenedPayload;
 import com.bankledger.ledger.domain.event.LedgerAccountProvisionedEvent;
 import com.bankledger.ledger.domain.model.AccountKind;
 import com.bankledger.ledger.domain.model.AccountStatus;
@@ -145,18 +145,18 @@ class ProvisionAccountServiceTest {
     }
 
     @Test
-    @DisplayName("Should fallback to clock now when openedAt is null in payload")
-    void shouldFallbackToClockNowWhenOpenedAtIsNull() {
+    @DisplayName("Should provision ledger account using payload openedAt")
+    void shouldProvisionLedgerAccountWithOpenedAt() {
         UUID accountId = UUID.randomUUID();
         AccountOpenedPayload payload = new AccountOpenedPayload(
                 accountId,
-                null,
-                null,
-                null,
+                UUID.randomUUID(),
+                "12345678900",
+                "Maria da Silva",
                 "0001",
                 "200000",
                 "2",
-                null
+                FIXED_NOW
         );
 
         when(ledgerAccountRepositoryPort.findById(accountId)).thenReturn(Optional.empty());

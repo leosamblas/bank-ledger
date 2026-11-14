@@ -1,6 +1,7 @@
 package com.bankledger.ledger.domain.event;
 
 import com.bankledger.commons.constant.KafkaTopics;
+import com.bankledger.commons.events.v1.ledger.JournalRejectedPayload;
 import com.bankledger.ledger.domain.model.JournalStatus;
 
 import java.io.Serializable;
@@ -34,5 +35,17 @@ public record JournalRejectedEvent(
         Objects.requireNonNull(rejectReason, "rejectReason must not be null");
         Objects.requireNonNull(correlationId, "correlationId must not be null");
         Objects.requireNonNull(rejectedAt, "rejectedAt must not be null");
+    }
+
+    public JournalRejectedPayload toPayload() {
+        return new JournalRejectedPayload(
+                transactionId,
+                type,
+                status.name(),
+                rejectCode,
+                rejectReason,
+                correlationId,
+                rejectedAt
+        );
     }
 }

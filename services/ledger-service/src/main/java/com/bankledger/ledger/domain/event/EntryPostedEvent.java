@@ -1,6 +1,7 @@
 package com.bankledger.ledger.domain.event;
 
 import com.bankledger.commons.constant.KafkaTopics;
+import com.bankledger.commons.events.v1.ledger.EntryPostedPayload;
 import com.bankledger.ledger.domain.model.EntryDirection;
 
 import java.io.Serializable;
@@ -35,5 +36,16 @@ public record EntryPostedEvent(
         Objects.requireNonNull(accountId, "accountId must not be null");
         Objects.requireNonNull(direction, "direction must not be null");
         Objects.requireNonNull(postedAt, "postedAt must not be null");
+    }
+
+    public EntryPostedPayload toPayload() {
+        return new EntryPostedPayload(
+                entryId,
+                journalId,
+                accountId,
+                direction.name(),
+                amount,
+                postedAt
+        );
     }
 }

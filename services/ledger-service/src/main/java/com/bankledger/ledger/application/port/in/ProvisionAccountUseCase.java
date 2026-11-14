@@ -1,6 +1,6 @@
 package com.bankledger.ledger.application.port.in;
 
-import com.bankledger.ledger.domain.event.AccountOpenedPayload;
+import com.bankledger.commons.events.v1.account.AccountOpenedPayload;
 
 /**
  * Inbound port for provisioning a ledger account upon receiving an AccountOpened event.

@@ -3,6 +3,10 @@ package com.bankledger.ledger.domain;
 import com.bankledger.commons.constant.BankingConstants;
 import com.bankledger.commons.constant.BankingErrorCodes;
 import com.bankledger.commons.constant.KafkaTopics;
+import com.bankledger.commons.events.v1.ledger.EntryPostedPayload;
+import com.bankledger.commons.events.v1.ledger.JournalPostedPayload;
+import com.bankledger.commons.events.v1.ledger.JournalRejectedPayload;
+import com.bankledger.commons.events.v1.ledger.PostJournalCommandPayload;
 import com.bankledger.ledger.domain.command.PostJournalCommand;
 import com.bankledger.ledger.domain.event.EntryPostedEvent;
 import com.bankledger.ledger.domain.event.JournalPostedEvent;
@@ -144,5 +148,49 @@ class DomainEventsAndCommandsTest {
         assertThat(event.postedAt()).isEqualTo(now);
         assertThat(EntryPostedEvent.TOPIC).isEqualTo(KafkaTopics.LEDGER_ENTRIES_V1);
         assertThat(EntryPostedEvent.EVENT_TYPE).isEqualTo("EntryPosted");
+    }
+
+    @Test
+    @DisplayName("Should convert between domain records and canonical payloads")
+    void shouldConvertDomainRecordsToCanonicalPayloads() {
+        UUID commandId = UUID.randomUUID();
+        UUID journalId = UUID.randomUUID();
+        UUID transactionId = UUID.randomUUID();
+        UUID accountId = UUID.randomUUID();
+        UUID correlationId = UUID.randomUUID();
+
+        // 1. PostJournalCommand <-> PostJournalCommandPayload
+        PostJournalCommand cmd = new PostJournalCommand(
+                commandId, transactionId, "DEPOSIT", 5000L, "BRL", null, accountId, "TERM-1", correlationId, now
+        );
+        PostJournalCommandPayload cmdPayload = cmd.toPayload();
+        assertThat(cmdPayload.commandId()).isEqualTo(commandId);
+        assertThat(cmdPayload.amount()).isEqualTo(5000L);
+        assertThat(PostJournalCommand.fromPayload(cmdPayload)).isEqualTo(cmd);
+
+        // 2. JournalPostedEvent -> JournalPostedPayload
+        JournalPostedEvent postedEvent = new JournalPostedEvent(
+                journalId, transactionId, "DEPOSIT", JournalStatus.POSTED, 5000L, "BRL", correlationId, now
+        );
+        JournalPostedPayload postedPayload = postedEvent.toPayload();
+        assertThat(postedPayload.journalId()).isEqualTo(journalId);
+        assertThat(postedPayload.status()).isEqualTo("POSTED");
+
+        // 3. JournalRejectedEvent -> JournalRejectedPayload
+        JournalRejectedEvent rejectedEvent = new JournalRejectedEvent(
+                transactionId, "WITHDRAWAL", JournalStatus.REJECTED, "ERR_CODE", "Reason", correlationId, now
+        );
+        JournalRejectedPayload rejectedPayload = rejectedEvent.toPayload();
+        assertThat(rejectedPayload.transactionId()).isEqualTo(transactionId);
+        assertThat(rejectedPayload.status()).isEqualTo("REJECTED");
+
+        // 4. EntryPostedEvent -> EntryPostedPayload
+        EntryPostedEvent entryEvent = new EntryPostedEvent(
+                UUID.randomUUID(), journalId, transactionId, accountId, EntryDirection.CREDIT, 5000L, 5000L, 1L, now
+        );
+        EntryPostedPayload entryPayload = entryEvent.toPayload();
+        assertThat(entryPayload.journalId()).isEqualTo(journalId);
+        assertThat(entryPayload.entryType()).isEqualTo("CREDIT");
+        assertThat(entryPayload.amount()).isEqualTo(5000L);
     }
 }

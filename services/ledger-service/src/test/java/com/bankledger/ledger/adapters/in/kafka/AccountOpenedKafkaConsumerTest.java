@@ -1,9 +1,9 @@
 package com.bankledger.ledger.adapters.in.kafka;
 
 import com.bankledger.commons.constant.KafkaTopics;
+import com.bankledger.commons.events.v1.account.AccountOpenedPayload;
 import com.bankledger.commons.inbox.InboxHandler;
 import com.bankledger.ledger.application.port.in.ProvisionAccountUseCase;
-import com.bankledger.ledger.domain.event.AccountOpenedPayload;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.common.header.internals.RecordHeader;
 import org.apache.kafka.common.header.internals.RecordHeaders;
@@ -168,11 +168,15 @@ class AccountOpenedKafkaConsumerTest {
         String directJson = String.format("""
                 {
                   "accountId": "%s",
+                  "customerId": "%s",
+                  "customerCpf": "12345678900",
+                  "customerName": "Maria Silva",
                   "branch": "0001",
                   "accountNumber": "300000",
-                  "checkDigit": "3"
+                  "checkDigit": "3",
+                  "openedAt": "2026-11-13T10:00:00Z"
                 }
-                """, accountId);
+                """, accountId, UUID.randomUUID());
 
         RecordHeaders headers = new RecordHeaders();
         headers.add(new RecordHeader("ce_id", headerEventId.toString().getBytes(StandardCharsets.UTF_8)));
@@ -202,11 +206,15 @@ class AccountOpenedKafkaConsumerTest {
         String directJson = String.format("""
                 {
                   "accountId": "%s",
+                  "customerId": "%s",
+                  "customerCpf": "12345678900",
+                  "customerName": "Maria Silva",
                   "branch": "0001",
                   "accountNumber": "100000",
-                  "checkDigit": "1"
+                  "checkDigit": "1",
+                  "openedAt": "2026-11-13T10:00:00Z"
                 }
-                """, accountId);
+                """, accountId, UUID.randomUUID());
 
         ConsumerRecord<String, String> record = new ConsumerRecord<>(
                 TOPIC, 0, 25L, accountId.toString(), directJson
@@ -229,11 +237,15 @@ class AccountOpenedKafkaConsumerTest {
         String directJson = String.format("""
                 {
                   "accountId": "%s",
+                  "customerId": "%s",
+                  "customerCpf": "12345678900",
+                  "customerName": "Maria Silva",
                   "branch": "0001",
                   "accountNumber": "100000",
-                  "checkDigit": "1"
+                  "checkDigit": "1",
+                  "openedAt": "2026-11-13T10:00:00Z"
                 }
-                """, accountId);
+                """, accountId, UUID.randomUUID());
 
         ConsumerRecord<String, String> record = new ConsumerRecord<>(
                 TOPIC, 0, 30L, accountId.toString(), directJson

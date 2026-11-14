@@ -5,7 +5,7 @@ import com.bankledger.commons.outbox.OutboxEvent;
 import com.bankledger.ledger.application.port.in.ProvisionAccountUseCase;
 import com.bankledger.ledger.application.port.out.LedgerAccountRepositoryPort;
 import com.bankledger.ledger.application.port.out.OutboxPort;
-import com.bankledger.ledger.domain.event.AccountOpenedPayload;
+import com.bankledger.commons.events.v1.account.AccountOpenedPayload;
 import com.bankledger.ledger.domain.event.LedgerAccountProvisionedEvent;
 import com.bankledger.ledger.domain.model.AccountKind;
 import com.bankledger.ledger.domain.model.AccountStatus;

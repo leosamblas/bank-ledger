@@ -1,6 +1,7 @@
 package com.bankledger.ledger.domain.event;
 
 import com.bankledger.commons.constant.KafkaTopics;
+import com.bankledger.commons.events.v1.ledger.JournalPostedPayload;
 import com.bankledger.ledger.domain.model.JournalStatus;
 
 import java.io.Serializable;
@@ -35,5 +36,18 @@ public record JournalPostedEvent(
         Objects.requireNonNull(currency, "currency must not be null");
         Objects.requireNonNull(correlationId, "correlationId must not be null");
         Objects.requireNonNull(postedAt, "postedAt must not be null");
+    }
+
+    public JournalPostedPayload toPayload() {
+        return new JournalPostedPayload(
+                journalId,
+                transactionId,
+                type,
+                status.name(),
+                totalAmount,
+                currency,
+                correlationId,
+                postedAt
+        );
     }
 }

@@ -3,6 +3,7 @@ package com.bankledger.account.domain.event;
 import com.bankledger.account.domain.model.Account;
 import com.bankledger.account.domain.model.Customer;
 import com.bankledger.commons.constant.KafkaTopics;
+import com.bankledger.commons.events.v1.account.AccountOpenedPayload;
 
 import java.io.Serializable;
 import java.time.Instant;
@@ -58,5 +59,32 @@ public record AccountOpenedEvent(
 
     public static AccountOpenedEvent of(Account account, Customer customer) {
         return of(account, customer, account.getCreatedAt());
+    }
+
+    public AccountOpenedPayload toPayload() {
+        return new AccountOpenedPayload(
+                accountId,
+                customerId,
+                customerCpf,
+                customerName,
+                branch,
+                accountNumber,
+                checkDigit,
+                openedAt
+        );
+    }
+
+    public static AccountOpenedEvent fromPayload(AccountOpenedPayload payload) {
+        Objects.requireNonNull(payload, "payload must not be null");
+        return new AccountOpenedEvent(
+                payload.accountId(),
+                payload.customerId(),
+                payload.customerCpf(),
+                payload.customerName(),
+                payload.branch(),
+                payload.accountNumber(),
+                payload.checkDigit(),
+                payload.openedAt()
+        );
     }
 }

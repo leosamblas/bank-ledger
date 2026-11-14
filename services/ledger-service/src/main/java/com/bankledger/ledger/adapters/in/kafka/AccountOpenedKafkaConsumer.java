@@ -1,9 +1,9 @@
 package com.bankledger.ledger.adapters.in.kafka;
 
 import com.bankledger.commons.constant.KafkaTopics;
+import com.bankledger.commons.events.v1.account.AccountOpenedPayload;
 import com.bankledger.commons.inbox.InboxHandler;
 import com.bankledger.ledger.application.port.in.ProvisionAccountUseCase;
-import com.bankledger.ledger.domain.event.AccountOpenedPayload;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
@@ -129,13 +129,16 @@ public class AccountOpenedKafkaConsumer {
         }
 
         UUID accountId = getRequiredUuid(dataNode, "accountId");
-        UUID customerId = getOptionalUuid(dataNode, "customerId");
-        String customerCpf = getOptionalText(dataNode, "customerCpf");
-        String customerName = getOptionalText(dataNode, "customerName");
+        UUID customerId = getRequiredUuid(dataNode, "customerId");
+        String customerCpf = getRequiredText(dataNode, "customerCpf");
+        String customerName = getRequiredText(dataNode, "customerName");
         String branch = getRequiredText(dataNode, "branch");
         String accountNumber = getRequiredText(dataNode, "accountNumber");
         String checkDigit = getRequiredText(dataNode, "checkDigit");
         Instant openedAt = getOptionalInstant(dataNode, "openedAt");
+        if (openedAt == null) {
+            openedAt = Instant.now();
+        }
 
         return new AccountOpenedPayload(
                 accountId,

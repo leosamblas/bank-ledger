@@ -1,6 +1,7 @@
 package com.bankledger.transaction.domain.command;
 
 import com.bankledger.commons.constant.BankingConstants;
+import com.bankledger.commons.events.v1.ledger.PostJournalCommandPayload;
 
 import java.io.Serializable;
 import java.time.Instant;
@@ -44,5 +45,36 @@ public record PostJournalCommand(
         if (timestamp == null) {
             timestamp = Instant.now();
         }
+    }
+
+    public PostJournalCommandPayload toPayload() {
+        return new PostJournalCommandPayload(
+                commandId,
+                transactionId,
+                type,
+                amount,
+                currency,
+                sourceAccountId,
+                destinationAccountId,
+                terminalId,
+                correlationId,
+                timestamp
+        );
+    }
+
+    public static PostJournalCommand fromPayload(PostJournalCommandPayload payload) {
+        Objects.requireNonNull(payload, "payload must not be null");
+        return new PostJournalCommand(
+                payload.commandId(),
+                payload.transactionId(),
+                payload.type(),
+                payload.amount(),
+                payload.currency(),
+                payload.sourceAccountId(),
+                payload.destinationAccountId(),
+                payload.terminalId(),
+                payload.correlationId(),
+                payload.timestamp()
+        );
     }
 }

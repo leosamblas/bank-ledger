@@ -25,6 +25,19 @@ test('generateValidCpf generates an 11-digit valid CPF satisfying modulo 11', ()
   }
 });
 
+function calculateExactElapsedYears(birthDateStr, referenceDate = new Date()) {
+  const [bYear, bMonth, bDay] = birthDateStr.split('-').map(Number);
+  const refYear = referenceDate.getUTCFullYear();
+  const refMonth = referenceDate.getUTCMonth() + 1;
+  const refDay = referenceDate.getUTCDate();
+
+  let age = refYear - bYear;
+  if (refMonth < bMonth || (refMonth === bMonth && refDay < bDay)) {
+    age -= 1;
+  }
+  return age;
+}
+
 test('generateCustomerPayload produces a valid AccountCreationRequest with age >= 18 and unique fields', () => {
   const p1 = generateCustomerPayload();
   const p2 = generateCustomerPayload();
@@ -36,6 +49,7 @@ test('generateCustomerPayload produces a valid AccountCreationRequest with age >
   assert.match(p1.birthDate, /^\d{4}-\d{2}-\d{2}$/);
   const birthYear = parseInt(p1.birthDate.substring(0, 4), 10);
   assert.ok(new Date().getFullYear() - birthYear >= 18);
+  assert.ok(calculateExactElapsedYears(p1.birthDate) >= 18, 'Customer must have reached 18th birthday');
   assert.ok(p1.password.length >= 8);
 });
 
@@ -50,11 +64,9 @@ test('generateCustomerPayload generates 100 payloads with unique CPFs and emails
     cpfs.add(p.cpf);
     emails.add(p.email);
 
-    // Validate birthDate range (e.g., between 18 and 80 years old)
-    const birthDate = new Date(p.birthDate);
-    const now = new Date();
-    const age = now.getFullYear() - birthDate.getFullYear();
-    assert.ok(age >= 18 && age <= 100, `Age ${age} outside valid range`);
+    // Validate true elapsed calendar age matches Account Service Period.between >= 18 rule
+    const exactAge = calculateExactElapsedYears(p.birthDate);
+    assert.ok(exactAge >= 18 && exactAge <= 65, `Exact age ${exactAge} outside [18, 65] range for ${p.birthDate}`);
 
     // Verify phone DDD and format
     assert.match(p.phone, /^\+55\d{10,11}$/);

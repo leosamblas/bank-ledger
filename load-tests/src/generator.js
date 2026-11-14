@@ -85,6 +85,8 @@ export function generateValidCpf() {
 
 /**
  * Generates a birth date formatted as YYYY-MM-DD for a customer aged between minAge and maxAge.
+ * Guarantees that the customer has strictly reached their minAge birthday relative to today (UTC),
+ * preventing CustomerUnderageException in Account Service domain validation.
  *
  * @param {number} [minAge=18]
  * @param {number} [maxAge=65]
@@ -92,10 +94,15 @@ export function generateValidCpf() {
  */
 function generateBirthDate(minAge = 18, maxAge = 65) {
   const now = new Date();
-  const age = minAge + Math.floor(Math.random() * (maxAge - minAge + 1));
-  const year = now.getFullYear() - age;
-  const month = String(1 + Math.floor(Math.random() * 12)).padStart(2, '0');
-  const day = String(1 + Math.floor(Math.random() * 28)).padStart(2, '0');
+  const maxBirth = new Date(Date.UTC(now.getUTCFullYear() - minAge, now.getUTCMonth(), now.getUTCDate()));
+  const minBirth = new Date(Date.UTC(now.getUTCFullYear() - maxAge, now.getUTCMonth(), now.getUTCDate()));
+
+  const birthTimestamp = minBirth.getTime() + Math.random() * (maxBirth.getTime() - minBirth.getTime());
+  const birthDate = new Date(birthTimestamp);
+
+  const year = birthDate.getUTCFullYear();
+  const month = String(birthDate.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(birthDate.getUTCDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
 }
 

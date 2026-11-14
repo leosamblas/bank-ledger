@@ -1,5 +1,6 @@
 package com.bankledger.ledger.application.service.strategy;
 
+import com.bankledger.commons.constant.BankingErrorCodes;
 import com.bankledger.ledger.application.service.CashShardResolver;
 import com.bankledger.ledger.domain.command.PostJournalCommand;
 import com.bankledger.ledger.domain.model.AccountKind;
@@ -334,7 +335,7 @@ class PostingStrategyTest {
             PostingEntriesResult result = strategy.generateEntries(command, customerAccount, cashAccount, journalId, NOW);
 
             assertThat(result.isRejected()).isTrue();
-            assertThat(result.rejectionCode()).isEqualTo("INSUFFICIENT_FUNDS");
+            assertThat(result.rejectionCode()).isEqualTo(BankingErrorCodes.INSUFFICIENT_FUNDS);
             assertThat(result.rejectionReason()).isEqualTo("Saldo insuficiente para efetuar o saque.");
             assertThat(result.entries()).isEmpty();
 
@@ -505,7 +506,7 @@ class PostingStrategyTest {
             PostingEntriesResult result = strategy.generateEntries(command, sourceAccount, destAccount, journalId, NOW);
 
             assertThat(result.isRejected()).isTrue();
-            assertThat(result.rejectionCode()).isEqualTo("INSUFFICIENT_FUNDS");
+            assertThat(result.rejectionCode()).isEqualTo(BankingErrorCodes.INSUFFICIENT_FUNDS);
             assertThat(result.rejectionReason()).isEqualTo("Saldo insuficiente para efetuar a transferência.");
             assertThat(result.entries()).isEmpty();
 

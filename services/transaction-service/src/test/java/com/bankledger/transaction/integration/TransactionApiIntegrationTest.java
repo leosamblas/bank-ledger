@@ -1,5 +1,7 @@
 package com.bankledger.transaction.integration;
 
+import com.bankledger.commons.constant.BankingConstants;
+import com.bankledger.commons.constant.HttpHeaderConstants;
 import com.bankledger.commons.outbox.OutboxEventRepository;
 import com.bankledger.transaction.adapters.in.rest.dto.DepositRequest;
 import com.bankledger.transaction.adapters.in.rest.dto.WithdrawalRequest;
@@ -118,18 +120,18 @@ class TransactionApiIntegrationTest {
 
         // 1. Initial Deposit Request -> 202 Accepted + Location header + PENDING body
         MvcResult initialResult = mockMvc.perform(post("/api/v1/transactions/deposits")
-                        .header("Idempotency-Key", idempotencyKey.toString())
-                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenA)
+                        .header(HttpHeaderConstants.IDEMPOTENCY_KEY, idempotencyKey.toString())
+                        .header(HttpHeaderConstants.AUTHORIZATION, HttpHeaderConstants.BEARER_PREFIX + tokenA)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(depositBody))
                 .andExpect(status().isAccepted())
-                .andExpect(header().string("Location", containsString("/api/v1/transactions/")))
+                .andExpect(header().string(HttpHeaderConstants.LOCATION, containsString("/api/v1/transactions/")))
                 .andExpect(jsonPath("$.id").isNotEmpty())
                 .andExpect(jsonPath("$.type").value("DEPOSIT"))
                 .andExpect(jsonPath("$.status").value("PENDING"))
                 .andExpect(jsonPath("$.amount").value(15000))
                 .andExpect(jsonPath("$.destinationAccountId").value(accountA.toString()))
-                .andExpect(jsonPath("$.currency").value("BRL"))
+                .andExpect(jsonPath("$.currency").value(BankingConstants.DEFAULT_CURRENCY))
                 .andReturn();
 
         JsonNode initialJson = objectMapper.readTree(initialResult.getResponse().getContentAsString());
@@ -138,12 +140,12 @@ class TransactionApiIntegrationTest {
 
         // 2. Replay with identical key and body -> identical 202 Accepted
         MvcResult replayResult = mockMvc.perform(post("/api/v1/transactions/deposits")
-                        .header("Idempotency-Key", idempotencyKey.toString())
-                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenA)
+                        .header(HttpHeaderConstants.IDEMPOTENCY_KEY, idempotencyKey.toString())
+                        .header(HttpHeaderConstants.AUTHORIZATION, HttpHeaderConstants.BEARER_PREFIX + tokenA)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(depositBody))
                 .andExpect(status().isAccepted())
-                .andExpect(header().string("Location", "/api/v1/transactions/" + txId))
+                .andExpect(header().string(HttpHeaderConstants.LOCATION, "/api/v1/transactions/" + txId))
                 .andExpect(jsonPath("$.id").value(txIdStr))
                 .andExpect(jsonPath("$.status").value("PENDING"))
                 .andExpect(jsonPath("$.amount").value(15000))
@@ -157,8 +159,8 @@ class TransactionApiIntegrationTest {
         String alteredBody = objectMapper.writeValueAsString(alteredRequest);
 
         mockMvc.perform(post("/api/v1/transactions/deposits")
-                        .header("Idempotency-Key", idempotencyKey.toString())
-                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenA)
+                        .header(HttpHeaderConstants.IDEMPOTENCY_KEY, idempotencyKey.toString())
+                        .header(HttpHeaderConstants.AUTHORIZATION, HttpHeaderConstants.BEARER_PREFIX + tokenA)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(alteredBody))
                 .andExpect(status().is(422))
@@ -167,7 +169,7 @@ class TransactionApiIntegrationTest {
 
         // 4. GET /api/v1/transactions/{id} with tokenA -> 200 OK
         mockMvc.perform(get("/api/v1/transactions/" + txId)
-                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenA))
+                        .header(HttpHeaderConstants.AUTHORIZATION, HttpHeaderConstants.BEARER_PREFIX + tokenA))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(txIdStr))
                 .andExpect(jsonPath("$.type").value("DEPOSIT"))
@@ -177,7 +179,7 @@ class TransactionApiIntegrationTest {
 
         // 5. GET /api/v1/transactions/{id} with tokenB (different customer) -> 404 Not Found (IDOR prevention)
         mockMvc.perform(get("/api/v1/transactions/" + txId)
-                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenB))
+                        .header(HttpHeaderConstants.AUTHORIZATION, HttpHeaderConstants.BEARER_PREFIX + tokenB))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.status").value(404))
                 .andExpect(jsonPath("$.title").value("Not Found"));
@@ -195,12 +197,12 @@ class TransactionApiIntegrationTest {
         String body = objectMapper.writeValueAsString(withdrawalRequest);
 
         MvcResult result = mockMvc.perform(post("/api/v1/transactions/withdrawals")
-                        .header("Idempotency-Key", idempotencyKey.toString())
-                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                        .header(HttpHeaderConstants.IDEMPOTENCY_KEY, idempotencyKey.toString())
+                        .header(HttpHeaderConstants.AUTHORIZATION, HttpHeaderConstants.BEARER_PREFIX + token)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body))
                 .andExpect(status().isAccepted())
-                .andExpect(header().string("Location", containsString("/api/v1/transactions/")))
+                .andExpect(header().string(HttpHeaderConstants.LOCATION, containsString("/api/v1/transactions/")))
                 .andExpect(jsonPath("$.id").isNotEmpty())
                 .andExpect(jsonPath("$.type").value("WITHDRAWAL"))
                 .andExpect(jsonPath("$.status").value("PENDING"))
@@ -226,7 +228,7 @@ class TransactionApiIntegrationTest {
         // Missing Idempotency-Key header -> 400 Bad Request
         DepositRequest validRequest = new DepositRequest(1000L, "Sem chave");
         mockMvc.perform(post("/api/v1/transactions/deposits")
-                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                        .header(HttpHeaderConstants.AUTHORIZATION, HttpHeaderConstants.BEARER_PREFIX + token)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(validRequest)))
                 .andExpect(status().isBadRequest())
@@ -234,7 +236,7 @@ class TransactionApiIntegrationTest {
 
         // Missing Authorization header -> 401 Unauthorized
         mockMvc.perform(post("/api/v1/transactions/deposits")
-                        .header("Idempotency-Key", UUID.randomUUID().toString())
+                        .header(HttpHeaderConstants.IDEMPOTENCY_KEY, UUID.randomUUID().toString())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(validRequest)))
                 .andExpect(status().isUnauthorized())
@@ -242,8 +244,8 @@ class TransactionApiIntegrationTest {
 
         // Invalid token -> 401 Unauthorized
         mockMvc.perform(post("/api/v1/transactions/deposits")
-                        .header("Idempotency-Key", UUID.randomUUID().toString())
-                        .header(HttpHeaders.AUTHORIZATION, "Bearer invalid-jwt-token")
+                        .header(HttpHeaderConstants.IDEMPOTENCY_KEY, UUID.randomUUID().toString())
+                        .header(HttpHeaderConstants.AUTHORIZATION, HttpHeaderConstants.BEARER_PREFIX + "invalid-jwt-token")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(validRequest)))
                 .andExpect(status().isUnauthorized())
@@ -252,8 +254,8 @@ class TransactionApiIntegrationTest {
         // Negative amount -> 400 Bad Request
         DepositRequest invalidRequest = new DepositRequest(-1000L, "Valor negativo");
         mockMvc.perform(post("/api/v1/transactions/deposits")
-                        .header("Idempotency-Key", UUID.randomUUID().toString())
-                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                        .header(HttpHeaderConstants.IDEMPOTENCY_KEY, UUID.randomUUID().toString())
+                        .header(HttpHeaderConstants.AUTHORIZATION, HttpHeaderConstants.BEARER_PREFIX + token)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(invalidRequest)))
                 .andExpect(status().isBadRequest())

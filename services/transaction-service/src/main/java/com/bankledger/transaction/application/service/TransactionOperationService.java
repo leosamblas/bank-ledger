@@ -1,5 +1,6 @@
 package com.bankledger.transaction.application.service;
 
+import com.bankledger.commons.constant.KafkaTopics;
 import com.bankledger.commons.outbox.OutboxEvent;
 import com.bankledger.transaction.application.port.in.CreateDepositCommand;
 import com.bankledger.transaction.application.port.in.CreateDepositUseCase;
@@ -31,7 +32,7 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class TransactionOperationService implements CreateDepositUseCase, CreateWithdrawalUseCase {
 
-    public static final String TOPIC_LEDGER_COMMANDS = "ledger.commands.v1";
+    public static final String TOPIC_LEDGER_COMMANDS = KafkaTopics.LEDGER_COMMANDS_V1;
     public static final String AGGREGATE_TYPE = "FinancialTransaction";
     public static final String EVENT_TYPE_POST_JOURNAL = "PostJournalCommand";
 

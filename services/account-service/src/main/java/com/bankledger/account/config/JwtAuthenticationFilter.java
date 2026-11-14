@@ -3,6 +3,7 @@ package com.bankledger.account.config;
 import com.bankledger.account.adapters.in.rest.AuthenticatedUser;
 import com.bankledger.account.application.port.out.TokenClaims;
 import com.bankledger.account.application.port.out.TokenServicePort;
+import com.bankledger.commons.constant.HttpHeaderConstants;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -32,10 +33,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             HttpServletResponse response,
             FilterChain filterChain
     ) throws ServletException, IOException {
-        String authHeader = request.getHeader(HttpHeaders.AUTHORIZATION);
+        String authHeader = request.getHeader(HttpHeaderConstants.AUTHORIZATION);
 
-        if (authHeader != null && authHeader.startsWith("Bearer ")) {
-            String token = authHeader.substring(7).trim();
+        if (authHeader != null && authHeader.startsWith(HttpHeaderConstants.BEARER_PREFIX)) {
+            String token = authHeader.substring(HttpHeaderConstants.BEARER_PREFIX.length()).trim();
             if (!token.isBlank()) {
                 try {
                     TokenClaims claims = tokenServicePort.parseToken(token);

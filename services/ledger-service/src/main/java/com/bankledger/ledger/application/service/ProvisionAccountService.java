@@ -1,5 +1,6 @@
 package com.bankledger.ledger.application.service;
 
+import com.bankledger.commons.constant.BankingConstants;
 import com.bankledger.commons.outbox.OutboxEvent;
 import com.bankledger.ledger.application.port.in.ProvisionAccountUseCase;
 import com.bankledger.ledger.application.port.out.LedgerAccountRepositoryPort;
@@ -58,7 +59,7 @@ public class ProvisionAccountService implements ProvisionAccountUseCase {
                 .code(code)
                 .kind(AccountKind.CUSTOMER)
                 .normalBalance(NormalBalance.CREDIT)
-                .currency("BRL")
+                .currency(BankingConstants.DEFAULT_CURRENCY)
                 .balance(0L)
                 .lastSequence(0L)
                 .status(AccountStatus.ACTIVE)

@@ -2,6 +2,7 @@ package com.bankledger.account.domain.event;
 
 import com.bankledger.account.domain.model.Account;
 import com.bankledger.account.domain.model.Customer;
+import com.bankledger.commons.constant.KafkaTopics;
 
 import java.io.Serializable;
 import java.time.Instant;
@@ -25,7 +26,7 @@ public record AccountOpenedEvent(
 ) implements Serializable {
 
     public static final String EVENT_TYPE = "AccountOpened";
-    public static final String TOPIC = "account.events.v1";
+    public static final String TOPIC = KafkaTopics.ACCOUNT_EVENTS_V1;
 
     public AccountOpenedEvent {
         Objects.requireNonNull(accountId, "accountId must not be null");

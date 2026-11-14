@@ -1,5 +1,6 @@
 package com.bankledger.ledger.domain.event;
 
+import com.bankledger.commons.constant.KafkaTopics;
 import com.bankledger.ledger.domain.model.JournalStatus;
 
 import java.io.Serializable;
@@ -23,7 +24,7 @@ public record JournalPostedEvent(
         Instant postedAt
 ) implements Serializable {
 
-    public static final String TOPIC = "ledger.journal-results.v1";
+    public static final String TOPIC = KafkaTopics.LEDGER_JOURNAL_RESULTS_V1;
     public static final String EVENT_TYPE = "JournalPosted";
 
     public JournalPostedEvent {

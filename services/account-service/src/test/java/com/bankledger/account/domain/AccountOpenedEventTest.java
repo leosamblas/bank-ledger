@@ -3,6 +3,7 @@ package com.bankledger.account.domain;
 import com.bankledger.account.domain.event.AccountOpenedEvent;
 import com.bankledger.account.domain.model.Account;
 import com.bankledger.account.domain.model.Customer;
+import com.bankledger.commons.constant.KafkaTopics;
 import com.bankledger.account.domain.vo.AccountNumber;
 import com.bankledger.account.domain.vo.Cpf;
 import com.bankledger.account.domain.vo.Email;
@@ -47,7 +48,7 @@ class AccountOpenedEventTest {
         assertThat(event.accountNumber()).isEqualTo("100000");
         assertThat(event.checkDigit()).isEqualTo("4");
         assertThat(event.openedAt()).isEqualTo(now);
-        assertThat(AccountOpenedEvent.TOPIC).isEqualTo("account.events.v1");
+        assertThat(AccountOpenedEvent.TOPIC).isEqualTo(KafkaTopics.ACCOUNT_EVENTS_V1);
         assertThat(AccountOpenedEvent.EVENT_TYPE).isEqualTo("AccountOpened");
     }
 

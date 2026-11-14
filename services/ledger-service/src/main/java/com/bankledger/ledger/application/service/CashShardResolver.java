@@ -1,5 +1,6 @@
 package com.bankledger.ledger.application.service;
 
+import com.bankledger.commons.constant.BankingConstants;
 import com.bankledger.ledger.application.port.out.CashShardPort;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -29,7 +30,7 @@ import java.util.regex.Pattern;
 public class CashShardResolver {
 
     private static final Pattern DIRECT_SHARD_PATTERN =
-            Pattern.compile("SYS-CASH-(0[0-9]|1[0-5])", Pattern.CASE_INSENSITIVE);
+            Pattern.compile(BankingConstants.CASH_SHARD_PREFIX + "(0[0-9]|1[0-5])", Pattern.CASE_INSENSITIVE);
 
     private final CashShardPort cashShardPort;
 
@@ -47,14 +48,14 @@ public class CashShardResolver {
                 String directCode = matcher.group(0).toUpperCase(Locale.ROOT);
                 return cashShardPort.getShardId(directCode);
             }
-            int shardIndex = Math.floorMod(terminalId.hashCode(), CashShardPort.TOTAL_SHARDS);
+            int shardIndex = Math.floorMod(terminalId.hashCode(), BankingConstants.TOTAL_CASH_SHARDS);
             return cashShardPort.getShardIdByIndex(shardIndex);
         }
 
         if (transactionId == null) {
             throw new IllegalArgumentException("transactionId cannot be null when terminalId is absent");
         }
-        int shardIndex = Math.floorMod(transactionId.hashCode(), CashShardPort.TOTAL_SHARDS);
+        int shardIndex = Math.floorMod(transactionId.hashCode(), BankingConstants.TOTAL_CASH_SHARDS);
         return cashShardPort.getShardIdByIndex(shardIndex);
     }
 
@@ -81,18 +82,18 @@ public class CashShardResolver {
             if (matcher.find()) {
                 return matcher.group(0).toUpperCase(Locale.ROOT);
             }
-            int shardIndex = Math.floorMod(terminalId.hashCode(), CashShardPort.TOTAL_SHARDS);
+            int shardIndex = Math.floorMod(terminalId.hashCode(), BankingConstants.TOTAL_CASH_SHARDS);
             return formatShardCode(shardIndex);
         }
 
         if (transactionId == null) {
             throw new IllegalArgumentException("transactionId cannot be null when terminalId is absent");
         }
-        int shardIndex = Math.floorMod(transactionId.hashCode(), CashShardPort.TOTAL_SHARDS);
+        int shardIndex = Math.floorMod(transactionId.hashCode(), BankingConstants.TOTAL_CASH_SHARDS);
         return formatShardCode(shardIndex);
     }
 
     private static String formatShardCode(int index) {
-        return String.format(Locale.ROOT, "%s%02d", CashShardPort.SHARD_PREFIX, index);
+        return String.format(Locale.ROOT, "%s%02d", BankingConstants.CASH_SHARD_PREFIX, index);
     }
 }

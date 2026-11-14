@@ -1,5 +1,6 @@
 package com.bankledger.ledger.domain.model;
 
+import com.bankledger.commons.constant.BankingConstants;
 import com.bankledger.ledger.domain.exception.UnbalancedJournalException;
 
 import java.time.Clock;
@@ -16,7 +17,7 @@ import java.util.UUID;
  */
 public class Journal {
 
-    public static final String DEFAULT_CURRENCY = "BRL";
+    public static final String DEFAULT_CURRENCY = BankingConstants.DEFAULT_CURRENCY;
 
     private final UUID id;
     private final UUID transactionId;

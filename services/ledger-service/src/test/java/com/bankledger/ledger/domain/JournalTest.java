@@ -1,5 +1,7 @@
 package com.bankledger.ledger.domain;
 
+import com.bankledger.commons.constant.BankingConstants;
+import com.bankledger.commons.constant.BankingErrorCodes;
 import com.bankledger.ledger.domain.exception.UnbalancedJournalException;
 import com.bankledger.ledger.domain.model.Entry;
 import com.bankledger.ledger.domain.model.EntryDirection;
@@ -61,7 +63,7 @@ class JournalTest {
             assertThat(journal.getRejectReason()).isNull();
             assertThat(journal.getDescription()).isEqualTo("Cash Deposit");
             assertThat(journal.getTotalAmount()).isEqualTo(10_000L);
-            assertThat(journal.getCurrency()).isEqualTo("BRL");
+            assertThat(journal.getCurrency()).isEqualTo(BankingConstants.DEFAULT_CURRENCY);
             assertThat(journal.getCorrelationId()).isEqualTo(correlationId);
             assertThat(journal.getPostedAt()).isEqualTo(now);
             assertThat(journal.getEntries()).hasSize(2);
@@ -265,7 +267,7 @@ class JournalTest {
                     "BRL",
                     correlationId,
                     now,
-                    "INSUFFICIENT_FUNDS",
+                    BankingErrorCodes.INSUFFICIENT_FUNDS,
                     "Customer balance is lower than withdrawal amount"
             );
 
@@ -273,11 +275,11 @@ class JournalTest {
             assertThat(journal.getTransactionId()).isEqualTo(transactionId);
             assertThat(journal.getType()).isEqualTo("WITHDRAWAL");
             assertThat(journal.getStatus()).isEqualTo(JournalStatus.REJECTED);
-            assertThat(journal.getRejectCode()).isEqualTo("INSUFFICIENT_FUNDS");
+            assertThat(journal.getRejectCode()).isEqualTo(BankingErrorCodes.INSUFFICIENT_FUNDS);
             assertThat(journal.getRejectReason()).isEqualTo("Customer balance is lower than withdrawal amount");
             assertThat(journal.getDescription()).isEqualTo("ATM Withdrawal rejected");
             assertThat(journal.getTotalAmount()).isEqualTo(50_000L);
-            assertThat(journal.getCurrency()).isEqualTo("BRL");
+            assertThat(journal.getCurrency()).isEqualTo(BankingConstants.DEFAULT_CURRENCY);
             assertThat(journal.getCorrelationId()).isEqualTo(correlationId);
             assertThat(journal.getPostedAt()).isEqualTo(now);
             assertThat(journal.getEntries()).isEmpty();

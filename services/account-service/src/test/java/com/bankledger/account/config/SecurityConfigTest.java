@@ -3,6 +3,7 @@ package com.bankledger.account.config;
 import com.bankledger.account.adapters.in.rest.AuthenticatedUser;
 import com.bankledger.account.application.port.out.TokenClaims;
 import com.bankledger.account.application.port.out.TokenServicePort;
+import com.bankledger.commons.constant.HttpHeaderConstants;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.http.HttpServletResponse;
 import org.junit.jupiter.api.BeforeEach;
@@ -48,7 +49,7 @@ class SecurityConfigTest {
         when(tokenServicePort.parseToken("valid-token")).thenReturn(claims);
 
         MockHttpServletRequest request = new MockHttpServletRequest("GET", "/api/v1/accounts/me");
-        request.addHeader(HttpHeaders.AUTHORIZATION, "Bearer valid-token");
+        request.addHeader(HttpHeaderConstants.AUTHORIZATION, HttpHeaderConstants.BEARER_PREFIX + "valid-token");
         MockHttpServletResponse response = new MockHttpServletResponse();
         MockFilterChain filterChain = new MockFilterChain();
 
@@ -67,7 +68,7 @@ class SecurityConfigTest {
         when(tokenServicePort.parseToken("invalid-token")).thenThrow(new RuntimeException("Bad signature"));
 
         MockHttpServletRequest request = new MockHttpServletRequest("GET", "/api/v1/accounts/me");
-        request.addHeader(HttpHeaders.AUTHORIZATION, "Bearer invalid-token");
+        request.addHeader(HttpHeaderConstants.AUTHORIZATION, HttpHeaderConstants.BEARER_PREFIX + "invalid-token");
         MockHttpServletResponse response = new MockHttpServletResponse();
         MockFilterChain filterChain = new MockFilterChain();
 

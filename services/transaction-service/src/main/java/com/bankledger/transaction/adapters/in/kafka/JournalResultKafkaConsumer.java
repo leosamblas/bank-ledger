@@ -1,5 +1,6 @@
 package com.bankledger.transaction.adapters.in.kafka;
 
+import com.bankledger.commons.constant.KafkaTopics;
 import com.bankledger.commons.inbox.InboxHandler;
 import com.bankledger.transaction.application.port.in.HandleJournalResultUseCase;
 import com.bankledger.transaction.domain.event.JournalResultPayload;
@@ -37,7 +38,7 @@ public class JournalResultKafkaConsumer {
     private final ObjectMapper objectMapper;
 
     @KafkaListener(
-            topics = "${app.kafka.topics.journal-results:ledger.journal-results.v1}",
+            topics = "${app.kafka.topics.journal-results:" + KafkaTopics.LEDGER_JOURNAL_RESULTS_V1 + "}",
             groupId = "${spring.kafka.consumer.group-id:transaction-service-journal-results}",
             containerFactory = "kafkaListenerContainerFactory"
     )

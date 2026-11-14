@@ -1,5 +1,7 @@
 package com.bankledger.transaction.application;
 
+import com.bankledger.commons.constant.BankingConstants;
+import com.bankledger.commons.constant.KafkaTopics;
 import com.bankledger.commons.outbox.OutboxEvent;
 import com.bankledger.transaction.application.port.in.CreateDepositCommand;
 import com.bankledger.transaction.application.port.in.CreateWithdrawalCommand;
@@ -105,14 +107,14 @@ class TransactionOperationServiceTest {
         assertThat(outboxEvent.getAggregateType()).isEqualTo("FinancialTransaction");
         assertThat(outboxEvent.getAggregateId()).isEqualTo(result.getId());
         assertThat(outboxEvent.getEventType()).isEqualTo("PostJournalCommand");
-        assertThat(outboxEvent.getTopic()).isEqualTo("ledger.commands.v1");
+        assertThat(outboxEvent.getTopic()).isEqualTo(KafkaTopics.LEDGER_COMMANDS_V1);
         assertThat(outboxEvent.getMessageKey()).isEqualTo(accountId.toString());
 
         PostJournalCommand publishedCommand = objectMapper.readValue(outboxEvent.getPayload(), PostJournalCommand.class);
         assertThat(publishedCommand.transactionId()).isEqualTo(result.getId());
         assertThat(publishedCommand.type()).isEqualTo("DEPOSIT");
         assertThat(publishedCommand.amount()).isEqualTo(150000L);
-        assertThat(publishedCommand.currency()).isEqualTo("BRL");
+        assertThat(publishedCommand.currency()).isEqualTo(BankingConstants.DEFAULT_CURRENCY);
         assertThat(publishedCommand.sourceAccountId()).isNull();
         assertThat(publishedCommand.destinationAccountId()).isEqualTo(accountId);
         assertThat(publishedCommand.terminalId()).isEqualTo("TERM-01");
@@ -161,14 +163,14 @@ class TransactionOperationServiceTest {
         assertThat(outboxEvent.getAggregateType()).isEqualTo("FinancialTransaction");
         assertThat(outboxEvent.getAggregateId()).isEqualTo(result.getId());
         assertThat(outboxEvent.getEventType()).isEqualTo("PostJournalCommand");
-        assertThat(outboxEvent.getTopic()).isEqualTo("ledger.commands.v1");
+        assertThat(outboxEvent.getTopic()).isEqualTo(KafkaTopics.LEDGER_COMMANDS_V1);
         assertThat(outboxEvent.getMessageKey()).isEqualTo(accountId.toString());
 
         PostJournalCommand publishedCommand = objectMapper.readValue(outboxEvent.getPayload(), PostJournalCommand.class);
         assertThat(publishedCommand.transactionId()).isEqualTo(result.getId());
         assertThat(publishedCommand.type()).isEqualTo("WITHDRAWAL");
         assertThat(publishedCommand.amount()).isEqualTo(50000L);
-        assertThat(publishedCommand.currency()).isEqualTo("BRL");
+        assertThat(publishedCommand.currency()).isEqualTo(BankingConstants.DEFAULT_CURRENCY);
         assertThat(publishedCommand.sourceAccountId()).isEqualTo(accountId);
         assertThat(publishedCommand.destinationAccountId()).isNull();
         assertThat(publishedCommand.terminalId()).isEqualTo("ATM-99");

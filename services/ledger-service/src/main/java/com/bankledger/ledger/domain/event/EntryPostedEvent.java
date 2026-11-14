@@ -1,5 +1,6 @@
 package com.bankledger.ledger.domain.event;
 
+import com.bankledger.commons.constant.KafkaTopics;
 import com.bankledger.ledger.domain.model.EntryDirection;
 
 import java.io.Serializable;
@@ -24,7 +25,7 @@ public record EntryPostedEvent(
         Instant postedAt
 ) implements Serializable {
 
-    public static final String TOPIC = "ledger.entries.v1";
+    public static final String TOPIC = KafkaTopics.LEDGER_ENTRIES_V1;
     public static final String EVENT_TYPE = "EntryPosted";
 
     public EntryPostedEvent {

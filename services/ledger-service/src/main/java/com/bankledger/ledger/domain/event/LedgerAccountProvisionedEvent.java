@@ -1,5 +1,7 @@
 package com.bankledger.ledger.domain.event;
 
+import com.bankledger.commons.constant.KafkaTopics;
+
 import java.io.Serializable;
 import java.time.Instant;
 import java.util.Objects;
@@ -16,7 +18,7 @@ public record LedgerAccountProvisionedEvent(
         Instant provisionedAt
 ) implements Serializable {
 
-    public static final String TOPIC = "ledger.account-events.v1";
+    public static final String TOPIC = KafkaTopics.LEDGER_ACCOUNT_EVENTS_V1;
     public static final String EVENT_TYPE = "LedgerAccountProvisioned";
 
     public LedgerAccountProvisionedEvent {

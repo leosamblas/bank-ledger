@@ -1,5 +1,7 @@
 package com.bankledger.ledger.integration;
 
+import com.bankledger.commons.constant.BankingErrorCodes;
+import com.bankledger.commons.constant.KafkaTopics;
 import com.bankledger.ledger.adapters.out.kafka.OutboxPollerLifecycle;
 import com.bankledger.ledger.application.port.out.JournalRepositoryPort;
 import com.bankledger.ledger.application.port.out.LedgerAccountRepositoryPort;
@@ -122,7 +124,7 @@ class LedgerDoubleEntryIntegrationTest {
         consumerProps.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
 
         consumer = new KafkaConsumer<>(consumerProps);
-        consumer.subscribe(List.of(JournalRejectedEvent.TOPIC, "ledger.journal-results.v1"));
+        consumer.subscribe(List.of(JournalRejectedEvent.TOPIC, KafkaTopics.LEDGER_JOURNAL_RESULTS_V1));
 
         if (!outboxPollerLifecycle.isRunning()) {
             outboxPollerLifecycle.start();
@@ -166,7 +168,7 @@ class LedgerDoubleEntryIntegrationTest {
                 }
                 """, UUID.randomUUID(), accountId, customerId);
 
-        kafkaTemplate.send("account.events.v1", accountId.toString(), accountOpenedJson).get(5, TimeUnit.SECONDS);
+        kafkaTemplate.send(KafkaTopics.ACCOUNT_EVENTS_V1, accountId.toString(), accountOpenedJson).get(5, TimeUnit.SECONDS);
 
         Awaitility.await()
                 .atMost(Duration.ofSeconds(15))
@@ -193,7 +195,7 @@ class LedgerDoubleEntryIntegrationTest {
                 }
                 """, txIdDeposit, accountId);
 
-        kafkaTemplate.send("ledger.commands.v1", txIdDeposit.toString(), depositCommandJson).get(5, TimeUnit.SECONDS);
+        kafkaTemplate.send(KafkaTopics.LEDGER_COMMANDS_V1, txIdDeposit.toString(), depositCommandJson).get(5, TimeUnit.SECONDS);
 
         Awaitility.await()
                 .atMost(Duration.ofSeconds(15))
@@ -231,7 +233,7 @@ class LedgerDoubleEntryIntegrationTest {
                 }
                 """, txIdWithdrawal1, accountId);
 
-        kafkaTemplate.send("ledger.commands.v1", txIdWithdrawal1.toString(), withdrawal1Json).get(5, TimeUnit.SECONDS);
+        kafkaTemplate.send(KafkaTopics.LEDGER_COMMANDS_V1, txIdWithdrawal1.toString(), withdrawal1Json).get(5, TimeUnit.SECONDS);
 
         Awaitility.await()
                 .atMost(Duration.ofSeconds(15))
@@ -262,7 +264,7 @@ class LedgerDoubleEntryIntegrationTest {
                 }
                 """, txIdWithdrawal2, accountId);
 
-        kafkaTemplate.send("ledger.commands.v1", txIdWithdrawal2.toString(), withdrawal2Json).get(5, TimeUnit.SECONDS);
+        kafkaTemplate.send(KafkaTopics.LEDGER_COMMANDS_V1, txIdWithdrawal2.toString(), withdrawal2Json).get(5, TimeUnit.SECONDS);
 
         Awaitility.await()
                 .atMost(Duration.ofSeconds(15))
@@ -270,7 +272,7 @@ class LedgerDoubleEntryIntegrationTest {
                     Optional<Journal> journal = journalRepositoryPort.findByTransactionId(txIdWithdrawal2);
                     assertThat(journal).isPresent();
                     assertThat(journal.get().getStatus()).isEqualTo(JournalStatus.REJECTED);
-                    assertThat(journal.get().getRejectCode()).isEqualTo("INSUFFICIENT_FUNDS");
+                    assertThat(journal.get().getRejectCode()).isEqualTo(BankingErrorCodes.INSUFFICIENT_FUNDS);
 
                     Optional<LedgerAccount> account = ledgerAccountRepositoryPort.findById(accountId);
                     assertThat(account).isPresent();
@@ -281,7 +283,7 @@ class LedgerDoubleEntryIntegrationTest {
         ConsumerRecord<String, String> rejectedRecord = pollRecordForKey(consumer, txIdWithdrawal2.toString(), Duration.ofSeconds(15));
         assertThat(rejectedRecord).isNotNull();
         assertThat(rejectedRecord.topic()).isEqualTo(JournalRejectedEvent.TOPIC);
-        assertThat(rejectedRecord.value()).contains("INSUFFICIENT_FUNDS");
+        assertThat(rejectedRecord.value()).contains(BankingErrorCodes.INSUFFICIENT_FUNDS);
         assertThat(rejectedRecord.value()).contains("REJECTED");
 
         // ---------------------------------------------------------------------------------

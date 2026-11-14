@@ -1,5 +1,8 @@
 package com.bankledger.ledger.domain;
 
+import com.bankledger.commons.constant.BankingConstants;
+import com.bankledger.commons.constant.BankingErrorCodes;
+import com.bankledger.commons.constant.KafkaTopics;
 import com.bankledger.ledger.domain.command.PostJournalCommand;
 import com.bankledger.ledger.domain.event.EntryPostedEvent;
 import com.bankledger.ledger.domain.event.JournalPostedEvent;
@@ -76,10 +79,10 @@ class DomainEventsAndCommandsTest {
         assertThat(event.type()).isEqualTo("DEPOSIT");
         assertThat(event.status()).isEqualTo(JournalStatus.POSTED);
         assertThat(event.totalAmount()).isEqualTo(10_000L);
-        assertThat(event.currency()).isEqualTo("BRL");
+        assertThat(event.currency()).isEqualTo(BankingConstants.DEFAULT_CURRENCY);
         assertThat(event.correlationId()).isEqualTo(correlationId);
         assertThat(event.postedAt()).isEqualTo(now);
-        assertThat(JournalPostedEvent.TOPIC).isEqualTo("ledger.journal-results.v1");
+        assertThat(JournalPostedEvent.TOPIC).isEqualTo(KafkaTopics.LEDGER_JOURNAL_RESULTS_V1);
         assertThat(JournalPostedEvent.EVENT_TYPE).isEqualTo("JournalPosted");
     }
 
@@ -93,7 +96,7 @@ class DomainEventsAndCommandsTest {
                 transactionId,
                 "WITHDRAWAL",
                 JournalStatus.REJECTED,
-                "INSUFFICIENT_FUNDS",
+                BankingErrorCodes.INSUFFICIENT_FUNDS,
                 "Customer balance is lower than withdrawal amount",
                 correlationId,
                 now
@@ -102,11 +105,11 @@ class DomainEventsAndCommandsTest {
         assertThat(event.transactionId()).isEqualTo(transactionId);
         assertThat(event.type()).isEqualTo("WITHDRAWAL");
         assertThat(event.status()).isEqualTo(JournalStatus.REJECTED);
-        assertThat(event.rejectCode()).isEqualTo("INSUFFICIENT_FUNDS");
+        assertThat(event.rejectCode()).isEqualTo(BankingErrorCodes.INSUFFICIENT_FUNDS);
         assertThat(event.rejectReason()).isEqualTo("Customer balance is lower than withdrawal amount");
         assertThat(event.correlationId()).isEqualTo(correlationId);
         assertThat(event.rejectedAt()).isEqualTo(now);
-        assertThat(JournalRejectedEvent.TOPIC).isEqualTo("ledger.journal-results.v1");
+        assertThat(JournalRejectedEvent.TOPIC).isEqualTo(KafkaTopics.LEDGER_JOURNAL_RESULTS_V1);
         assertThat(JournalRejectedEvent.EVENT_TYPE).isEqualTo("JournalRejected");
     }
 
@@ -139,7 +142,7 @@ class DomainEventsAndCommandsTest {
         assertThat(event.balanceAfter()).isEqualTo(10_000L);
         assertThat(event.sequence()).isEqualTo(1L);
         assertThat(event.postedAt()).isEqualTo(now);
-        assertThat(EntryPostedEvent.TOPIC).isEqualTo("ledger.entries.v1");
+        assertThat(EntryPostedEvent.TOPIC).isEqualTo(KafkaTopics.LEDGER_ENTRIES_V1);
         assertThat(EntryPostedEvent.EVENT_TYPE).isEqualTo("EntryPosted");
     }
 }

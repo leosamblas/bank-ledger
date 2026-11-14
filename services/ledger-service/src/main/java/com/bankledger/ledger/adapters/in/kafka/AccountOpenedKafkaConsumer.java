@@ -1,5 +1,6 @@
 package com.bankledger.ledger.adapters.in.kafka;
 
+import com.bankledger.commons.constant.KafkaTopics;
 import com.bankledger.commons.inbox.InboxHandler;
 import com.bankledger.ledger.application.port.in.ProvisionAccountUseCase;
 import com.bankledger.ledger.domain.event.AccountOpenedPayload;
@@ -36,7 +37,7 @@ public class AccountOpenedKafkaConsumer {
     private final ObjectMapper objectMapper;
 
     @KafkaListener(
-            topics = "${app.kafka.topics.account-events:account.events.v1}",
+            topics = "${app.kafka.topics.account-events:" + KafkaTopics.ACCOUNT_EVENTS_V1 + "}",
             groupId = "${spring.kafka.consumer.group-id:ledger-service-account-opened}",
             containerFactory = "kafkaListenerContainerFactory"
     )

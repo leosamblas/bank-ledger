@@ -1,5 +1,6 @@
 package com.bankledger.ledger.adapters.in.kafka;
 
+import com.bankledger.commons.constant.KafkaTopics;
 import com.bankledger.commons.inbox.InboxHandler;
 import com.bankledger.ledger.application.port.in.PostJournalUseCase;
 import com.bankledger.ledger.domain.command.PostJournalCommand;
@@ -36,7 +37,7 @@ public class LedgerCommandKafkaConsumer {
     private final ObjectMapper objectMapper;
 
     @KafkaListener(
-            topics = "${app.kafka.topics.commands:ledger.commands.v1}",
+            topics = "${app.kafka.topics.commands:" + KafkaTopics.LEDGER_COMMANDS_V1 + "}",
             groupId = "${spring.kafka.consumer.group-id:ledger-service-commands}",
             containerFactory = "kafkaListenerContainerFactory"
     )

@@ -1,5 +1,6 @@
 package com.bankledger.ledger.adapters.out.kafka;
 
+import com.bankledger.commons.constant.KafkaTopics;
 import com.bankledger.commons.outbox.OutboxEvent;
 import com.bankledger.ledger.config.OutboxPollerProperties;
 import org.apache.kafka.clients.producer.ProducerRecord;
@@ -51,7 +52,7 @@ class KafkaOutboxPublisherTest {
                 "Journal",
                 UUID.randomUUID(),
                 "JournalPosted",
-                "ledger.journal-results.v1",
+                KafkaTopics.LEDGER_JOURNAL_RESULTS_V1,
                 "tx-123",
                 "{\"status\":\"POSTED\"}"
         );
@@ -75,7 +76,7 @@ class KafkaOutboxPublisherTest {
                 "Journal",
                 UUID.randomUUID(),
                 "JournalPosted",
-                "ledger.journal-results.v1",
+                KafkaTopics.LEDGER_JOURNAL_RESULTS_V1,
                 "tx-123",
                 "{\"status\":\"POSTED\"}"
         );
@@ -100,7 +101,7 @@ class KafkaOutboxPublisherTest {
                 "Journal",
                 UUID.randomUUID(),
                 "JournalPosted",
-                "ledger.journal-results.v1",
+                KafkaTopics.LEDGER_JOURNAL_RESULTS_V1,
                 "tx-123",
                 "{\"status\":\"POSTED\"}"
         );

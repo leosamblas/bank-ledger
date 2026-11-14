@@ -6,6 +6,7 @@ import com.bankledger.account.adapters.in.rest.dto.AccountResponse;
 import com.bankledger.account.application.port.in.*;
 import com.bankledger.account.domain.exception.*;
 import com.bankledger.account.domain.model.AccountStatus;
+import com.bankledger.commons.constant.HttpHeaderConstants;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -111,7 +112,7 @@ class AccountControllerTest {
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(request)))
                     .andExpect(status().isCreated())
-                    .andExpect(header().string(HttpHeaders.LOCATION, "/api/v1/accounts/" + accountId))
+                    .andExpect(header().string(HttpHeaderConstants.LOCATION, "/api/v1/accounts/" + accountId))
                     .andExpect(jsonPath("$.id").value(accountId.toString()))
                     .andExpect(jsonPath("$.customerId").value(customerId.toString()))
                     .andExpect(jsonPath("$.agency").value("0001"))

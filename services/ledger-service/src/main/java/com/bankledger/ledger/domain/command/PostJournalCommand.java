@@ -1,5 +1,7 @@
 package com.bankledger.ledger.domain.command;
 
+import com.bankledger.commons.constant.BankingConstants;
+
 import java.io.Serializable;
 import java.time.Instant;
 import java.util.Objects;
@@ -21,7 +23,7 @@ public record PostJournalCommand(
         Instant timestamp
 ) implements Serializable {
 
-    public static final String DEFAULT_CURRENCY = "BRL";
+    public static final String DEFAULT_CURRENCY = BankingConstants.DEFAULT_CURRENCY;
 
     public PostJournalCommand {
         if (commandId == null) {

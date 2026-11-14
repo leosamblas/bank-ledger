@@ -1,5 +1,6 @@
 package com.bankledger.ledger.domain.model;
 
+import com.bankledger.commons.constant.BankingConstants;
 import com.bankledger.ledger.domain.exception.InsufficientFundsException;
 import com.bankledger.ledger.domain.exception.LedgerAccountBlockedException;
 
@@ -16,7 +17,7 @@ import java.util.UUID;
  */
 public class LedgerAccount {
 
-    public static final String DEFAULT_CURRENCY = "BRL";
+    public static final String DEFAULT_CURRENCY = BankingConstants.DEFAULT_CURRENCY;
 
     private final UUID id;
     private final String code;

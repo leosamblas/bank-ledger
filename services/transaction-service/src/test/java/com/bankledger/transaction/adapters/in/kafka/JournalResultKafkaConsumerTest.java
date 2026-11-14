@@ -1,5 +1,7 @@
 package com.bankledger.transaction.adapters.in.kafka;
 
+import com.bankledger.commons.constant.BankingErrorCodes;
+import com.bankledger.commons.constant.KafkaTopics;
 import com.bankledger.commons.inbox.InboxHandler;
 import com.bankledger.transaction.application.port.in.HandleJournalResultUseCase;
 import com.bankledger.transaction.domain.event.JournalResultPayload;
@@ -42,7 +44,7 @@ class JournalResultKafkaConsumerTest {
     private ObjectMapper objectMapper;
     private JournalResultKafkaConsumer consumer;
 
-    private static final String TOPIC = "ledger.journal-results.v1";
+    private static final String TOPIC = KafkaTopics.LEDGER_JOURNAL_RESULTS_V1;
 
     @BeforeEach
     void setUp() {
@@ -146,7 +148,7 @@ class JournalResultKafkaConsumerTest {
         JournalResultPayload payload = captor.getValue();
         assertThat(payload.transactionId()).isEqualTo(transactionId);
         assertThat(payload.status()).isEqualTo("REJECTED");
-        assertThat(payload.rejectCode()).isEqualTo("INSUFFICIENT_FUNDS");
+        assertThat(payload.rejectCode()).isEqualTo(BankingErrorCodes.INSUFFICIENT_FUNDS);
         assertThat(payload.rejectReason()).isEqualTo("Saldo insuficiente para efetuar o saque.");
 
         verify(acknowledgment).acknowledge();

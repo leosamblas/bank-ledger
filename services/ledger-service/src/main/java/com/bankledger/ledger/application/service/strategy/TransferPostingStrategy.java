@@ -1,5 +1,6 @@
 package com.bankledger.ledger.application.service.strategy;
 
+import com.bankledger.commons.constant.BankingErrorCodes;
 import com.bankledger.ledger.domain.command.PostJournalCommand;
 import com.bankledger.ledger.domain.exception.InsufficientFundsException;
 import com.bankledger.ledger.domain.model.Entry;
@@ -24,7 +25,7 @@ public class TransferPostingStrategy implements JournalPostingStrategy {
 
     public static final String TRANSACTION_TYPE = "TRANSFER";
     public static final String DESCRIPTION = "Transferência contábil";
-    public static final String REJECTION_CODE = "INSUFFICIENT_FUNDS";
+    public static final String REJECTION_CODE = BankingErrorCodes.INSUFFICIENT_FUNDS;
     public static final String REJECTION_REASON = "Saldo insuficiente para efetuar a transferência.";
 
     @Override

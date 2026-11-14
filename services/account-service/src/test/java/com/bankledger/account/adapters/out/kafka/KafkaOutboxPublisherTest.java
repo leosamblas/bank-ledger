@@ -1,6 +1,7 @@
 package com.bankledger.account.adapters.out.kafka;
 
 import com.bankledger.account.config.OutboxPollerProperties;
+import com.bankledger.commons.constant.KafkaTopics;
 import com.bankledger.commons.outbox.OutboxEvent;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.clients.producer.RecordMetadata;
@@ -50,7 +51,7 @@ class KafkaOutboxPublisherTest {
                 "Account",
                 UUID.randomUUID(),
                 "AccountOpened",
-                "account.events.v1",
+                KafkaTopics.ACCOUNT_EVENTS_V1,
                 "acc-123",
                 "{\"status\":\"OPEN\"}"
         );
@@ -74,7 +75,7 @@ class KafkaOutboxPublisherTest {
                 "Account",
                 UUID.randomUUID(),
                 "AccountOpened",
-                "account.events.v1",
+                KafkaTopics.ACCOUNT_EVENTS_V1,
                 "acc-123",
                 "{\"status\":\"OPEN\"}"
         );
@@ -99,7 +100,7 @@ class KafkaOutboxPublisherTest {
                 "Account",
                 UUID.randomUUID(),
                 "AccountOpened",
-                "account.events.v1",
+                KafkaTopics.ACCOUNT_EVENTS_V1,
                 "acc-123",
                 "{\"status\":\"OPEN\"}"
         );

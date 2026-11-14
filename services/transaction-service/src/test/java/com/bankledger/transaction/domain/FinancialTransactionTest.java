@@ -1,5 +1,7 @@
 package com.bankledger.transaction.domain;
 
+import com.bankledger.commons.constant.BankingConstants;
+import com.bankledger.commons.constant.BankingErrorCodes;
 import com.bankledger.transaction.domain.model.FinancialTransaction;
 import com.bankledger.transaction.domain.model.TransactionStatus;
 import com.bankledger.transaction.domain.model.TransactionType;
@@ -39,7 +41,7 @@ class FinancialTransactionTest {
         assertThat(tx.getSourceAccountId()).isNull();
         assertThat(tx.getDestinationAccountId()).isEqualTo(accountId);
         assertThat(tx.getAmount()).isEqualTo(50000L);
-        assertThat(tx.getCurrency()).isEqualTo("BRL");
+        assertThat(tx.getCurrency()).isEqualTo(BankingConstants.DEFAULT_CURRENCY);
         assertThat(tx.getDescription()).isEqualTo("Depósito em dinheiro");
         assertThat(tx.getRequestedBy()).isEqualTo(requestedBy);
         assertThat(tx.getCorrelationId()).isEqualTo(correlationId);
@@ -70,7 +72,7 @@ class FinancialTransactionTest {
         assertThat(tx.getSourceAccountId()).isEqualTo(accountId);
         assertThat(tx.getDestinationAccountId()).isNull();
         assertThat(tx.getAmount()).isEqualTo(25000L);
-        assertThat(tx.getCurrency()).isEqualTo("BRL");
+        assertThat(tx.getCurrency()).isEqualTo(BankingConstants.DEFAULT_CURRENCY);
         assertThat(tx.getDescription()).isEqualTo("Saque terminal ATM");
         assertThat(tx.getRequestedBy()).isEqualTo(requestedBy);
         assertThat(tx.getCorrelationId()).isEqualTo(correlationId);
@@ -135,10 +137,10 @@ class FinancialTransactionTest {
         );
 
         Instant failureTime = now.plusSeconds(3);
-        tx.fail("INSUFFICIENT_FUNDS", "Saldo insuficiente para saque", failureTime);
+        tx.fail(BankingErrorCodes.INSUFFICIENT_FUNDS, "Saldo insuficiente para saque", failureTime);
 
         assertThat(tx.getStatus()).isEqualTo(TransactionStatus.FAILED);
-        assertThat(tx.getFailureCode()).isEqualTo("INSUFFICIENT_FUNDS");
+        assertThat(tx.getFailureCode()).isEqualTo(BankingErrorCodes.INSUFFICIENT_FUNDS);
         assertThat(tx.getFailureReason()).isEqualTo("Saldo insuficiente para saque");
         assertThat(tx.getCompletedAt()).isEqualTo(failureTime);
         assertThat(tx.getUpdatedAt()).isEqualTo(failureTime);
@@ -163,7 +165,7 @@ class FinancialTransactionTest {
         FinancialTransaction tx = FinancialTransaction.createWithdrawal(
                 txId, accountId, 1000L, "desc", requestedBy, correlationId, now
         );
-        tx.fail("INSUFFICIENT_FUNDS", "Saldo insuficiente", now.plusSeconds(1));
+        tx.fail(BankingErrorCodes.INSUFFICIENT_FUNDS, "Saldo insuficiente", now.plusSeconds(1));
 
         assertThatThrownBy(() -> tx.complete(now.plusSeconds(2)))
                 .isInstanceOf(IllegalStateException.class)

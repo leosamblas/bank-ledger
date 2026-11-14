@@ -1,5 +1,6 @@
 package com.bankledger.ledger.application;
 
+import com.bankledger.commons.constant.BankingErrorCodes;
 import com.bankledger.commons.outbox.OutboxEvent;
 import com.bankledger.ledger.application.port.out.JournalRepositoryPort;
 import com.bankledger.ledger.application.port.out.LedgerAccountRepositoryPort;
@@ -382,7 +383,7 @@ class PostJournalServiceTest {
 
             assertThat(result).isNotNull();
             assertThat(result.getStatus()).isEqualTo(JournalStatus.REJECTED);
-            assertThat(result.getRejectCode()).isEqualTo("INSUFFICIENT_FUNDS");
+            assertThat(result.getRejectCode()).isEqualTo(BankingErrorCodes.INSUFFICIENT_FUNDS);
             assertThat(result.getRejectReason()).isEqualTo("Saldo insuficiente para efetuar o saque.");
             assertThat(result.getEntries()).isEmpty();
 
@@ -409,7 +410,7 @@ class PostJournalServiceTest {
             JournalRejectedEvent parsedEvent = objectMapper.readValue(outboxEvent.getPayload(), JournalRejectedEvent.class);
             assertThat(parsedEvent.transactionId()).isEqualTo(transactionId);
             assertThat(parsedEvent.status()).isEqualTo(JournalStatus.REJECTED);
-            assertThat(parsedEvent.rejectCode()).isEqualTo("INSUFFICIENT_FUNDS");
+            assertThat(parsedEvent.rejectCode()).isEqualTo(BankingErrorCodes.INSUFFICIENT_FUNDS);
             assertThat(parsedEvent.rejectReason()).isEqualTo("Saldo insuficiente para efetuar o saque.");
         }
     }

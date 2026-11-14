@@ -1,5 +1,6 @@
 package com.bankledger.transaction.integration;
 
+import com.bankledger.commons.constant.HttpHeaderConstants;
 import com.bankledger.transaction.adapters.in.rest.dto.DepositRequest;
 import com.bankledger.transaction.adapters.out.persistence.entity.IdempotencyKeyEntity;
 import com.bankledger.transaction.adapters.out.persistence.repository.IdempotencySpringDataRepository;
@@ -126,8 +127,8 @@ class IdempotencyConcurrencyIntegrationTest {
                 try {
                     barrier.await();
                     MvcResult result = mockMvc.perform(post("/api/v1/transactions/deposits")
-                                    .header("Idempotency-Key", idempotencyKey.toString())
-                                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                                    .header(HttpHeaderConstants.IDEMPOTENCY_KEY, idempotencyKey.toString())
+                                    .header(HttpHeaderConstants.AUTHORIZATION, HttpHeaderConstants.BEARER_PREFIX + token)
                                     .contentType(MediaType.APPLICATION_JSON)
                                     .content(requestBody))
                             .andReturn();

@@ -1,5 +1,6 @@
 package com.bankledger.transaction.adapters.in.rest;
 
+import com.bankledger.commons.constant.HttpHeaderConstants;
 import com.bankledger.transaction.adapters.in.rest.dto.DepositRequest;
 import com.bankledger.transaction.adapters.in.rest.dto.TransactionResponse;
 import com.bankledger.transaction.adapters.in.rest.dto.WithdrawalRequest;
@@ -47,7 +48,7 @@ public class TransactionController {
 
     @PostMapping("/deposits")
     public ResponseEntity<?> createDeposit(
-            @RequestHeader("Idempotency-Key") UUID idempotencyKey,
+            @RequestHeader(HttpHeaderConstants.IDEMPOTENCY_KEY) UUID idempotencyKey,
             @Valid @RequestBody DepositRequest request,
             @AuthenticationPrincipal AuthenticatedUser user
     ) {
@@ -113,7 +114,7 @@ public class TransactionController {
 
     @PostMapping("/withdrawals")
     public ResponseEntity<?> createWithdrawal(
-            @RequestHeader("Idempotency-Key") UUID idempotencyKey,
+            @RequestHeader(HttpHeaderConstants.IDEMPOTENCY_KEY) UUID idempotencyKey,
             @Valid @RequestBody WithdrawalRequest request,
             @AuthenticationPrincipal AuthenticatedUser user
     ) {

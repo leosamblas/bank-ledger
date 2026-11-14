@@ -1,5 +1,7 @@
 package com.bankledger.ledger.application.port.out;
 
+import com.bankledger.commons.constant.BankingConstants;
+
 import java.util.Map;
 import java.util.UUID;
 
@@ -8,8 +10,8 @@ import java.util.UUID;
  */
 public interface CashShardPort {
 
-    int TOTAL_SHARDS = 16;
-    String SHARD_PREFIX = "SYS-CASH-";
+    int TOTAL_SHARDS = BankingConstants.TOTAL_CASH_SHARDS;
+    String SHARD_PREFIX = BankingConstants.CASH_SHARD_PREFIX;
 
     /**
      * Retrieves the UUID for a specific shard code (e.g., "SYS-CASH-00").

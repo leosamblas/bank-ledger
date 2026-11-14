@@ -1,5 +1,7 @@
 package com.bankledger.transaction.domain.model;
 
+import com.bankledger.commons.constant.BankingConstants;
+
 import java.io.Serializable;
 import java.time.Instant;
 import java.util.EnumMap;
@@ -14,7 +16,7 @@ import java.util.UUID;
 public class FinancialTransaction implements Serializable {
 
     private static final long serialVersionUID = 1L;
-    public static final String DEFAULT_CURRENCY = "BRL";
+    public static final String DEFAULT_CURRENCY = BankingConstants.DEFAULT_CURRENCY;
 
     private static final EnumMap<TransactionStatus, EnumSet<TransactionStatus>> VALID_TRANSITIONS =
             new EnumMap<>(TransactionStatus.class);

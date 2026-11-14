@@ -1,5 +1,6 @@
 package com.bankledger.ledger.adapters.in.kafka;
 
+import com.bankledger.commons.constant.KafkaTopics;
 import com.bankledger.commons.inbox.InboxHandler;
 import com.bankledger.ledger.application.port.in.PostJournalUseCase;
 import com.bankledger.ledger.domain.command.PostJournalCommand;
@@ -48,7 +49,7 @@ class LedgerCommandKafkaConsumerTest {
     private ObjectMapper objectMapper;
     private LedgerCommandKafkaConsumer consumer;
 
-    private static final String TOPIC = "ledger.commands.v1";
+    private static final String TOPIC = KafkaTopics.LEDGER_COMMANDS_V1;
 
     @BeforeEach
     void setUp() {

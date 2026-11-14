@@ -1,5 +1,7 @@
 package com.bankledger.transaction.application;
 
+import com.bankledger.commons.constant.BankingConstants;
+import com.bankledger.commons.constant.BankingErrorCodes;
 import com.bankledger.transaction.application.port.in.HandleJournalResultUseCase;
 import com.bankledger.transaction.application.port.out.TransactionRepositoryPort;
 import com.bankledger.transaction.application.service.HandleJournalResultService;
@@ -143,8 +145,8 @@ class HandleJournalResultTest {
                 "WITHDRAWAL",
                 "REJECTED",
                 100000L,
-                "BRL",
-                "INSUFFICIENT_FUNDS",
+                BankingConstants.DEFAULT_CURRENCY,
+                BankingErrorCodes.INSUFFICIENT_FUNDS,
                 "Saldo insuficiente para saque",
                 correlationId,
                 fixedInstant
@@ -158,7 +160,7 @@ class HandleJournalResultTest {
         FinancialTransaction saved = captor.getValue();
         assertThat(saved.getId()).isEqualTo(txId);
         assertThat(saved.getStatus()).isEqualTo(TransactionStatus.FAILED);
-        assertThat(saved.getFailureCode()).isEqualTo("INSUFFICIENT_FUNDS");
+        assertThat(saved.getFailureCode()).isEqualTo(BankingErrorCodes.INSUFFICIENT_FUNDS);
         assertThat(saved.getFailureReason()).isEqualTo("Saldo insuficiente para saque");
         assertThat(saved.getCompletedAt()).isEqualTo(fixedInstant);
         assertThat(saved.getUpdatedAt()).isEqualTo(fixedInstant);
@@ -230,10 +232,10 @@ class HandleJournalResultTest {
                 sourceAccountId,
                 null,
                 50000L,
-                "BRL",
+                BankingConstants.DEFAULT_CURRENCY,
                 "Saque teste",
                 requestedBy,
-                "INSUFFICIENT_FUNDS",
+                BankingErrorCodes.INSUFFICIENT_FUNDS,
                 "Saldo insuficiente",
                 correlationId,
                 createdAt,
@@ -250,8 +252,8 @@ class HandleJournalResultTest {
                 "WITHDRAWAL",
                 "REJECTED",
                 50000L,
-                "BRL",
-                "INSUFFICIENT_FUNDS",
+                BankingConstants.DEFAULT_CURRENCY,
+                BankingErrorCodes.INSUFFICIENT_FUNDS,
                 "Saldo insuficiente",
                 correlationId,
                 fixedInstant

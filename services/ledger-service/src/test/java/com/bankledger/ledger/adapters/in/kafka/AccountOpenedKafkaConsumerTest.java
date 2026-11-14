@@ -1,5 +1,6 @@
 package com.bankledger.ledger.adapters.in.kafka;
 
+import com.bankledger.commons.constant.KafkaTopics;
 import com.bankledger.commons.inbox.InboxHandler;
 import com.bankledger.ledger.application.port.in.ProvisionAccountUseCase;
 import com.bankledger.ledger.domain.event.AccountOpenedPayload;
@@ -47,7 +48,7 @@ class AccountOpenedKafkaConsumerTest {
     private ObjectMapper objectMapper;
     private AccountOpenedKafkaConsumer consumer;
 
-    private static final String TOPIC = "account.events.v1";
+    private static final String TOPIC = KafkaTopics.ACCOUNT_EVENTS_V1;
 
     @BeforeEach
     void setUp() {

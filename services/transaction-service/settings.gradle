@@ -1,8 +1,0 @@
-rootProject.name = 'transaction-service'
-
-// Composite build support for platform-commons when transaction-service is built standalone
-if (file('../platform-commons').exists()) {
-    includeBuild('../platform-commons')
-} else if (file('../../platform-commons').exists()) {
-    includeBuild('../../platform-commons')
-}

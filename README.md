@@ -119,7 +119,72 @@ Ideal para desenvolvimento ativo no terminal ou na IDE (VS Code / IntelliJ):
 | **Swagger UI (Account)** | [`http://localhost:8081/swagger-ui.html`](http://localhost:8081/swagger-ui.html) | Documentação interativa OpenAPI 3.0 com autenticação JWT |
 | **Actuator Health (Account)** | [`http://localhost:8081/actuator/health`](http://localhost:8081/actuator/health) | Health check detalhado da aplicação |
 | **Kafka UI** | [`http://localhost:8085`](http://localhost:8085) | Painel visual para inspeção de tópicos e mensagens Kafka |
+| **Grafana UI (LGTM)** | [`http://localhost:3001`](http://localhost:3001) | Painel unificado de Observabilidade (Logs, Traces e Métricas - user/pass: `admin`/`admin`) |
+| **OTLP Exporter (HTTP)** | `http://localhost:4318` | Endpoint de recepção de telemetria OpenTelemetry via HTTP |
+| **OTLP Exporter (gRPC)** | `http://localhost:4317` | Endpoint de recepção de telemetria OpenTelemetry via gRPC |
 | **PostgreSQL 18** | `localhost:5432` | Bancos: `account_db`, `ledger_db`, `transaction_db`, `query_db`<br>Usuário: `bank_ledger` / Senha: `bank_ledger_secret` |
+
+---
+
+## 📊 Observabilidade Local (OpenTelemetry & Grafana LGTM)
+
+O **Bank Ledger** adota o padrão de observabilidade distribuída baseado no ecossistema **OpenTelemetry** e na stack **Grafana LGTM** (*Loki, Grafana, Tempo, Mimir*), permitindo rastrear o ciclo de vida completo de qualquer transação financeira através de microsserviços e mensageria assíncrona Kafka.
+
+### 🧩 Arquitetura e Componentes Integrados
+
+A stack de observabilidade é executada localmente via container All-in-One (`grafana/otel-lgtm`):
+
+* **Loki (Logs)**: Ingestão e agregação de logs estruturados dos microsserviços com enriquecimento contextual de `traceId` e `spanId`.
+* **Grafana (Dashboards & Explore)**: Interface visual centralizada acessível em [`http://localhost:3001`](http://localhost:3001) (usuário: `admin` / senha: `admin`).
+* **Tempo (Distributed Tracing)**: Mecanismo de rastreamento distribuído com suporte a consultas via *TraceQL* e visualização de timelines em cascata (*waterfall*).
+* **Mimir (Métricas)**: Armazenamento escalável e compatível com Prometheus para monitoramento contínuo de métricas do Spring Boot Actuator.
+* **OTLP Receivers**: Portas `4318` (HTTP) e `4317` (gRPC) prontas para ingestão de telemetria das aplicações Spring Boot via OTLP.
+
+### 🏷️ Padrão de Logs e Correlação de Traces
+
+Todos os microsserviços utilizam o starter oficial `io.opentelemetry.instrumentation:opentelemetry-spring-boot-starter` configurado com propagação de MDC (`service_name`, `trace_id`, `span_id`). O padrão de log configurado é:
+
+```text
+[service-name,traceId,spanId]
+```
+
+Exemplo real capturado no console:
+```text
+2026-11-14 17:30:15.123 [INFO ] [transaction-service,67362a7b10f84a3b8e2d4f119a733d4e,01f84a3b8e2d4f11] [virtual-28] c.b.t.a.i.w.TransactionController : Received deposit request for account 01923456-789a-7b8c-9d0e-1f2a3b4c5d6e
+```
+
+O contexto W3C Trace Context (`traceparent`) é automaticamente propagado entre serviços síncronos (HTTP via RestClient/RestTemplate) e assíncronos (mensagens Kafka através de headers OpenTelemetry), garantindo rastreabilidade contínua ponta a ponta sem perda de contexto entre o `transaction-service`, os tópicos Kafka e o `ledger-service`.
+
+### 🔍 Como Testar e Rastrear uma Transação Ponta a Ponta
+
+#### 1. Disparar uma Transação via Postman
+Utilize a coleção oficial do projeto localizada em:
+* 📁 `postman/Bank-Ledger-API.postman_collection.json` (com as variáveis de ambiente em `postman/Bank-Ledger-Local.postman_environment.json`).
+
+* Dispare uma requisição de depósito: `POST http://localhost:8080/api/v1/transactions/deposits` (ou diretamente na porta `:8082`).
+* Copie o `traceId` gerado nos logs do container do `transaction-service`:
+  ```bash
+  docker compose -f infra/docker/docker-compose.yml logs -f transaction-service
+  ```
+
+#### 2. Investigar no Grafana Explore
+1. Acesse o Grafana em [`http://localhost:3001`](http://localhost:3001) e faça login (`admin` / `admin`).
+2. Acesse o menu lateral **Explore**:
+   * **Consulta de Logs no Loki**:
+     Selecione o datasource **Loki** e consulte pelos logs correlacionados da transação:
+     ```logql
+     {service_name=~".+"} |= "<seu-traceId>"
+     ```
+     Ou filtre por serviço específico:
+     ```logql
+     {service_name="transaction-service"}
+     ```
+   * **Timeline em Cascata no Tempo**:
+     Selecione o datasource **Tempo**, cole o `traceId` no campo de busca ou TraceQL, e visualize a cascata detalhada (*waterfall*):
+     - `HTTP POST /api/v1/transactions/deposits` (`transaction-service`)
+     - Publicação no tópico Kafka `transaction-events`
+     - Consumo do evento pelo `ledger-service`
+     - Gravação contábil em partidas dobradas e persistência no PostgreSQL
 
 ---
 

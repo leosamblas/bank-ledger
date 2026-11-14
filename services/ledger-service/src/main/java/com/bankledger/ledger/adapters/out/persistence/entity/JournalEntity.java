@@ -36,7 +36,7 @@ import java.util.UUID;
 @Builder
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
 @ToString
-public class JournalJpaEntity {
+public class JournalEntity {
 
     @Id
     @EqualsAndHashCode.Include
@@ -92,11 +92,11 @@ public class JournalJpaEntity {
         );
     }
 
-    public static JournalJpaEntity fromDomain(Journal domain) {
+    public static JournalEntity fromDomain(Journal domain) {
         if (domain == null) {
             return null;
         }
-        return JournalJpaEntity.builder()
+        return JournalEntity.builder()
                 .id(domain.getId())
                 .transactionId(domain.getTransactionId())
                 .type(domain.getType())

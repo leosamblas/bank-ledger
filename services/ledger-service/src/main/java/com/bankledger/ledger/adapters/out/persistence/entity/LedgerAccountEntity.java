@@ -36,7 +36,7 @@ import java.util.UUID;
 @Builder
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
 @ToString
-public class LedgerAccountJpaEntity {
+public class LedgerAccountEntity {
 
     @Id
     @EqualsAndHashCode.Include
@@ -94,11 +94,11 @@ public class LedgerAccountJpaEntity {
         );
     }
 
-    public static LedgerAccountJpaEntity fromDomain(LedgerAccount domain) {
+    public static LedgerAccountEntity fromDomain(LedgerAccount domain) {
         if (domain == null) {
             return null;
         }
-        return LedgerAccountJpaEntity.builder()
+        return LedgerAccountEntity.builder()
                 .id(domain.getId())
                 .code(domain.getCode())
                 .kind(domain.getKind())

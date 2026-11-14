@@ -1,6 +1,6 @@
 package com.bankledger.account.adapters.out.persistence;
 
-import com.bankledger.account.adapters.out.persistence.entity.CustomerJpaEntity;
+import com.bankledger.account.adapters.out.persistence.entity.CustomerEntity;
 import com.bankledger.account.adapters.out.persistence.repository.CustomerSpringDataRepository;
 import com.bankledger.account.application.port.out.CustomerRepositoryPort;
 import com.bankledger.account.domain.model.Customer;
@@ -25,14 +25,14 @@ public class CustomerPersistenceAdapter implements CustomerRepositoryPort {
     @Override
     public Customer save(Customer customer) {
         Objects.requireNonNull(customer, "customer must not be null");
-        CustomerJpaEntity entity = customerRepository.findById(customer.id())
+        CustomerEntity entity = customerRepository.findById(customer.id())
                 .map(existing -> {
-                    CustomerJpaEntity updated = CustomerJpaEntity.fromDomain(customer);
+                    CustomerEntity updated = CustomerEntity.fromDomain(customer);
                     updated.setVersion(existing.getVersion());
                     return updated;
                 })
-                .orElseGet(() -> CustomerJpaEntity.fromDomain(customer));
-        CustomerJpaEntity saved = customerRepository.saveAndFlush(entity);
+                .orElseGet(() -> CustomerEntity.fromDomain(customer));
+        CustomerEntity saved = customerRepository.saveAndFlush(entity);
         return saved.toDomain();
     }
 
@@ -41,7 +41,7 @@ public class CustomerPersistenceAdapter implements CustomerRepositoryPort {
         if (id == null) {
             return Optional.empty();
         }
-        return customerRepository.findById(id).map(CustomerJpaEntity::toDomain);
+        return customerRepository.findById(id).map(CustomerEntity::toDomain);
     }
 
     @Override
@@ -49,7 +49,7 @@ public class CustomerPersistenceAdapter implements CustomerRepositoryPort {
         if (cpf == null) {
             return Optional.empty();
         }
-        return customerRepository.findByCpf(cpf.value()).map(CustomerJpaEntity::toDomain);
+        return customerRepository.findByCpf(cpf.value()).map(CustomerEntity::toDomain);
     }
 
     @Override
@@ -57,7 +57,7 @@ public class CustomerPersistenceAdapter implements CustomerRepositoryPort {
         if (email == null) {
             return Optional.empty();
         }
-        return customerRepository.findByEmail(email.value()).map(CustomerJpaEntity::toDomain);
+        return customerRepository.findByEmail(email.value()).map(CustomerEntity::toDomain);
     }
 
     @Override

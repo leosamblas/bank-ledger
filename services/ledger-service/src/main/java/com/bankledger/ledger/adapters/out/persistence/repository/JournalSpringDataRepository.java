@@ -1,17 +1,15 @@
 package com.bankledger.ledger.adapters.out.persistence.repository;
 
-import com.bankledger.ledger.adapters.out.persistence.entity.JournalJpaEntity;
+import com.bankledger.ledger.adapters.out.persistence.entity.JournalEntity;
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.stereotype.Repository;
 
 import java.util.Optional;
 import java.util.UUID;
 
 /**
- * Spring Data JPA repository for {@link JournalJpaEntity}.
+ * Spring Data JPA repository for {@link JournalEntity}.
  */
-@Repository
-public interface JournalSpringDataRepository extends JpaRepository<JournalJpaEntity, UUID> {
+public interface JournalSpringDataRepository extends JpaRepository<JournalEntity, UUID> {
 
-    Optional<JournalJpaEntity> findByTransactionId(UUID transactionId);
+    Optional<JournalEntity> findByTransactionId(UUID transactionId);
 }

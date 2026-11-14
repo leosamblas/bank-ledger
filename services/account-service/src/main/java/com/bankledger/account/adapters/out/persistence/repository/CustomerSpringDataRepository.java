@@ -1,21 +1,19 @@
 package com.bankledger.account.adapters.out.persistence.repository;
 
-import com.bankledger.account.adapters.out.persistence.entity.CustomerJpaEntity;
+import com.bankledger.account.adapters.out.persistence.entity.CustomerEntity;
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.stereotype.Repository;
 
 import java.util.Optional;
 import java.util.UUID;
 
 /**
- * Spring Data JPA repository for CustomerJpaEntity.
+ * Spring Data JPA repository for {@link CustomerEntity}.
  */
-@Repository
-public interface CustomerSpringDataRepository extends JpaRepository<CustomerJpaEntity, UUID> {
+public interface CustomerSpringDataRepository extends JpaRepository<CustomerEntity, UUID> {
 
-    Optional<CustomerJpaEntity> findByCpf(String cpf);
+    Optional<CustomerEntity> findByCpf(String cpf);
 
-    Optional<CustomerJpaEntity> findByEmail(String email);
+    Optional<CustomerEntity> findByEmail(String email);
 
     boolean existsByCpf(String cpf);
 

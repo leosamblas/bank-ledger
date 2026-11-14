@@ -1,6 +1,6 @@
 package com.bankledger.ledger.adapters.out.persistence;
 
-import com.bankledger.ledger.adapters.out.persistence.entity.LedgerAccountJpaEntity;
+import com.bankledger.ledger.adapters.out.persistence.entity.LedgerAccountEntity;
 import com.bankledger.ledger.adapters.out.persistence.repository.LedgerAccountSpringDataRepository;
 import com.bankledger.ledger.application.port.out.LedgerAccountRepositoryPort;
 import com.bankledger.ledger.domain.model.LedgerAccount;
@@ -26,7 +26,7 @@ public class LedgerAccountPersistenceAdapter implements LedgerAccountRepositoryP
         if (id == null) {
             return Optional.empty();
         }
-        return repository.findById(id).map(LedgerAccountJpaEntity::toDomain);
+        return repository.findById(id).map(LedgerAccountEntity::toDomain);
     }
 
     @Override
@@ -34,7 +34,7 @@ public class LedgerAccountPersistenceAdapter implements LedgerAccountRepositoryP
         if (id == null) {
             return Optional.empty();
         }
-        return repository.findByIdForUpdate(id).map(LedgerAccountJpaEntity::toDomain);
+        return repository.findByIdForUpdate(id).map(LedgerAccountEntity::toDomain);
     }
 
     @Override
@@ -42,20 +42,20 @@ public class LedgerAccountPersistenceAdapter implements LedgerAccountRepositoryP
         if (code == null || code.isBlank()) {
             return Optional.empty();
         }
-        return repository.findByCode(code).map(LedgerAccountJpaEntity::toDomain);
+        return repository.findByCode(code).map(LedgerAccountEntity::toDomain);
     }
 
     @Override
     public LedgerAccount save(LedgerAccount account) {
         Objects.requireNonNull(account, "account must not be null");
-        LedgerAccountJpaEntity entity = repository.findById(account.getId())
+        LedgerAccountEntity entity = repository.findById(account.getId())
                 .map(existing -> {
-                    LedgerAccountJpaEntity updated = LedgerAccountJpaEntity.fromDomain(account);
+                    LedgerAccountEntity updated = LedgerAccountEntity.fromDomain(account);
                     updated.setVersion(existing.getVersion());
                     return updated;
                 })
-                .orElseGet(() -> LedgerAccountJpaEntity.fromDomain(account));
-        LedgerAccountJpaEntity saved = repository.saveAndFlush(entity);
+                .orElseGet(() -> LedgerAccountEntity.fromDomain(account));
+        LedgerAccountEntity saved = repository.saveAndFlush(entity);
         return saved.toDomain();
     }
 

@@ -1,7 +1,7 @@
 package com.bankledger.transaction.integration;
 
 import com.bankledger.transaction.adapters.in.rest.dto.DepositRequest;
-import com.bankledger.transaction.adapters.out.persistence.entity.IdempotencyKeyJpaEntity;
+import com.bankledger.transaction.adapters.out.persistence.entity.IdempotencyKeyEntity;
 import com.bankledger.transaction.adapters.out.persistence.repository.IdempotencySpringDataRepository;
 import com.bankledger.transaction.adapters.out.persistence.repository.TransactionSpringDataRepository;
 import com.bankledger.transaction.config.JwtTokenService;
@@ -169,7 +169,7 @@ class IdempotencyConcurrencyIntegrationTest {
         // Validar que o registro de idempotência está gravado como COMPLETED
         var idempotencyRecordOpt = idempotencyRepository.findByScopeAndIdemKey(customerId, idempotencyKey);
         assertThat(idempotencyRecordOpt).isPresent();
-        IdempotencyKeyJpaEntity entity = idempotencyRecordOpt.get();
+        IdempotencyKeyEntity entity = idempotencyRecordOpt.get();
         assertThat(entity.getStatus()).isEqualTo(IdempotencyStatus.COMPLETED);
         assertThat(entity.getResponseStatus()).isEqualTo(202);
         assertThat(entity.getTransactionId()).isNotNull();

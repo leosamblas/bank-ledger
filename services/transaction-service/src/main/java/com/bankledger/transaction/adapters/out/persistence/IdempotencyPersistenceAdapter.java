@@ -1,7 +1,7 @@
 package com.bankledger.transaction.adapters.out.persistence;
 
+import com.bankledger.transaction.adapters.out.persistence.entity.IdempotencyKeyEntity;
 import com.bankledger.transaction.adapters.out.persistence.entity.IdempotencyKeyId;
-import com.bankledger.transaction.adapters.out.persistence.entity.IdempotencyKeyJpaEntity;
 import com.bankledger.transaction.adapters.out.persistence.repository.IdempotencySpringDataRepository;
 import com.bankledger.transaction.application.port.out.IdempotencyRepositoryPort;
 import com.bankledger.transaction.domain.exception.IdempotencyConflictException;
@@ -27,15 +27,15 @@ public class IdempotencyPersistenceAdapter implements IdempotencyRepositoryPort 
         Objects.requireNonNull(scope, "scope must not be null");
         Objects.requireNonNull(key, "key must not be null");
         return repository.findById(new IdempotencyKeyId(scope, key))
-                .map(IdempotencyKeyJpaEntity::toDomain);
+                .map(IdempotencyKeyEntity::toDomain);
     }
 
     @Override
     public IdempotencyRecord save(IdempotencyRecord record) {
         Objects.requireNonNull(record, "record must not be null");
         try {
-            IdempotencyKeyJpaEntity entity = IdempotencyKeyJpaEntity.fromDomain(record);
-            IdempotencyKeyJpaEntity saved = repository.saveAndFlush(entity);
+            IdempotencyKeyEntity entity = IdempotencyKeyEntity.fromDomain(record);
+            IdempotencyKeyEntity saved = repository.saveAndFlush(entity);
             return saved.toDomain();
         } catch (DataIntegrityViolationException ex) {
             log.warn("Concurrent duplicate key detected for idempotency scope={} key={}: {}",

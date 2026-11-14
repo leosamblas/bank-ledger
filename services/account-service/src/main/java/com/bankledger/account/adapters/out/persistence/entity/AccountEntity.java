@@ -33,7 +33,7 @@ import java.util.UUID;
 @Builder
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
 @ToString
-public class AccountJpaEntity {
+public class AccountEntity {
 
     @Id
     @EqualsAndHashCode.Include
@@ -82,11 +82,11 @@ public class AccountJpaEntity {
         );
     }
 
-    public static AccountJpaEntity fromDomain(Account domain) {
+    public static AccountEntity fromDomain(Account domain) {
         if (domain == null) {
             return null;
         }
-        return AccountJpaEntity.builder()
+        return AccountEntity.builder()
                 .id(domain.id())
                 .customerId(domain.customerId())
                 .branch(domain.branch())

@@ -1,22 +1,20 @@
 package com.bankledger.account.adapters.out.persistence.repository;
 
-import com.bankledger.account.adapters.out.persistence.entity.AccountJpaEntity;
+import com.bankledger.account.adapters.out.persistence.entity.AccountEntity;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
-import org.springframework.stereotype.Repository;
 
 import java.util.Optional;
 import java.util.UUID;
 
 /**
- * Spring Data JPA repository for AccountJpaEntity.
+ * Spring Data JPA repository for {@link AccountEntity}.
  */
-@Repository
-public interface AccountSpringDataRepository extends JpaRepository<AccountJpaEntity, UUID> {
+public interface AccountSpringDataRepository extends JpaRepository<AccountEntity, UUID> {
 
-    Optional<AccountJpaEntity> findByBranchAndAccountNumber(String branch, String accountNumber);
+    Optional<AccountEntity> findByBranchAndAccountNumber(String branch, String accountNumber);
 
-    Optional<AccountJpaEntity> findByCustomerId(UUID customerId);
+    Optional<AccountEntity> findByCustomerId(UUID customerId);
 
     @Query(value = "SELECT nextval('account_number_seq')", nativeQuery = true)
     long nextAccountNumberSequence();

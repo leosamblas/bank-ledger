@@ -12,10 +12,11 @@ import jakarta.persistence.Table;
 import jakarta.persistence.Version;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
+import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-
+import lombok.ToString;
 import org.hibernate.annotations.JdbcTypeCode;
 
 import java.sql.Types;
@@ -30,9 +31,12 @@ import java.util.UUID;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class FinancialTransactionJpaEntity {
+@EqualsAndHashCode(onlyExplicitlyIncluded = true)
+@ToString
+public class FinancialTransactionEntity {
 
     @Id
+    @EqualsAndHashCode.Include
     @Column(name = "id", nullable = false)
     private UUID id;
 
@@ -85,9 +89,9 @@ public class FinancialTransactionJpaEntity {
     @Column(name = "version", nullable = false)
     private long version;
 
-    public static FinancialTransactionJpaEntity fromDomain(FinancialTransaction domain) {
+    public static FinancialTransactionEntity fromDomain(FinancialTransaction domain) {
         Objects.requireNonNull(domain, "domain must not be null");
-        return FinancialTransactionJpaEntity.builder()
+        return FinancialTransactionEntity.builder()
                 .id(domain.getId())
                 .type(domain.getType())
                 .status(domain.getStatus())

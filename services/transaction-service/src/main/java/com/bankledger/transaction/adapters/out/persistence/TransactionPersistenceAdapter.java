@@ -1,6 +1,6 @@
 package com.bankledger.transaction.adapters.out.persistence;
 
-import com.bankledger.transaction.adapters.out.persistence.entity.FinancialTransactionJpaEntity;
+import com.bankledger.transaction.adapters.out.persistence.entity.FinancialTransactionEntity;
 import com.bankledger.transaction.adapters.out.persistence.repository.TransactionSpringDataRepository;
 import com.bankledger.transaction.application.port.out.TransactionRepositoryPort;
 import com.bankledger.transaction.domain.model.FinancialTransaction;
@@ -20,14 +20,14 @@ public class TransactionPersistenceAdapter implements TransactionRepositoryPort 
     @Override
     public FinancialTransaction save(FinancialTransaction transaction) {
         Objects.requireNonNull(transaction, "transaction must not be null");
-        FinancialTransactionJpaEntity entity = FinancialTransactionJpaEntity.fromDomain(transaction);
-        FinancialTransactionJpaEntity saved = repository.saveAndFlush(entity);
+        FinancialTransactionEntity entity = FinancialTransactionEntity.fromDomain(transaction);
+        FinancialTransactionEntity saved = repository.saveAndFlush(entity);
         return saved.toDomain();
     }
 
     @Override
     public Optional<FinancialTransaction> findById(UUID id) {
         Objects.requireNonNull(id, "id must not be null");
-        return repository.findById(id).map(FinancialTransactionJpaEntity::toDomain);
+        return repository.findById(id).map(FinancialTransactionEntity::toDomain);
     }
 }

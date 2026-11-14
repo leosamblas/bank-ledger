@@ -1,19 +1,17 @@
 package com.bankledger.ledger.adapters.out.persistence.repository;
 
-import com.bankledger.ledger.adapters.out.persistence.entity.EntryJpaEntity;
+import com.bankledger.ledger.adapters.out.persistence.entity.EntryEntity;
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.stereotype.Repository;
 
 import java.util.List;
 import java.util.UUID;
 
 /**
- * Spring Data JPA repository for {@link EntryJpaEntity}.
+ * Spring Data JPA repository for {@link EntryEntity}.
  */
-@Repository
-public interface EntrySpringDataRepository extends JpaRepository<EntryJpaEntity, UUID> {
+public interface EntrySpringDataRepository extends JpaRepository<EntryEntity, UUID> {
 
-    List<EntryJpaEntity> findByJournalId(UUID journalId);
+    List<EntryEntity> findByJournalId(UUID journalId);
 
-    List<EntryJpaEntity> findByLedgerAccountIdOrderByCreatedAtDesc(UUID ledgerAccountId);
+    List<EntryEntity> findByLedgerAccountIdOrderByCreatedAtDesc(UUID ledgerAccountId);
 }

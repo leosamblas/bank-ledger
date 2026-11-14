@@ -31,7 +31,7 @@ import java.util.UUID;
 @Builder
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
 @ToString
-public class EntryJpaEntity {
+public class EntryEntity {
 
     @Id
     @EqualsAndHashCode.Include
@@ -73,11 +73,11 @@ public class EntryJpaEntity {
         );
     }
 
-    public static EntryJpaEntity fromDomain(Entry domain) {
+    public static EntryEntity fromDomain(Entry domain) {
         if (domain == null) {
             return null;
         }
-        return EntryJpaEntity.builder()
+        return EntryEntity.builder()
                 .id(domain.id())
                 .journalId(domain.journalId())
                 .ledgerAccountId(domain.ledgerAccountId())

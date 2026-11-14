@@ -11,9 +11,11 @@ import jakarta.persistence.IdClass;
 import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
+import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import lombok.ToString;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
@@ -30,13 +32,17 @@ import java.util.UUID;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class IdempotencyKeyJpaEntity {
+@EqualsAndHashCode(onlyExplicitlyIncluded = true)
+@ToString
+public class IdempotencyKeyEntity {
 
     @Id
+    @EqualsAndHashCode.Include
     @Column(name = "scope", nullable = false)
     private UUID scope;
 
     @Id
+    @EqualsAndHashCode.Include
     @Column(name = "idem_key", nullable = false)
     private UUID idemKey;
 
@@ -67,9 +73,9 @@ public class IdempotencyKeyJpaEntity {
     @Column(name = "expires_at", nullable = false)
     private Instant expiresAt;
 
-    public static IdempotencyKeyJpaEntity fromDomain(IdempotencyRecord domain) {
+    public static IdempotencyKeyEntity fromDomain(IdempotencyRecord domain) {
         Objects.requireNonNull(domain, "domain must not be null");
-        return IdempotencyKeyJpaEntity.builder()
+        return IdempotencyKeyEntity.builder()
                 .scope(domain.scope())
                 .idemKey(domain.key())
                 .endpoint(domain.endpoint())

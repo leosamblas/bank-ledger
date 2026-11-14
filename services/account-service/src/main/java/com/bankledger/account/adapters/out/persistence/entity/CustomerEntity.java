@@ -33,7 +33,7 @@ import java.util.UUID;
 @Builder
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
 @ToString(exclude = "passwordHash")
-public class CustomerJpaEntity {
+public class CustomerEntity {
 
     @Id
     @EqualsAndHashCode.Include
@@ -90,11 +90,11 @@ public class CustomerJpaEntity {
         );
     }
 
-    public static CustomerJpaEntity fromDomain(Customer domain) {
+    public static CustomerEntity fromDomain(Customer domain) {
         if (domain == null) {
             return null;
         }
-        return CustomerJpaEntity.builder()
+        return CustomerEntity.builder()
                 .id(domain.id())
                 .fullName(domain.fullName())
                 .cpf(domain.cpf().value())

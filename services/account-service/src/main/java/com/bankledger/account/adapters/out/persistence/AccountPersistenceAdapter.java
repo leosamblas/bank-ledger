@@ -1,6 +1,6 @@
 package com.bankledger.account.adapters.out.persistence;
 
-import com.bankledger.account.adapters.out.persistence.entity.AccountJpaEntity;
+import com.bankledger.account.adapters.out.persistence.entity.AccountEntity;
 import com.bankledger.account.adapters.out.persistence.repository.AccountSpringDataRepository;
 import com.bankledger.account.application.port.out.AccountRepositoryPort;
 import com.bankledger.account.domain.model.Account;
@@ -23,14 +23,14 @@ public class AccountPersistenceAdapter implements AccountRepositoryPort {
     @Override
     public Account save(Account account) {
         Objects.requireNonNull(account, "account must not be null");
-        AccountJpaEntity entity = accountRepository.findById(account.id())
+        AccountEntity entity = accountRepository.findById(account.id())
                 .map(existing -> {
-                    AccountJpaEntity updated = AccountJpaEntity.fromDomain(account);
+                    AccountEntity updated = AccountEntity.fromDomain(account);
                     updated.setVersion(existing.getVersion());
                     return updated;
                 })
-                .orElseGet(() -> AccountJpaEntity.fromDomain(account));
-        AccountJpaEntity saved = accountRepository.saveAndFlush(entity);
+                .orElseGet(() -> AccountEntity.fromDomain(account));
+        AccountEntity saved = accountRepository.saveAndFlush(entity);
         return saved.toDomain();
     }
 
@@ -39,7 +39,7 @@ public class AccountPersistenceAdapter implements AccountRepositoryPort {
         if (id == null) {
             return Optional.empty();
         }
-        return accountRepository.findById(id).map(AccountJpaEntity::toDomain);
+        return accountRepository.findById(id).map(AccountEntity::toDomain);
     }
 
     @Override
@@ -48,7 +48,7 @@ public class AccountPersistenceAdapter implements AccountRepositoryPort {
             return Optional.empty();
         }
         return accountRepository.findByBranchAndAccountNumber(branch, number)
-                .map(AccountJpaEntity::toDomain);
+                .map(AccountEntity::toDomain);
     }
 
     @Override
@@ -57,7 +57,7 @@ public class AccountPersistenceAdapter implements AccountRepositoryPort {
             return Optional.empty();
         }
         return accountRepository.findByCustomerId(customerId)
-                .map(AccountJpaEntity::toDomain);
+                .map(AccountEntity::toDomain);
     }
 
     @Override

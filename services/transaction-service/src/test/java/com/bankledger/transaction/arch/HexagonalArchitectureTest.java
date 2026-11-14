@@ -127,4 +127,14 @@ public class HexagonalArchitectureTest {
             .should().dependOnClassesThat()
             .haveFullyQualifiedName("org.springframework.beans.factory.annotation.Autowired")
             .allowEmptyShould(false);
+
+    /**
+     * Rule 11: JPA entities must follow standard naming convention ending with Entity.
+     */
+    @ArchTest
+    public static final ArchRule entities_must_have_name_ending_with_entity =
+        classes()
+            .that().areAnnotatedWith(Entity.class)
+            .should().haveSimpleNameEndingWith("Entity")
+            .allowEmptyShould(false);
 }

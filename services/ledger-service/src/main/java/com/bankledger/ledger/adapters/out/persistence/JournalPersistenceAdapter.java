@@ -1,7 +1,7 @@
 package com.bankledger.ledger.adapters.out.persistence;
 
-import com.bankledger.ledger.adapters.out.persistence.entity.EntryJpaEntity;
-import com.bankledger.ledger.adapters.out.persistence.entity.JournalJpaEntity;
+import com.bankledger.ledger.adapters.out.persistence.entity.EntryEntity;
+import com.bankledger.ledger.adapters.out.persistence.entity.JournalEntity;
 import com.bankledger.ledger.adapters.out.persistence.repository.EntrySpringDataRepository;
 import com.bankledger.ledger.adapters.out.persistence.repository.JournalSpringDataRepository;
 import com.bankledger.ledger.application.port.out.JournalRepositoryPort;
@@ -28,11 +28,11 @@ public class JournalPersistenceAdapter implements JournalRepositoryPort {
     @Override
     public Journal save(Journal journal) {
         Objects.requireNonNull(journal, "journal must not be null");
-        JournalJpaEntity savedJournalEntity = journalRepository.saveAndFlush(JournalJpaEntity.fromDomain(journal));
+        JournalEntity savedJournalEntity = journalRepository.saveAndFlush(JournalEntity.fromDomain(journal));
 
         if (journal.getEntries() != null && !journal.getEntries().isEmpty()) {
-            List<EntryJpaEntity> entryEntities = journal.getEntries().stream()
-                    .map(EntryJpaEntity::fromDomain)
+            List<EntryEntity> entryEntities = journal.getEntries().stream()
+                    .map(EntryEntity::fromDomain)
                     .toList();
             entryRepository.saveAllAndFlush(entryEntities);
         }
@@ -47,9 +47,9 @@ public class JournalPersistenceAdapter implements JournalRepositoryPort {
         }
         return journalRepository.findByTransactionId(transactionId)
                 .map(journalEntity -> {
-                    List<EntryJpaEntity> entryEntities = entryRepository.findByJournalId(journalEntity.getId());
+                    List<EntryEntity> entryEntities = entryRepository.findByJournalId(journalEntity.getId());
                     List<Entry> entries = entryEntities.stream()
-                            .map(EntryJpaEntity::toDomain)
+                            .map(EntryEntity::toDomain)
                             .toList();
                     return journalEntity.toDomain(entries);
                 });

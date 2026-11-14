@@ -50,7 +50,7 @@ export default function DashboardPage() {
             </span>
             <span className="text-outline-variant">•</span>
             <span>
-              Titular: <strong className="text-on-surface font-semibold">{account.companyName}</strong>
+              Titular: <strong className="text-on-surface font-semibold">{account.holderName || account.companyName}</strong>
             </span>
           </div>
         </div>

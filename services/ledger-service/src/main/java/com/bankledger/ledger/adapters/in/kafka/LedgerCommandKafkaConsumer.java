@@ -1,6 +1,7 @@
 package com.bankledger.ledger.adapters.in.kafka;
 
 import com.bankledger.commons.constant.KafkaTopics;
+import com.bankledger.commons.events.v1.ledger.PostJournalCommandPayload;
 import com.bankledger.commons.inbox.InboxHandler;
 import com.bankledger.ledger.application.port.in.PostJournalUseCase;
 import com.bankledger.ledger.domain.command.PostJournalCommand;
@@ -15,7 +16,6 @@ import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
 import java.nio.charset.StandardCharsets;
-import java.time.Instant;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
@@ -106,7 +106,18 @@ public class LedgerCommandKafkaConsumer {
                     .orElse(null);
         }
 
-        PostJournalCommand command = extractCommand(dataNode);
+        PostJournalCommandPayload payload;
+        try {
+            payload = objectMapper.treeToValue(dataNode, PostJournalCommandPayload.class);
+        } catch (Exception e) {
+            throw new IllegalArgumentException("Failed to deserialize PostJournalCommandPayload: " + e.getMessage(), e);
+        }
+
+        if (payload == null) {
+            throw new IllegalArgumentException("PostJournalCommandPayload must not be null");
+        }
+
+        PostJournalCommand command = PostJournalCommand.fromPayload(payload);
 
         if (eventId == null) {
             if (dataNode.has("commandId") && !dataNode.get("commandId").isNull() && !dataNode.get("commandId").asString().isBlank()) {
@@ -123,82 +134,6 @@ public class LedgerCommandKafkaConsumer {
         }
 
         return new ParsedRecord(eventId, command);
-    }
-
-    private PostJournalCommand extractCommand(JsonNode node) {
-        if (node == null || !node.isObject()) {
-            throw new IllegalArgumentException("Invalid command payload: expected JSON object");
-        }
-
-        UUID commandId = getOptionalUuid(node, "commandId");
-        UUID transactionId = getRequiredUuid(node, "transactionId");
-        String type = getRequiredText(node, "type");
-        long amount = getRequiredLong(node, "amount");
-        String currency = getOptionalText(node, "currency");
-        UUID sourceAccountId = getOptionalUuid(node, "sourceAccountId");
-        UUID destinationAccountId = getOptionalUuid(node, "destinationAccountId");
-        String terminalId = getOptionalText(node, "terminalId");
-        UUID correlationId = getOptionalUuid(node, "correlationId");
-        Instant timestamp = getOptionalInstant(node, "timestamp");
-
-        return new PostJournalCommand(
-                commandId,
-                transactionId,
-                type,
-                amount,
-                currency,
-                sourceAccountId,
-                destinationAccountId,
-                terminalId,
-                correlationId,
-                timestamp
-        );
-    }
-
-    private UUID getRequiredUuid(JsonNode node, String fieldName) {
-        if (!node.has(fieldName) || node.get(fieldName).isNull() || node.get(fieldName).asString().isBlank()) {
-            throw new IllegalArgumentException("Missing required field: " + fieldName);
-        }
-        return UUID.fromString(node.get(fieldName).asString());
-    }
-
-    private UUID getOptionalUuid(JsonNode node, String fieldName) {
-        if (node.has(fieldName) && !node.get(fieldName).isNull() && !node.get(fieldName).asString().isBlank()) {
-            return UUID.fromString(node.get(fieldName).asString());
-        }
-        return null;
-    }
-
-    private String getRequiredText(JsonNode node, String fieldName) {
-        if (!node.has(fieldName) || node.get(fieldName).isNull() || node.get(fieldName).asString().isBlank()) {
-            throw new IllegalArgumentException("Missing required field: " + fieldName);
-        }
-        return node.get(fieldName).asString();
-    }
-
-    private String getOptionalText(JsonNode node, String fieldName) {
-        if (node.has(fieldName) && !node.get(fieldName).isNull()) {
-            return node.get(fieldName).asString();
-        }
-        return null;
-    }
-
-    private long getRequiredLong(JsonNode node, String fieldName) {
-        if (!node.has(fieldName) || node.get(fieldName).isNull() || !node.get(fieldName).isNumber()) {
-            throw new IllegalArgumentException("Missing required numeric field: " + fieldName);
-        }
-        return node.get(fieldName).asLong();
-    }
-
-    private Instant getOptionalInstant(JsonNode node, String fieldName) {
-        if (node.has(fieldName) && !node.get(fieldName).isNull()) {
-            JsonNode value = node.get(fieldName);
-            if (value.isNumber()) {
-                return Instant.ofEpochMilli(value.asLong());
-            }
-            return Instant.parse(value.asString());
-        }
-        return null;
     }
 
     private Optional<UUID> extractHeaderUuid(ConsumerRecord<String, String> record, String headerName) {

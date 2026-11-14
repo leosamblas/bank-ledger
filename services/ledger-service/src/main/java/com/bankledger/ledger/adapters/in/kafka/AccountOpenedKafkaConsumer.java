@@ -15,7 +15,6 @@ import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
 import java.nio.charset.StandardCharsets;
-import java.time.Instant;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
@@ -106,7 +105,16 @@ public class AccountOpenedKafkaConsumer {
                     .orElse(null);
         }
 
-        AccountOpenedPayload payload = extractPayload(dataNode);
+        AccountOpenedPayload payload;
+        try {
+            payload = objectMapper.treeToValue(dataNode, AccountOpenedPayload.class);
+        } catch (Exception e) {
+            throw new IllegalArgumentException("Failed to deserialize AccountOpenedPayload: " + e.getMessage(), e);
+        }
+
+        if (payload == null) {
+            throw new IllegalArgumentException("AccountOpenedPayload must not be null");
+        }
 
         if (eventId == null) {
             if (payload.accountId() != null) {
@@ -121,74 +129,6 @@ public class AccountOpenedKafkaConsumer {
         }
 
         return new ParsedRecord(eventId, payload);
-    }
-
-    private AccountOpenedPayload extractPayload(JsonNode dataNode) {
-        if (dataNode == null || !dataNode.isObject()) {
-            throw new IllegalArgumentException("Invalid payload data: expected JSON object");
-        }
-
-        UUID accountId = getRequiredUuid(dataNode, "accountId");
-        UUID customerId = getRequiredUuid(dataNode, "customerId");
-        String customerCpf = getRequiredText(dataNode, "customerCpf");
-        String customerName = getRequiredText(dataNode, "customerName");
-        String branch = getRequiredText(dataNode, "branch");
-        String accountNumber = getRequiredText(dataNode, "accountNumber");
-        String checkDigit = getRequiredText(dataNode, "checkDigit");
-        Instant openedAt = getOptionalInstant(dataNode, "openedAt");
-        if (openedAt == null) {
-            openedAt = Instant.now();
-        }
-
-        return new AccountOpenedPayload(
-                accountId,
-                customerId,
-                customerCpf,
-                customerName,
-                branch,
-                accountNumber,
-                checkDigit,
-                openedAt
-        );
-    }
-
-    private UUID getRequiredUuid(JsonNode node, String fieldName) {
-        if (!node.has(fieldName) || node.get(fieldName).isNull() || node.get(fieldName).asString().isBlank()) {
-            throw new IllegalArgumentException("Missing required field: " + fieldName);
-        }
-        return UUID.fromString(node.get(fieldName).asString());
-    }
-
-    private UUID getOptionalUuid(JsonNode node, String fieldName) {
-        if (node.has(fieldName) && !node.get(fieldName).isNull() && !node.get(fieldName).asString().isBlank()) {
-            return UUID.fromString(node.get(fieldName).asString());
-        }
-        return null;
-    }
-
-    private String getRequiredText(JsonNode node, String fieldName) {
-        if (!node.has(fieldName) || node.get(fieldName).isNull()) {
-            throw new IllegalArgumentException("Missing required field: " + fieldName);
-        }
-        return node.get(fieldName).asString();
-    }
-
-    private String getOptionalText(JsonNode node, String fieldName) {
-        if (node.has(fieldName) && !node.get(fieldName).isNull()) {
-            return node.get(fieldName).asString();
-        }
-        return null;
-    }
-
-    private Instant getOptionalInstant(JsonNode node, String fieldName) {
-        if (node.has(fieldName) && !node.get(fieldName).isNull()) {
-            JsonNode value = node.get(fieldName);
-            if (value.isNumber()) {
-                return Instant.ofEpochMilli(value.asLong());
-            }
-            return Instant.parse(value.asString());
-        }
-        return null;
     }
 
     private Optional<UUID> extractHeaderUuid(ConsumerRecord<String, String> record, String headerName) {

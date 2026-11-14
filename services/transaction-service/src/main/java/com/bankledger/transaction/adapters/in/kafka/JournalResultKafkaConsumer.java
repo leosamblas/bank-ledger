@@ -1,6 +1,8 @@
 package com.bankledger.transaction.adapters.in.kafka;
 
 import com.bankledger.commons.constant.KafkaTopics;
+import com.bankledger.commons.events.v1.ledger.JournalPostedPayload;
+import com.bankledger.commons.events.v1.ledger.JournalRejectedPayload;
 import com.bankledger.commons.inbox.InboxHandler;
 import com.bankledger.transaction.application.port.in.HandleJournalResultUseCase;
 import com.bankledger.transaction.domain.event.JournalResultPayload;
@@ -13,9 +15,9 @@ import org.springframework.kafka.support.Acknowledgment;
 import org.springframework.stereotype.Component;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.node.ObjectNode;
 
 import java.nio.charset.StandardCharsets;
-import java.time.Instant;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
@@ -107,7 +109,7 @@ public class JournalResultKafkaConsumer {
                     .orElse(null);
         }
 
-        JournalResultPayload payload = extractPayload(dataNode, root, record);
+        JournalResultPayload payload = deserializePayload(dataNode, root, record);
 
         if (eventId == null) {
             if (payload.journalId() != null) {
@@ -126,65 +128,55 @@ public class JournalResultKafkaConsumer {
         return new ParsedRecord(eventId, payload);
     }
 
-    private JournalResultPayload extractPayload(JsonNode dataNode, JsonNode rootNode, ConsumerRecord<String, String> record) {
-        UUID journalId = getOptionalUuid(dataNode, "journalId");
-        UUID transactionId = getOptionalUuid(dataNode, "transactionId");
-        if (transactionId == null && record.key() != null) {
-            transactionId = parseUuid(record.key());
-        }
-        if (transactionId == null) {
-            throw new IllegalArgumentException("Missing required transactionId in journal result payload");
+    private JournalResultPayload deserializePayload(JsonNode dataNode, JsonNode rootNode, ConsumerRecord<String, String> record) {
+        if (dataNode == null || !dataNode.isObject()) {
+            throw new IllegalArgumentException("Invalid payload data: expected JSON object");
         }
 
-        String type = getOptionalText(dataNode, "type");
-        String status = getOptionalText(dataNode, "status");
-        if (status == null) {
-            String eventType = getOptionalText(rootNode, "type");
-            if (eventType != null) {
+        if (dataNode instanceof ObjectNode objectNode) {
+            if (!objectNode.has("transactionId") && record.key() != null) {
+                objectNode.put("transactionId", record.key());
+            }
+            if (!objectNode.has("status") && rootNode != null && rootNode.has("type") && !rootNode.get("type").isNull()) {
+                String eventType = rootNode.get("type").asString();
                 if (eventType.contains("Posted")) {
-                    status = "POSTED";
+                    objectNode.put("status", "POSTED");
                 } else if (eventType.contains("Rejected")) {
-                    status = "REJECTED";
+                    objectNode.put("status", "REJECTED");
                 }
             }
         }
-        if (status == null) {
-            throw new IllegalArgumentException("Missing required status in journal result payload");
+
+        // 1. Try canonical JournalPostedPayload if postedAt is present
+        if (dataNode.has("postedAt")) {
+            try {
+                JournalPostedPayload posted = objectMapper.treeToValue(dataNode, JournalPostedPayload.class);
+                return JournalResultPayload.fromPosted(posted);
+            } catch (Exception ignored) {
+                // Fallback to generic JournalResultPayload
+            }
         }
 
-        Long totalAmount = getOptionalLong(dataNode, "totalAmount");
-        if (totalAmount == null) {
-            totalAmount = getOptionalLong(dataNode, "amount");
+        // 2. Try canonical JournalRejectedPayload if rejectedAt or rejectCode is present
+        if (dataNode.has("rejectedAt") || dataNode.has("rejectCode")) {
+            try {
+                JournalRejectedPayload rejected = objectMapper.treeToValue(dataNode, JournalRejectedPayload.class);
+                return JournalResultPayload.fromRejected(rejected);
+            } catch (Exception ignored) {
+                // Fallback to generic JournalResultPayload
+            }
         }
 
-        String currency = getOptionalText(dataNode, "currency");
-        String rejectCode = getOptionalText(dataNode, "rejectCode");
-        String rejectReason = getOptionalText(dataNode, "rejectReason");
-        UUID correlationId = getOptionalUuid(dataNode, "correlationId");
-
-        Instant timestamp = getOptionalInstant(dataNode, "postedAt");
-        if (timestamp == null) {
-            timestamp = getOptionalInstant(dataNode, "rejectedAt");
+        // 3. Fallback / direct JournalResultPayload
+        try {
+            JournalResultPayload result = objectMapper.treeToValue(dataNode, JournalResultPayload.class);
+            if (result == null) {
+                throw new IllegalArgumentException("Deserialized JournalResultPayload is null");
+            }
+            return result;
+        } catch (Exception e) {
+            throw new IllegalArgumentException("Failed to deserialize journal result payload: " + e.getMessage(), e);
         }
-        if (timestamp == null) {
-            timestamp = getOptionalInstant(dataNode, "timestamp");
-        }
-        if (timestamp == null) {
-            timestamp = getOptionalInstant(rootNode, "time");
-        }
-
-        return new JournalResultPayload(
-                journalId,
-                transactionId,
-                type,
-                status,
-                totalAmount,
-                currency,
-                rejectCode,
-                rejectReason,
-                correlationId,
-                timestamp
-        );
     }
 
     private Optional<UUID> extractHeaderUuid(ConsumerRecord<String, String> record, String headerKey) {
@@ -212,38 +204,6 @@ public class JournalResultKafkaConsumer {
         } catch (IllegalArgumentException e) {
             return null;
         }
-    }
-
-    private UUID getOptionalUuid(JsonNode node, String fieldName) {
-        if (node.has(fieldName) && !node.get(fieldName).isNull() && !node.get(fieldName).asString().isBlank()) {
-            return UUID.fromString(node.get(fieldName).asString());
-        }
-        return null;
-    }
-
-    private String getOptionalText(JsonNode node, String fieldName) {
-        if (node.has(fieldName) && !node.get(fieldName).isNull()) {
-            return node.get(fieldName).asString();
-        }
-        return null;
-    }
-
-    private Long getOptionalLong(JsonNode node, String fieldName) {
-        if (node.has(fieldName) && !node.get(fieldName).isNull() && node.get(fieldName).isNumber()) {
-            return node.get(fieldName).asLong();
-        }
-        return null;
-    }
-
-    private Instant getOptionalInstant(JsonNode node, String fieldName) {
-        if (node.has(fieldName) && !node.get(fieldName).isNull()) {
-            JsonNode value = node.get(fieldName);
-            if (value.isNumber()) {
-                return Instant.ofEpochMilli(value.asLong());
-            }
-            return Instant.parse(value.asString());
-        }
-        return null;
     }
 
     private record ParsedRecord(UUID eventId, JournalResultPayload payload) {}

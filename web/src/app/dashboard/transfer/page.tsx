@@ -1,20 +1,20 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, Suspense } from 'react';
 import Link from 'next/link';
 import { useBanking } from '@/hooks/useBanking';
 import { formatCentsToBrl, parseBrlToCents } from '@/utils/currency';
 import { generateUUID } from '@/utils/uuid';
 import { AccountLookupResponse, StatementItem } from '@/services/types';
 
-export default function TransferirPage() {
+function TransferContent() {
   const { balance, transfer, lookup } = useBanking();
 
   const [agency, setAgency] = useState('0001');
-  const [accountNumber, setAccountNumber] = useState('123456-7');
-  const [amountStr, setAmountStr] = useState('2.450,00');
-  const [description, setDescription] = useState('Pagamento de consultoria de software');
-  const [idempotencyKey, setIdempotencyKey] = useState('c9b24e60-84a1-4321-9e22-094fa817b120');
+  const [accountNumber, setAccountNumber] = useState('');
+  const [amountStr, setAmountStr] = useState('');
+  const [description, setDescription] = useState('');
+  const [idempotencyKey, setIdempotencyKey] = useState<string>('');
   const [showTechDetails, setShowTechDetails] = useState(false);
 
   const [counterparty, setCounterparty] = useState<AccountLookupResponse | null>(null);
@@ -24,13 +24,19 @@ export default function TransferirPage() {
   const [successItem, setSuccessItem] = useState<StatementItem | null>(null);
 
   const handleLookup = async (ag: string, acc: string) => {
+    if (!acc.trim()) {
+      setErrorMessage('Informe o número da conta com dígito para pesquisar.');
+      return;
+    }
     setIsLookingUp(true);
     setErrorMessage('');
     try {
       const res = await lookup(ag, acc);
       setCounterparty(res);
-    } catch {
+    } catch (err: unknown) {
       setCounterparty(null);
+      const msg = err instanceof Error ? err.message : 'Conta de destino não encontrada.';
+      setErrorMessage(msg);
     } finally {
       setIsLookingUp(false);
     }
@@ -74,33 +80,52 @@ export default function TransferirPage() {
     setIsSubmitting(true);
 
     try {
+      const activeIdempotencyKey = idempotencyKey.trim() || generateUUID();
+      if (activeIdempotencyKey !== idempotencyKey) {
+        setIdempotencyKey(activeIdempotencyKey);
+      }
+
       const tx = await transfer({
         destinationAccountId: counterparty.accountId,
         destinationAgency: agency,
         destinationAccount: accountNumber,
         amountCents,
-        description,
-        idempotencyKey,
+        description: description.trim() || undefined,
+        idempotencyKey: activeIdempotencyKey,
       });
 
-      const receiptItem: StatementItem = {
-        id: tx.id,
-        sequence: 0,
-        transactionId: tx.id,
-        timestamp: tx.completedAt || tx.createdAt || new Date().toISOString(),
-        category: 'TRANSFER',
-        type: 'TRANSFER_OUT',
-        description: description || 'Transferência entre contas Nexus',
-        counterpartyName: counterparty.holderNameMasked || 'Destinatário',
-        counterpartyDocumentMasked: counterparty.documentMasked || '',
-        counterpartyAccount: `${agency} / ${accountNumber}`,
-        nature: 'DEBIT',
-        amountCents: tx.amount || amountCents,
-        balanceAfterCents: balance.availableCents - amountCents,
-        idempotencyKey,
-      };
+      if (tx.status === 'COMPLETED') {
+        const receiptItem: StatementItem = {
+          id: tx.id,
+          sequence: 0,
+          transactionId: tx.id,
+          timestamp: tx.completedAt || tx.createdAt || new Date().toISOString(),
+          category: 'TRANSFER',
+          type: 'TRANSFER_OUT',
+          description: description || 'Transferência entre contas Nexus',
+          counterpartyName: counterparty.holderNameMasked || 'Destinatário',
+          counterpartyDocumentMasked: counterparty.documentMasked || '',
+          counterpartyAccount: `${agency} / ${accountNumber}`,
+          nature: 'DEBIT',
+          amountCents: tx.amount || amountCents,
+          balanceAfterCents: balance.availableCents - amountCents,
+          idempotencyKey: activeIdempotencyKey,
+        };
 
-      setSuccessItem(receiptItem);
+        setSuccessItem(receiptItem);
+      } else if (tx.status === 'FAILED') {
+        if (tx.failureCode === 'INSUFFICIENT_FUNDS') {
+          setErrorMessage('Saldo insuficiente para realizar esta transferência.');
+        } else if (tx.failureCode === 'LIMIT_EXCEEDED') {
+          setErrorMessage('Limite diário de transferências excedido.');
+        } else if (tx.failureCode === 'ACCOUNT_BLOCKED') {
+          setErrorMessage('Conta bloqueada para movimentações.');
+        } else {
+          setErrorMessage('A transferência foi rejeitada pelo sistema bancário.');
+        }
+      } else {
+        setErrorMessage('A transferência está em processamento. Consulte o extrato em instantes.');
+      }
     } catch (err: unknown) {
       setErrorMessage(err instanceof Error ? err.message : 'Falha ao processar transferência.');
     } finally {
@@ -110,8 +135,8 @@ export default function TransferirPage() {
 
   const handleResetForm = () => {
     setSuccessItem(null);
-    setIdempotencyKey(generateUUID());
-    setAmountStr('0,00');
+    setIdempotencyKey('');
+    setAmountStr('');
     setErrorMessage('');
   };
 
@@ -151,7 +176,7 @@ export default function TransferirPage() {
 
         <div className="flex items-center gap-3">
           <Link
-            href="/dashboard/extrato"
+            href="/dashboard/statement"
             className="px-4 py-2 rounded-xl bg-surface-container-high text-on-surface hover:bg-surface-variant font-headline-sm text-body-md font-semibold transition-colors flex items-center gap-1.5 shadow-xs no-underline"
           >
             <span className="material-symbols-outlined text-[18px]">receipt_long</span>
@@ -222,7 +247,7 @@ export default function TransferirPage() {
               Voltar à Visão Geral
             </Link>
             <Link
-              href="/dashboard/extrato"
+              href="/dashboard/statement"
               className="px-4 py-2.5 rounded-xl bg-surface-container text-on-surface font-semibold text-sm hover:bg-surface-container-high transition-colors no-underline ml-auto"
             >
               Ver no Extrato
@@ -429,7 +454,9 @@ export default function TransferirPage() {
                     <div className="flex items-center justify-between flex-wrap gap-1">
                       <span className="font-semibold text-on-surface">Protocolo da Operação:</span>
                       <div className="flex items-center gap-2">
-                        <span className="font-code-sm text-code-sm text-on-surface select-all">{idempotencyKey}</span>
+                        <span className="font-code-sm text-code-sm text-on-surface select-all">
+                          {idempotencyKey || 'Gerado automaticamente ao enviar'}
+                        </span>
                         <button
                           type="button"
                           onClick={() => setIdempotencyKey(generateUUID())}
@@ -455,7 +482,7 @@ export default function TransferirPage() {
               {/* Botão de Envio */}
               <button
                 type="submit"
-                disabled={isSubmitting || isOverBalance || isOverLimit || amountCents <= 0}
+                disabled={isSubmitting || isOverBalance || isOverLimit || amountCents <= 0 || !counterparty}
                 className="w-full h-14 bg-[#0e1c2f] hover:bg-[#1a2d47] text-white font-headline-sm text-headline-sm font-semibold rounded-2xl flex items-center justify-center gap-2 transition-all shadow-md active:scale-[0.99] cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isSubmitting ? (
@@ -543,5 +570,22 @@ export default function TransferirPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function TransferPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="w-full max-w-[1600px] mx-auto p-8 flex items-center justify-center">
+          <div className="flex items-center gap-3 text-secondary font-medium">
+            <span className="inline-block w-5 h-5 border-2 border-secondary border-t-transparent rounded-full animate-spin"></span>
+            <span>Carregando ambiente de transferências seguras...</span>
+          </div>
+        </div>
+      }
+    >
+      <TransferContent />
+    </Suspense>
   );
 }

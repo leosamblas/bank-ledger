@@ -22,9 +22,9 @@ export function BankingHeader() {
 
   const navItems = [
     { label: 'Visão Geral', href: '/dashboard' },
-    { label: 'Transferir', href: '/dashboard/transferir' },
-    { label: 'Depositar & Sacar', href: '/dashboard/operacoes' },
-    { label: 'Extrato', href: '/dashboard/extrato' },
+    { label: 'Transferir', href: '/dashboard/transfer' },
+    { label: 'Depositar & Sacar', href: '/dashboard/operations' },
+    { label: 'Extrato', href: '/dashboard/statement' },
   ];
 
   const handleLogout = () => {

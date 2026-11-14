@@ -16,4 +16,4 @@ COPY --from=builder /workspace/services/account-service/build/libs/account-servi
 
 EXPOSE 8081
 
-ENTRYPOINT ["java", "--enable-preview", "-XX:+UseZGC", "-jar", "app.jar"]
+ENTRYPOINT ["java", "--enable-preview", "-XX:+UseZGC", "-XX:+UseCompactObjectHeaders", "-XX:+ExitOnOutOfMemoryError", "-jar", "app.jar"]

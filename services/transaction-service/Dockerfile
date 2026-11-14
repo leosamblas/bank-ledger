@@ -16,5 +16,5 @@ COPY --from=builder /workspace/services/transaction-service/build/libs/transacti
 
 EXPOSE 8082
 
-ENTRYPOINT ["java", "--enable-preview", "-XX:+UseZGC", "-jar", "app.jar"]
+ENTRYPOINT ["java", "--enable-preview", "-XX:+UseZGC", "-XX:+UseCompactObjectHeaders", "-XX:+ExitOnOutOfMemoryError", "-jar", "app.jar"]
 

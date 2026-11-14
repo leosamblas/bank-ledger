@@ -1,36 +1,16 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useBanking } from '@/hooks/useBanking';
 import { authService } from '@/services';
-import { mockBankingStore } from '@/services/mockBankingStore';
 
 export function BankingHeader() {
   const pathname = usePathname();
   const router = useRouter();
   const { account } = useBanking();
   const [mobileOpen, setMobileOpen] = useState(false);
-
-  useEffect(() => {
-    if (authService.isAuthenticated()) {
-      authService.getCurrentUserAccount()
-        .then((data) => {
-          if (data) {
-            mockBankingStore.updateAccount({
-              agency: data.agency,
-              accountNumber: data.number,
-              digit: data.digit,
-              ...(data.holderName ? { holderName: data.holderName } : {}),
-            });
-          }
-        })
-        .catch((err) => {
-          console.error('[BankingHeader] Falha ao carregar conta do usuário:', err);
-        });
-    }
-  }, []);
 
   const userInitials = (account.holderName || 'CS')
     .split(' ')

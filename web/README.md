@@ -39,8 +39,8 @@ Interface web institucional e de Web Banking corporativo do **Nexus Bank**, dese
    - Geração automática de identificador único de protocolo por tentativa de transferência, depósito ou saque, garantindo conformidade com a RFC 7231 e prevenindo duplicidades em falhas transitórias de rede sem sobrecarregar o usuário com jargões técnicos.
 4. **Lookup e Privacidade (RFC & LGPD Compliance):**
    - Na transferência entre contas, o nome do destinatário é verificado e mascarado antes do envio (`Jo** Si*** dos Sa****`), conferindo segurança contra fraudes e conformidade com a LGPD.
-5. **Shell Autenticado e Estado Reativo Independente:**
-   - O `mockBankingStore.ts` e o hook `useBanking.ts` utilizam o padrão moderno `useSyncExternalStore` do React 19 para gerenciar as movimentações e atualizar em tempo real o saldo, limites e extrato em todas as abas e componentes da aplicação de forma determinística, permitindo o funcionamento 100% autônomo mesmo antes da disponibilidade dos serviços de backend.
+5. **Shell Autenticado e Estado Reativo:**
+   - O hook `useBanking.ts` gerencia o estado reativo da conta e integra-se diretamente com os serviços de API (`accountService`, `queryService`, `transactionService`), atualizando em tempo real o saldo, limites e extrato a partir dos microserviços e Gateway do Nexus Bank.
 
 ---
 

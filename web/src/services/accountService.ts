@@ -5,20 +5,7 @@ import {
   AccountLookupResponse,
 } from './types';
 import { cleanCpf } from '@/utils/cpf';
-
-/**
- * Utilitário seguro para gerar UUIDv4 mesmo em ambientes sem crypto.randomUUID
- */
-function generateUUID(): string {
-  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
-    return crypto.randomUUID();
-  }
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
-    const r = (Math.random() * 16) | 0;
-    const v = c === 'x' ? r : (r & 0x3) | 0x8;
-    return v.toString(16);
-  });
-}
+import { generateUUID } from '@/utils/uuid';
 
 /**
  * Serviço de Gestão de Contas (Abertura, Consulta e Lookup)
@@ -111,6 +98,15 @@ export const accountService = {
     }
 
     return request<AccountResponse>(`/accounts/${accountId}`, {
+      method: 'GET',
+    });
+  },
+
+  /**
+   * Retorna os dados da conta do usuário autenticado (/accounts/me)
+   */
+  async getCurrentUserAccount(): Promise<AccountResponse> {
+    return request<AccountResponse>('/accounts/me', {
       method: 'GET',
     });
   },

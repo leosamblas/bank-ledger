@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { useBanking } from '@/hooks/useBanking';
 import { formatCentsToBrl, parseBrlToCents } from '@/utils/currency';
-import { generateUUID } from '@/services/mockBankingStore';
+import { generateUUID } from '@/utils/uuid';
 import { AccountLookupResponse, StatementItem } from '@/services/types';
 
 export default function TransferirPage() {
@@ -17,22 +17,23 @@ export default function TransferirPage() {
   const [idempotencyKey, setIdempotencyKey] = useState('c9b24e60-84a1-4321-9e22-094fa817b120');
   const [showTechDetails, setShowTechDetails] = useState(false);
 
-  const [counterparty, setCounterparty] = useState<AccountLookupResponse | null>(() =>
-    lookup('0001', '123456-7')
-  );
+  const [counterparty, setCounterparty] = useState<AccountLookupResponse | null>(null);
   const [isLookingUp, setIsLookingUp] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [successItem, setSuccessItem] = useState<StatementItem | null>(null);
 
-  const handleLookup = (ag: string, acc: string) => {
+  const handleLookup = async (ag: string, acc: string) => {
     setIsLookingUp(true);
     setErrorMessage('');
-    setTimeout(() => {
-      const res = lookup(ag, acc);
+    try {
+      const res = await lookup(ag, acc);
       setCounterparty(res);
+    } catch {
+      setCounterparty(null);
+    } finally {
       setIsLookingUp(false);
-    }, 250);
+    }
   };
 
   const amountCents = parseBrlToCents(amountStr);
@@ -46,7 +47,7 @@ export default function TransferirPage() {
     setAmountStr((nextCents / 100).toFixed(2).replace('.', ','));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage('');
 
@@ -72,23 +73,39 @@ export default function TransferirPage() {
 
     setIsSubmitting(true);
 
-    setTimeout(() => {
-      try {
-        const item = transfer({
-          destinationAgency: agency,
-          destinationAccount: accountNumber,
-          amountCents,
-          description,
-          idempotencyKey,
-        });
+    try {
+      const tx = await transfer({
+        destinationAccountId: counterparty.accountId,
+        destinationAgency: agency,
+        destinationAccount: accountNumber,
+        amountCents,
+        description,
+        idempotencyKey,
+      });
 
-        setSuccessItem(item);
-        setIsSubmitting(false);
-      } catch (err: unknown) {
-        setIsSubmitting(false);
-        setErrorMessage(err instanceof Error ? err.message : 'Falha ao processar transferência.');
-      }
-    }, 600);
+      const receiptItem: StatementItem = {
+        id: tx.id,
+        sequence: 0,
+        transactionId: tx.id,
+        timestamp: tx.completedAt || tx.createdAt || new Date().toISOString(),
+        category: 'TRANSFER',
+        type: 'TRANSFER_OUT',
+        description: description || 'Transferência entre contas Nexus',
+        counterpartyName: counterparty.holderNameMasked || 'Destinatário',
+        counterpartyDocumentMasked: counterparty.documentMasked || '',
+        counterpartyAccount: `${agency} / ${accountNumber}`,
+        nature: 'DEBIT',
+        amountCents: tx.amount || amountCents,
+        balanceAfterCents: balance.availableCents - amountCents,
+        idempotencyKey,
+      };
+
+      setSuccessItem(receiptItem);
+    } catch (err: unknown) {
+      setErrorMessage(err instanceof Error ? err.message : 'Falha ao processar transferência.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleResetForm = () => {

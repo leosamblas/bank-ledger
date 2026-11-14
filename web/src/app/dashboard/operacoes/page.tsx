@@ -5,14 +5,14 @@ import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { useBanking } from '@/hooks/useBanking';
 import { formatCentsToBrl, parseBrlToCents } from '@/utils/currency';
-import { mockBankingStore, generateUUID } from '@/services/mockBankingStore';
+import { generateUUID } from '@/utils/uuid';
 import { transactionService, ApiError, StatementItem } from '@/services';
 
 function OperacoesContent() {
   const searchParams = useSearchParams();
   const initialTab = searchParams.get('tab') === 'withdraw' ? 'withdraw' : 'deposit';
 
-  const { balance } = useBanking();
+  const { balance, refresh } = useBanking();
 
   const [activeTab, setActiveTab] = useState<'deposit' | 'withdraw'>(initialTab);
   const [amountStr, setAmountStr] = useState('500,00');
@@ -87,57 +87,27 @@ function OperacoesContent() {
 
       // 3. Processar resolução
       if (resolvedTx.status === 'COMPLETED') {
-        // Sincroniza estado local do mockBankingStore caso necessário
-        const storeState = mockBankingStore.getState();
-        let storeItem = storeState.statement.find(
-          (s) => s.idempotencyKey === activeIdempotencyKey
-        );
-
-        if (!storeItem) {
-          if (isDeposit) {
-            storeItem = mockBankingStore.executeDeposit({
-              amountCents,
-              idempotencyKey: activeIdempotencyKey,
-              terminalId: terminalDescription,
-            });
-          } else {
-            storeItem = mockBankingStore.executeWithdraw({
-              amountCents,
-              idempotencyKey: activeIdempotencyKey,
-              terminalId: terminalDescription,
-            });
-          }
-        }
-
         const receiptItem: StatementItem = {
-          id: storeItem?.id || resolvedTx.id,
-          sequence: storeItem?.sequence || storeState.balance.asOfSequence,
+          id: resolvedTx.id,
+          sequence: 0,
           transactionId: resolvedTx.id,
-          journalId: storeItem?.journalId,
           timestamp: resolvedTx.completedAt || resolvedTx.createdAt || new Date().toISOString(),
           category: isDeposit ? 'DEPOSIT' : 'WITHDRAWAL',
           type: isDeposit ? 'DEPOSIT' : 'WITHDRAWAL',
-          description:
-            storeItem?.description ||
-            (isDeposit ? 'Depósito em Espécie ATM Seguro' : 'Saque em Caixa Eletrônico'),
+          description: isDeposit ? 'Depósito em Espécie ATM Seguro' : 'Saque em Caixa Eletrônico',
           counterpartyName: terminalDescription,
-          counterpartyDocumentMasked:
-            storeItem?.counterpartyDocumentMasked ||
-            (isDeposit ? 'SYS-CASH-CLEARING' : 'SYS-CASH-ATM'),
-          counterpartyAccount:
-            storeItem?.counterpartyAccount ||
-            (isDeposit ? 'Agência Centro 0001' : 'Caixa Eletrônico 24h Nexus'),
+          counterpartyDocumentMasked: isDeposit ? 'SYS-CASH-CLEARING' : 'SYS-CASH-ATM',
+          counterpartyAccount: isDeposit ? 'Agência Centro 0001' : 'Caixa Eletrônico 24h Nexus',
           nature: isDeposit ? 'CREDIT' : 'DEBIT',
           amountCents: resolvedTx.amount || amountCents,
-          balanceAfterCents:
-            storeItem?.balanceAfterCents ??
-            (isDeposit
-              ? balance.availableCents + amountCents
-              : balance.availableCents - amountCents),
+          balanceAfterCents: isDeposit
+            ? balance.availableCents + amountCents
+            : balance.availableCents - amountCents,
           idempotencyKey: activeIdempotencyKey,
         };
 
         setSuccessItem(receiptItem);
+        await refresh();
       } else if (resolvedTx.status === 'FAILED') {
         if (resolvedTx.failureCode === 'INSUFFICIENT_FUNDS') {
           setErrorMessage('Saldo insuficiente para efetuar este saque.');

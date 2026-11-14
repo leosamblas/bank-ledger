@@ -114,6 +114,7 @@ export interface StatementItem {
 }
 
 export interface BankingAccountInfo {
+  id: string;
   agency: string;
   accountNumber: string;
   digit: string;

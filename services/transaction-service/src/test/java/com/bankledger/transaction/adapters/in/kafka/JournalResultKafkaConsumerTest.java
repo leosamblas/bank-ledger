@@ -6,6 +6,8 @@ import com.bankledger.commons.inbox.InboxHandler;
 import com.bankledger.transaction.application.port.in.HandleJournalResultUseCase;
 import com.bankledger.transaction.domain.event.JournalResultPayload;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.apache.kafka.common.header.internals.RecordHeader;
+import org.apache.kafka.common.header.internals.RecordHeaders;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -17,6 +19,8 @@ import org.springframework.kafka.support.Acknowledgment;
 import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.json.JsonMapper;
 
+import java.nio.charset.StandardCharsets;
+import java.time.Instant;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -211,5 +215,91 @@ class JournalResultKafkaConsumerTest {
                 .isInstanceOf(IllegalArgumentException.class);
 
         verify(acknowledgment, never()).acknowledge();
+    }
+
+    @Test
+    @DisplayName("Should resolve fallback transactionId from record.key and status from envelope type when missing in data")
+    void shouldResolveFallbackTransactionIdAndStatusFromEnvelope() {
+        UUID eventId = UUID.randomUUID();
+        UUID transactionId = UUID.randomUUID();
+        Instant postedAt = Instant.parse("2026-11-13T20:30:00Z");
+
+        String envelopeJson = String.format("""
+                {
+                  "id": "%s",
+                  "source": "ledger-service",
+                  "type": "JournalPosted",
+                  "data": {
+                    "postedAt": "%s",
+                    "totalAmount": 1000
+                  }
+                }
+                """, eventId, postedAt);
+
+        ConsumerRecord<String, String> record = new ConsumerRecord<>(
+                TOPIC, 0, 15L, transactionId.toString(), envelopeJson
+        );
+
+        doAnswer(invocation -> {
+            Runnable runnable = invocation.getArgument(2);
+            runnable.run();
+            return null;
+        }).when(inboxHandler).execute(eq(eventId), eq("JournalResultConsumer"), any(Runnable.class));
+
+        consumer.onMessage(record, acknowledgment);
+
+        ArgumentCaptor<JournalResultPayload> captor = ArgumentCaptor.forClass(JournalResultPayload.class);
+        verify(handleJournalResultUseCase).handleResult(captor.capture());
+
+        JournalResultPayload payload = captor.getValue();
+        assertThat(payload.transactionId()).isEqualTo(transactionId);
+        assertThat(payload.status()).isEqualTo("POSTED");
+        assertThat(payload.timestamp()).isEqualTo(postedAt);
+        assertThat(payload.totalAmount()).isEqualTo(1000L);
+
+        verify(acknowledgment).acknowledge();
+    }
+
+    @Test
+    @DisplayName("Should resolve eventId from record headers when envelope has no id")
+    void shouldResolveEventIdFromHeadersWhenMissingInPayload() {
+        UUID eventId = UUID.randomUUID();
+        UUID transactionId = UUID.randomUUID();
+
+        String directJson = String.format("""
+                {
+                  "transactionId": "%s",
+                  "status": "REJECTED",
+                  "rejectCode": "ACCOUNT_FROZEN",
+                  "rejectReason": "Conta bloqueada",
+                  "rejectedAt": "2026-11-13T21:00:00Z"
+                }
+                """, transactionId);
+
+        RecordHeaders headers = new RecordHeaders();
+        headers.add(new RecordHeader("ce_id", eventId.toString().getBytes(StandardCharsets.UTF_8)));
+
+        ConsumerRecord<String, String> record = new ConsumerRecord<>(
+                TOPIC, 0, 16L, 0L, null, 0, 0,
+                transactionId.toString(), directJson, headers, null
+        );
+
+        doAnswer(invocation -> {
+            Runnable runnable = invocation.getArgument(2);
+            runnable.run();
+            return null;
+        }).when(inboxHandler).execute(eq(eventId), eq("JournalResultConsumer"), any(Runnable.class));
+
+        consumer.onMessage(record, acknowledgment);
+
+        ArgumentCaptor<JournalResultPayload> captor = ArgumentCaptor.forClass(JournalResultPayload.class);
+        verify(handleJournalResultUseCase).handleResult(captor.capture());
+
+        JournalResultPayload payload = captor.getValue();
+        assertThat(payload.transactionId()).isEqualTo(transactionId);
+        assertThat(payload.status()).isEqualTo("REJECTED");
+        assertThat(payload.rejectCode()).isEqualTo("ACCOUNT_FROZEN");
+
+        verify(acknowledgment).acknowledge();
     }
 }

@@ -1,6 +1,7 @@
 package com.bankledger.query.adapters.in.kafka;
 
 import com.bankledger.commons.constant.KafkaTopics;
+import com.bankledger.commons.events.KafkaEventEnvelope;
 import com.bankledger.commons.events.v1.account.AccountOpenedPayload;
 import com.bankledger.commons.inbox.InboxHandler;
 import com.bankledger.query.adapters.out.persistence.AccountBalanceEntity;
@@ -15,7 +16,7 @@ import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.support.Acknowledgment;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
-import tools.jackson.databind.JsonNode;
+import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.ObjectMapper;
 
 import java.nio.charset.StandardCharsets;
@@ -55,30 +56,35 @@ public class QueryEventConsumer {
                 record.topic(), record.partition(), record.offset(), record.key());
 
         try {
-            JsonNode dataNode = extractDataNode(record);
-            UUID eventId = extractEventId(record, dataNode);
+            String value = record.value();
+            if (value == null || value.isBlank()) {
+                throw new IllegalArgumentException("Kafka record value must not be empty");
+            }
 
-            AccountOpenedPayload payload;
+            AccountOpenedPayload payload = null;
+            UUID eventId = null;
+
             try {
-                payload = objectMapper.treeToValue(dataNode, AccountOpenedPayload.class);
-            } catch (Exception e) {
-                // If treeToValue fails, extract accountId directly
-                UUID accountId = parseUuid(dataNode.path("accountId").asString(null));
-                if (accountId != null) {
-                    Instant openedAt = parseInstant(dataNode.path("openedAt").asString(null));
-                    payload = new AccountOpenedPayload(
-                            accountId,
-                            UUID.randomUUID(),
-                            "000.000.000-00",
-                            "Cliente",
-                            "0001",
-                            "00000000",
-                            "0",
-                            openedAt != null ? openedAt : Instant.now()
-                    );
+                KafkaEventEnvelope<AccountOpenedPayload> envelope = objectMapper.readValue(
+                        value,
+                        new TypeReference<KafkaEventEnvelope<AccountOpenedPayload>>() {}
+                );
+                if (envelope != null && envelope.data() != null) {
+                    payload = envelope.data();
+                    eventId = envelope.resolveEventId();
                 } else {
-                    throw new IllegalArgumentException("Cannot extract accountId from AccountOpened payload", e);
+                    payload = objectMapper.readValue(value, AccountOpenedPayload.class);
                 }
+            } catch (Exception ex) {
+                payload = objectMapper.readValue(value, AccountOpenedPayload.class);
+            }
+
+            if (payload == null) {
+                throw new IllegalArgumentException("AccountOpened payload must not be null");
+            }
+
+            if (eventId == null) {
+                eventId = resolveAccountOpenedEventId(record, payload);
             }
 
             final AccountOpenedPayload finalPayload = payload;
@@ -87,7 +93,7 @@ public class QueryEventConsumer {
             });
 
             acknowledgment.acknowledge();
-            log.info("Acknowledged AccountOpened record for accountId={}", payload.accountId());
+            log.info("Acknowledged AccountOpened record for accountId={}, eventId={}", payload.accountId(), eventId);
         } catch (Exception ex) {
             log.error("Failed to process AccountOpened Kafka record: topic={}, offset={}, error={}",
                     record.topic(), record.offset(), ex.getMessage(), ex);
@@ -108,15 +114,45 @@ public class QueryEventConsumer {
                 record.topic(), record.partition(), record.offset(), record.key());
 
         try {
-            JsonNode dataNode = extractDataNode(record);
-            UUID eventId = extractEventId(record, dataNode);
+            String value = record.value();
+            if (value == null || value.isBlank()) {
+                throw new IllegalArgumentException("Kafka record value must not be empty");
+            }
 
-            inboxHandler.execute(eventId, HANDLER_ENTRY_POSTED, () -> {
-                processEntryPosted(dataNode, eventId);
+            EntryPostedInboundDto dto = null;
+            UUID eventId = null;
+
+            try {
+                KafkaEventEnvelope<EntryPostedInboundDto> envelope = objectMapper.readValue(
+                        value,
+                        new TypeReference<KafkaEventEnvelope<EntryPostedInboundDto>>() {}
+                );
+                if (envelope != null && envelope.data() != null) {
+                    dto = envelope.data();
+                    eventId = envelope.resolveEventId();
+                } else {
+                    dto = objectMapper.readValue(value, EntryPostedInboundDto.class);
+                }
+            } catch (Exception ex) {
+                dto = objectMapper.readValue(value, EntryPostedInboundDto.class);
+            }
+
+            if (dto == null) {
+                throw new IllegalArgumentException("EntryPosted payload must not be null");
+            }
+
+            if (eventId == null) {
+                eventId = resolveEntryPostedEventId(record, dto);
+            }
+
+            final UUID finalEventId = eventId;
+            final EntryPostedInboundDto finalDto = dto;
+            inboxHandler.execute(finalEventId, HANDLER_ENTRY_POSTED, () -> {
+                processEntryPosted(finalDto, finalEventId);
             });
 
             acknowledgment.acknowledge();
-            log.info("Acknowledged EntryPosted record for eventId={}", eventId);
+            log.info("Acknowledged EntryPosted record for eventId={}", finalEventId);
         } catch (Exception ex) {
             log.error("Failed to process EntryPosted Kafka record: topic={}, offset={}, error={}",
                     record.topic(), record.offset(), ex.getMessage(), ex);
@@ -143,51 +179,42 @@ public class QueryEventConsumer {
     }
 
     @Transactional
-    public void processEntryPosted(JsonNode node, UUID fallbackId) {
-        UUID entryId = parseUuid(node.path("entryId").asString(null));
+    public void processEntryPosted(EntryPostedInboundDto dto, UUID fallbackId) {
+        UUID entryId = dto.entryId();
         if (entryId == null) {
-            entryId = parseUuid(node.path("id").asString(null));
+            entryId = dto.id();
         }
         if (entryId == null) {
             entryId = fallbackId != null ? fallbackId : UUID.randomUUID();
         }
 
-        UUID rawAccountId = parseUuid(node.path("accountId").asString(null));
-        if (rawAccountId == null) {
-            rawAccountId = parseUuid(node.path("ledgerAccountId").asString(null));
-        }
-        if (rawAccountId == null) {
+        final UUID accountId = dto.accountId() != null ? dto.accountId() : dto.ledgerAccountId();
+        if (accountId == null) {
             throw new IllegalArgumentException("EntryPosted payload missing accountId / ledgerAccountId");
         }
-        final UUID accountId = rawAccountId;
 
-        UUID journalId = parseUuid(node.path("journalId").asString(null));
-        if (journalId == null) {
-            journalId = UUID.randomUUID();
-        }
+        UUID journalId = dto.journalId() != null ? dto.journalId() : UUID.randomUUID();
+        UUID transactionId = dto.transactionId() != null ? dto.transactionId() : UUID.randomUUID();
 
-        UUID transactionId = parseUuid(node.path("transactionId").asString(null));
-        if (transactionId == null) {
-            transactionId = UUID.randomUUID();
+        String direction = dto.direction();
+        if (direction == null || direction.isBlank()) {
+            direction = dto.entryType();
         }
-
-        String direction = node.path("direction").asString("").toUpperCase();
-        if (direction.isBlank()) {
-            direction = node.path("entryType").asString("").toUpperCase();
-        }
-        if (direction.isBlank()) {
+        if (direction == null || direction.isBlank()) {
             direction = "CREDIT";
+        } else {
+            direction = direction.trim().toUpperCase();
         }
 
-        long amount = node.path("amount").asLong(0L);
-        long sequence = node.path("sequence").asLong(0L);
+        long amount = dto.amount();
+        long sequence = dto.sequence();
 
-        Instant postedAt = parseInstant(node.path("postedAt").asString(null));
+        Instant postedAt = dto.postedAt();
         if (postedAt == null) {
-            postedAt = parseInstant(node.path("timestamp").asString(null));
+            postedAt = dto.timestamp();
         }
         if (postedAt == null) {
-            postedAt = parseInstant(node.path("createdAt").asString(null));
+            postedAt = dto.createdAt();
         }
         if (postedAt == null) {
             postedAt = Instant.now();
@@ -204,8 +231,8 @@ public class QueryEventConsumer {
                         .build());
 
         long balanceAfter;
-        if (node.has("balanceAfter") && !node.path("balanceAfter").isNull()) {
-            balanceAfter = node.path("balanceAfter").asLong();
+        if (dto.balanceAfter() != null) {
+            balanceAfter = dto.balanceAfter();
         } else {
             // Calculate if not explicitly provided
             if ("CREDIT".equalsIgnoreCase(direction)) {
@@ -233,8 +260,8 @@ public class QueryEventConsumer {
             return;
         }
 
-        String category = node.path("category").asString("");
-        String type = node.path("type").asString("");
+        String category = dto.category() != null ? dto.category().trim() : "";
+        String type = dto.type() != null ? dto.type().trim() : "";
         if (category.isBlank()) {
             if ("CREDIT".equalsIgnoreCase(direction)) {
                 category = "DEPOSIT";
@@ -248,16 +275,16 @@ public class QueryEventConsumer {
             type = category;
         }
 
-        String description = node.path("description").asString("");
+        String description = dto.description() != null ? dto.description().trim() : "";
         if (description.isBlank()) {
             description = "CREDIT".equalsIgnoreCase(direction) ? "Depósito em conta" : "Saque em conta";
         }
 
-        String counterpartyName = node.path("counterpartyName").asString(null);
-        String counterpartyDocumentMasked = node.path("counterpartyDocumentMasked").asString(null);
-        String counterpartyAccount = node.path("counterpartyAccount").asString(null);
-        String idempotencyKey = node.path("idempotencyKey").asString(null);
-        String failureReason = node.path("failureReason").asString(null);
+        String counterpartyName = dto.counterpartyName();
+        String counterpartyDocumentMasked = dto.counterpartyDocumentMasked();
+        String counterpartyAccount = dto.counterpartyAccount();
+        String idempotencyKey = dto.idempotencyKey();
+        String failureReason = dto.failureReason();
 
         StatementEntryEntity statementEntry = StatementEntryEntity.builder()
                 .id(entryId)
@@ -283,58 +310,57 @@ public class QueryEventConsumer {
         log.info("Saved statement entry id={} for accountId={} at sequence={}", entryId, accountId, sequence);
     }
 
-    private JsonNode extractDataNode(ConsumerRecord<String, String> record) {
-        String value = record.value();
-        if (value == null || value.isBlank()) {
-            throw new IllegalArgumentException("Kafka record value must not be empty");
+    private UUID resolveAccountOpenedEventId(ConsumerRecord<String, String> record, AccountOpenedPayload payload) {
+        if (record.headers() != null) {
+            Optional<UUID> headerId = extractHeaderUuid(record, "ce_id")
+                    .or(() -> extractHeaderUuid(record, "eventId"))
+                    .or(() -> extractHeaderUuid(record, "id"));
+            if (headerId.isPresent()) {
+                return headerId.get();
+            }
         }
 
-        JsonNode root;
-        try {
-            root = objectMapper.readTree(value);
-        } catch (Exception e) {
-            throw new IllegalArgumentException("Failed to parse Kafka record JSON: " + e.getMessage(), e);
+        if (payload != null && payload.accountId() != null) {
+            return payload.accountId();
         }
 
-        if (root == null || !root.isObject()) {
-            throw new IllegalArgumentException("Kafka record payload must be a JSON object");
+        if (record.key() != null) {
+            UUID keyId = parseUuid(record.key());
+            if (keyId != null) {
+                return keyId;
+            }
         }
 
-        if (root.has("data") && root.get("data").isObject()) {
-            return root.get("data");
-        }
-        return root;
+        return UUID.randomUUID();
     }
 
-    private UUID extractEventId(ConsumerRecord<String, String> record, JsonNode dataNode) {
-        UUID eventId = null;
-
-        if (dataNode.has("id") && !dataNode.get("id").isNull()) {
-            eventId = parseUuid(dataNode.get("id").asString(null));
-        }
-        if (eventId == null && dataNode.has("eventId") && !dataNode.get("eventId").isNull()) {
-            eventId = parseUuid(dataNode.get("eventId").asString(null));
-        }
-        if (eventId == null && dataNode.has("entryId") && !dataNode.get("entryId").isNull()) {
-            eventId = parseUuid(dataNode.get("entryId").asString(null));
+    private UUID resolveEntryPostedEventId(ConsumerRecord<String, String> record, EntryPostedInboundDto dto) {
+        if (dto != null) {
+            if (dto.id() != null) {
+                return dto.id();
+            }
+            if (dto.entryId() != null) {
+                return dto.entryId();
+            }
         }
 
-        if (eventId == null && record.headers() != null) {
-            eventId = extractHeaderUuid(record, "ce_id")
+        if (record.headers() != null) {
+            Optional<UUID> headerId = extractHeaderUuid(record, "ce_id")
                     .or(() -> extractHeaderUuid(record, "eventId"))
-                    .or(() -> extractHeaderUuid(record, "id"))
-                    .orElse(null);
+                    .or(() -> extractHeaderUuid(record, "id"));
+            if (headerId.isPresent()) {
+                return headerId.get();
+            }
         }
 
-        if (eventId == null && record.key() != null) {
-            eventId = parseUuid(record.key());
+        if (record.key() != null) {
+            UUID keyId = parseUuid(record.key());
+            if (keyId != null) {
+                return keyId;
+            }
         }
 
-        if (eventId == null) {
-            eventId = UUID.randomUUID();
-        }
-
-        return eventId;
+        return UUID.randomUUID();
     }
 
     private Optional<UUID> extractHeaderUuid(ConsumerRecord<String, String> record, String headerName) {
@@ -358,17 +384,6 @@ public class QueryEventConsumer {
         try {
             return UUID.fromString(text.trim());
         } catch (IllegalArgumentException e) {
-            return null;
-        }
-    }
-
-    private Instant parseInstant(String text) {
-        if (text == null || text.isBlank()) {
-            return null;
-        }
-        try {
-            return Instant.parse(text.trim());
-        } catch (Exception e) {
             return null;
         }
     }

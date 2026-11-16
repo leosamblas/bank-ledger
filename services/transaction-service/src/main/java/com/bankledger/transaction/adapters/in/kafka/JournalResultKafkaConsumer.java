@@ -1,8 +1,7 @@
 package com.bankledger.transaction.adapters.in.kafka;
 
 import com.bankledger.commons.constant.KafkaTopics;
-import com.bankledger.commons.events.v1.ledger.JournalPostedPayload;
-import com.bankledger.commons.events.v1.ledger.JournalRejectedPayload;
+import com.bankledger.commons.events.KafkaEventEnvelope;
 import com.bankledger.commons.inbox.InboxHandler;
 import com.bankledger.transaction.application.port.in.HandleJournalResultUseCase;
 import com.bankledger.transaction.domain.event.JournalResultPayload;
@@ -13,9 +12,8 @@ import org.apache.kafka.common.header.Header;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.support.Acknowledgment;
 import org.springframework.stereotype.Component;
-import tools.jackson.databind.JsonNode;
+import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.ObjectMapper;
-import tools.jackson.databind.node.ObjectNode;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Objects;
@@ -27,6 +25,8 @@ import java.util.UUID;
  * Resolves financial transactions to COMPLETED or FAILED via {@link HandleJournalResultUseCase}.
  * Uses {@link InboxHandler} to provide exactly-once delivery and manually acknowledges offset
  * only after successful processing and persistence.
+ *
+ * <p>Deserializes Kafka messages directly into strongly typed objects without using intermediate JsonNode.</p>
  */
 @Slf4j
 @Component
@@ -75,32 +75,36 @@ public class JournalResultKafkaConsumer {
             throw new IllegalArgumentException("Kafka record value must not be empty");
         }
 
-        JsonNode root;
-        try {
-            root = objectMapper.readTree(value);
-        } catch (Exception e) {
-            throw new IllegalArgumentException("Failed to parse Kafka record JSON: " + e.getMessage(), e);
-        }
-
-        if (root == null || !root.isObject()) {
-            throw new IllegalArgumentException("Kafka record payload must be a JSON object");
-        }
-
         UUID eventId = null;
-        JsonNode dataNode;
+        String envelopeType = null;
+        JournalResultInboundDto inboundDto = null;
 
-        if (root.has("data") && root.get("data").isObject()) {
-            dataNode = root.get("data");
-            if (root.has("id") && !root.get("id").isNull()) {
-                eventId = parseUuid(root.get("id").asString());
+        try {
+            KafkaEventEnvelope<JournalResultInboundDto> envelope = objectMapper.readValue(
+                    value,
+                    new TypeReference<KafkaEventEnvelope<JournalResultInboundDto>>() {}
+            );
+            if (envelope != null && envelope.data() != null) {
+                inboundDto = envelope.data();
+                envelopeType = envelope.type();
+                eventId = envelope.resolveEventId();
+            } else if (envelope != null) {
+                eventId = envelope.resolveEventId();
             }
-        } else {
-            dataNode = root;
-            if (root.has("eventId") && !root.get("eventId").isNull()) {
-                eventId = parseUuid(root.get("eventId").asString());
-            } else if (root.has("id") && !root.get("id").isNull()) {
-                eventId = parseUuid(root.get("id").asString());
+        } catch (Exception ignored) {
+            // Not a valid KafkaEventEnvelope; proceed to flat DTO fallback
+        }
+
+        if (inboundDto == null) {
+            try {
+                inboundDto = objectMapper.readValue(value, JournalResultInboundDto.class);
+            } catch (Exception e) {
+                throw new IllegalArgumentException("Failed to parse Kafka record JSON: " + e.getMessage(), e);
             }
+        }
+
+        if (inboundDto == null) {
+            throw new IllegalArgumentException("Kafka record payload must not be null");
         }
 
         if (eventId == null && record.headers() != null) {
@@ -110,7 +114,7 @@ public class JournalResultKafkaConsumer {
                     .orElse(null);
         }
 
-        JournalResultPayload payload = deserializePayload(dataNode, root, record);
+        JournalResultPayload payload = inboundDto.toPayload(envelopeType, record.key());
 
         if (eventId == null) {
             if (payload.journalId() != null) {
@@ -127,57 +131,6 @@ public class JournalResultKafkaConsumer {
         }
 
         return new ParsedRecord(eventId, payload);
-    }
-
-    private JournalResultPayload deserializePayload(JsonNode dataNode, JsonNode rootNode, ConsumerRecord<String, String> record) {
-        if (dataNode == null || !dataNode.isObject()) {
-            throw new IllegalArgumentException("Invalid payload data: expected JSON object");
-        }
-
-        if (dataNode instanceof ObjectNode objectNode) {
-            if (!objectNode.has("transactionId") && record.key() != null) {
-                objectNode.put("transactionId", record.key());
-            }
-            if (!objectNode.has("status") && rootNode != null && rootNode.has("type") && !rootNode.get("type").isNull()) {
-                String eventType = rootNode.get("type").asString();
-                if (eventType.contains("Posted")) {
-                    objectNode.put("status", "POSTED");
-                } else if (eventType.contains("Rejected")) {
-                    objectNode.put("status", "REJECTED");
-                }
-            }
-        }
-
-        // 1. Try canonical JournalPostedPayload if postedAt is present
-        if (dataNode.has("postedAt")) {
-            try {
-                JournalPostedPayload posted = objectMapper.treeToValue(dataNode, JournalPostedPayload.class);
-                return JournalResultPayload.fromPosted(posted);
-            } catch (Exception ignored) {
-                // Fallback to generic JournalResultPayload
-            }
-        }
-
-        // 2. Try canonical JournalRejectedPayload if rejectedAt or rejectCode is present
-        if (dataNode.has("rejectedAt") || dataNode.has("rejectCode")) {
-            try {
-                JournalRejectedPayload rejected = objectMapper.treeToValue(dataNode, JournalRejectedPayload.class);
-                return JournalResultPayload.fromRejected(rejected);
-            } catch (Exception ignored) {
-                // Fallback to generic JournalResultPayload
-            }
-        }
-
-        // 3. Fallback / direct JournalResultPayload
-        try {
-            JournalResultPayload result = objectMapper.treeToValue(dataNode, JournalResultPayload.class);
-            if (result == null) {
-                throw new IllegalArgumentException("Deserialized JournalResultPayload is null");
-            }
-            return result;
-        } catch (Exception e) {
-            throw new IllegalArgumentException("Failed to deserialize journal result payload: " + e.getMessage(), e);
-        }
     }
 
     private Optional<UUID> extractHeaderUuid(ConsumerRecord<String, String> record, String headerKey) {

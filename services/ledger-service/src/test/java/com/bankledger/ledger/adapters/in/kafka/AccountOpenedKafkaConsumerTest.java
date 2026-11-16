@@ -304,4 +304,64 @@ class AccountOpenedKafkaConsumerTest {
         verify(provisionAccountUseCase, never()).provisionAccount(any());
         verify(acknowledgment, never()).acknowledge();
     }
+
+    @Test
+    @DisplayName("Should parse EventEnvelope format with legacy eventId field and acknowledge")
+    void shouldProcessEnvelopeWithLegacyEventIdAndAcknowledge() {
+        UUID eventId = UUID.randomUUID();
+        UUID accountId = UUID.randomUUID();
+        UUID customerId = UUID.randomUUID();
+
+        String envelopeJson = String.format("""
+                {
+                  "eventId": "%s",
+                  "source": "account-service",
+                  "type": "AccountOpened",
+                  "datacontenttype": "application/json",
+                  "specversion": "1.0",
+                  "time": "2026-11-13T10:00:00Z",
+                  "data": {
+                    "accountId": "%s",
+                    "customerId": "%s",
+                    "customerCpf": "12345678900",
+                    "customerName": "Maria Silva",
+                    "branch": "0001",
+                    "accountNumber": "100000",
+                    "checkDigit": "1",
+                    "openedAt": "2026-11-13T10:00:00Z"
+                  }
+                }
+                """, eventId, accountId, customerId);
+
+        ConsumerRecord<String, String> record = new ConsumerRecord<>(
+                TOPIC, 0, 10L, accountId.toString(), envelopeJson
+        );
+
+        doAnswer(invocation -> {
+            Runnable runnable = invocation.getArgument(2);
+            runnable.run();
+            return null;
+        }).when(inboxHandler).execute(eq(eventId), eq("AccountOpenedConsumer"), any(Runnable.class));
+
+        consumer.onMessage(record, acknowledgment);
+
+        verify(provisionAccountUseCase).provisionAccount(any(AccountOpenedPayload.class));
+        verify(acknowledgment, times(1)).acknowledge();
+    }
+
+    @Test
+    @DisplayName("Should throw IllegalArgumentException and never acknowledge when record value is empty")
+    void shouldNeverAcknowledgeWhenValueIsEmpty() {
+        ConsumerRecord<String, String> record = new ConsumerRecord<>(
+                TOPIC, 0, 45L, "key-1", "   "
+        );
+
+        assertThatThrownBy(() -> consumer.onMessage(record, acknowledgment))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Kafka record value must not be empty");
+
+        verify(inboxHandler, never()).execute(any(), any(), any());
+        verify(provisionAccountUseCase, never()).provisionAccount(any());
+        verify(acknowledgment, never()).acknowledge();
+    }
 }

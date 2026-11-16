@@ -1,6 +1,7 @@
 package com.bankledger.ledger.adapters.in.kafka;
 
 import com.bankledger.commons.constant.KafkaTopics;
+import com.bankledger.commons.events.KafkaEventEnvelope;
 import com.bankledger.commons.events.v1.account.AccountOpenedPayload;
 import com.bankledger.commons.inbox.InboxHandler;
 import com.bankledger.ledger.application.port.in.ProvisionAccountUseCase;
@@ -11,7 +12,7 @@ import org.apache.kafka.common.header.Header;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.support.Acknowledgment;
 import org.springframework.stereotype.Component;
-import tools.jackson.databind.JsonNode;
+import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.ObjectMapper;
 
 import java.nio.charset.StandardCharsets;
@@ -71,32 +72,36 @@ public class AccountOpenedKafkaConsumer {
             throw new IllegalArgumentException("Kafka record value must not be empty");
         }
 
-        JsonNode root;
-        try {
-            root = objectMapper.readTree(value);
-        } catch (Exception e) {
-            throw new IllegalArgumentException("Failed to parse Kafka record JSON: " + e.getMessage(), e);
-        }
-
-        if (root == null || !root.isObject()) {
-            throw new IllegalArgumentException("Kafka record payload must be a JSON object");
-        }
-
+        AccountOpenedPayload payload = null;
         UUID eventId = null;
-        JsonNode dataNode;
 
-        if (root.has("data") && root.get("data").isObject()) {
-            dataNode = root.get("data");
-            if (root.has("id") && !root.get("id").isNull()) {
-                eventId = parseUuid(root.get("id").asString());
+        try {
+            KafkaEventEnvelope<AccountOpenedPayload> envelope = objectMapper.readValue(
+                    value,
+                    new TypeReference<KafkaEventEnvelope<AccountOpenedPayload>>() {}
+            );
+            if (envelope != null) {
+                if (envelope.data() != null) {
+                    payload = envelope.data();
+                    eventId = envelope.resolveEventId();
+                } else if (envelope.resolveEventId() != null) {
+                    eventId = envelope.resolveEventId();
+                }
             }
-        } else {
-            dataNode = root;
-            if (root.has("eventId") && !root.get("eventId").isNull()) {
-                eventId = parseUuid(root.get("eventId").asString());
-            } else if (root.has("id") && !root.get("id").isNull()) {
-                eventId = parseUuid(root.get("id").asString());
+        } catch (Exception ignored) {
+            // Envelope parsing failed or payload not nested under data; fallback to direct payload deserialization
+        }
+
+        if (payload == null) {
+            try {
+                payload = objectMapper.readValue(value, AccountOpenedPayload.class);
+            } catch (Exception e) {
+                throw new IllegalArgumentException("Failed to deserialize AccountOpenedPayload: " + e.getMessage(), e);
             }
+        }
+
+        if (payload == null) {
+            throw new IllegalArgumentException("AccountOpenedPayload must not be null");
         }
 
         if (eventId == null && record.headers() != null) {
@@ -104,17 +109,6 @@ public class AccountOpenedKafkaConsumer {
                     .or(() -> extractHeaderUuid(record, "eventId"))
                     .or(() -> extractHeaderUuid(record, "id"))
                     .orElse(null);
-        }
-
-        AccountOpenedPayload payload;
-        try {
-            payload = objectMapper.treeToValue(dataNode, AccountOpenedPayload.class);
-        } catch (Exception e) {
-            throw new IllegalArgumentException("Failed to deserialize AccountOpenedPayload: " + e.getMessage(), e);
-        }
-
-        if (payload == null) {
-            throw new IllegalArgumentException("AccountOpenedPayload must not be null");
         }
 
         if (eventId == null) {

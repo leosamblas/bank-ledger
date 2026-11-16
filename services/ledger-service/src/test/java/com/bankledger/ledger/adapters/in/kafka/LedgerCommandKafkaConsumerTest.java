@@ -119,6 +119,50 @@ class LedgerCommandKafkaConsumerTest {
     @Test
     @DisplayName("Should parse direct JSON payload format without envelope and acknowledge")
     void shouldProcessDirectPayloadFormatAndAcknowledge() {
+        UUID commandId = UUID.randomUUID();
+        UUID transactionId = UUID.randomUUID();
+        UUID sourceAccountId = UUID.randomUUID();
+
+        String directJson = String.format("""
+                {
+                  "commandId": "%s",
+                  "transactionId": "%s",
+                  "type": "WITHDRAWAL",
+                  "amount": 20000,
+                  "currency": "BRL",
+                  "sourceAccountId": "%s",
+                  "terminalId": "ATM-002"
+                }
+                """, commandId, transactionId, sourceAccountId);
+
+        ConsumerRecord<String, String> record = new ConsumerRecord<>(
+                TOPIC, 0, 15L, transactionId.toString(), directJson
+        );
+
+        doAnswer(invocation -> {
+            Runnable runnable = invocation.getArgument(2);
+            runnable.run();
+            return null;
+        }).when(inboxHandler).execute(eq(commandId), eq("LedgerCommandHandler"), any(Runnable.class));
+
+        consumer.onMessage(record, acknowledgment);
+
+        ArgumentCaptor<PostJournalCommand> commandCaptor = ArgumentCaptor.forClass(PostJournalCommand.class);
+        verify(postJournalUseCase).postJournal(commandCaptor.capture());
+        PostJournalCommand captured = commandCaptor.getValue();
+
+        assertThat(captured.commandId()).isEqualTo(commandId);
+        assertThat(captured.transactionId()).isEqualTo(transactionId);
+        assertThat(captured.type()).isEqualTo("WITHDRAWAL");
+        assertThat(captured.amount()).isEqualTo(20000L);
+        assertThat(captured.sourceAccountId()).isEqualTo(sourceAccountId);
+
+        verify(acknowledgment, times(1)).acknowledge();
+    }
+
+    @Test
+    @DisplayName("Should generate eventId from payload commandId when not specified in direct payload")
+    void shouldGenerateEventIdWhenNotSpecifiedInDirectPayload() {
         UUID transactionId = UUID.randomUUID();
         UUID sourceAccountId = UUID.randomUUID();
 
@@ -134,14 +178,14 @@ class LedgerCommandKafkaConsumerTest {
                 """, transactionId, sourceAccountId);
 
         ConsumerRecord<String, String> record = new ConsumerRecord<>(
-                TOPIC, 0, 15L, transactionId.toString(), directJson
+                TOPIC, 0, 16L, transactionId.toString(), directJson
         );
 
         doAnswer(invocation -> {
             Runnable runnable = invocation.getArgument(2);
             runnable.run();
             return null;
-        }).when(inboxHandler).execute(eq(transactionId), eq("LedgerCommandHandler"), any(Runnable.class));
+        }).when(inboxHandler).execute(any(UUID.class), eq("LedgerCommandHandler"), any(Runnable.class));
 
         consumer.onMessage(record, acknowledgment);
 
@@ -150,10 +194,8 @@ class LedgerCommandKafkaConsumerTest {
         PostJournalCommand captured = commandCaptor.getValue();
 
         assertThat(captured.transactionId()).isEqualTo(transactionId);
-        assertThat(captured.type()).isEqualTo("WITHDRAWAL");
-        assertThat(captured.amount()).isEqualTo(20000L);
-        assertThat(captured.sourceAccountId()).isEqualTo(sourceAccountId);
-
+        assertThat(captured.commandId()).isNotNull();
+        verify(inboxHandler).execute(eq(captured.commandId()), eq("LedgerCommandHandler"), any(Runnable.class));
         verify(acknowledgment, times(1)).acknowledge();
     }
 

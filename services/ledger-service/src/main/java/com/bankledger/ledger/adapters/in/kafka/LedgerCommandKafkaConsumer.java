@@ -1,6 +1,7 @@
 package com.bankledger.ledger.adapters.in.kafka;
 
 import com.bankledger.commons.constant.KafkaTopics;
+import com.bankledger.commons.events.KafkaEventEnvelope;
 import com.bankledger.commons.events.v1.ledger.PostJournalCommandPayload;
 import com.bankledger.commons.inbox.InboxHandler;
 import com.bankledger.ledger.application.port.in.PostJournalUseCase;
@@ -12,7 +13,7 @@ import org.apache.kafka.common.header.Header;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.support.Acknowledgment;
 import org.springframework.stereotype.Component;
-import tools.jackson.databind.JsonNode;
+import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.ObjectMapper;
 
 import java.nio.charset.StandardCharsets;
@@ -72,32 +73,34 @@ public class LedgerCommandKafkaConsumer {
             throw new IllegalArgumentException("Kafka record value must not be empty");
         }
 
-        JsonNode root;
-        try {
-            root = objectMapper.readTree(value);
-        } catch (Exception e) {
-            throw new IllegalArgumentException("Failed to parse Kafka record JSON: " + e.getMessage(), e);
-        }
-
-        if (root == null || !root.isObject()) {
-            throw new IllegalArgumentException("Kafka record payload must be a JSON object");
-        }
-
         UUID eventId = null;
-        JsonNode dataNode;
+        PostJournalCommandPayload payload = null;
 
-        if (root.has("data") && root.get("data").isObject()) {
-            dataNode = root.get("data");
-            if (root.has("id") && !root.get("id").isNull()) {
-                eventId = parseUuid(root.get("id").asString());
+        try {
+            KafkaEventEnvelope<PostJournalCommandPayload> envelope = objectMapper.readValue(
+                    value,
+                    new TypeReference<KafkaEventEnvelope<PostJournalCommandPayload>>() {}
+            );
+            if (envelope != null && envelope.data() != null) {
+                payload = envelope.data();
+                eventId = envelope.resolveEventId();
+            } else if (envelope != null && envelope.resolveEventId() != null) {
+                eventId = envelope.resolveEventId();
             }
-        } else {
-            dataNode = root;
-            if (root.has("eventId") && !root.get("eventId").isNull()) {
-                eventId = parseUuid(root.get("eventId").asString());
-            } else if (root.has("id") && !root.get("id").isNull()) {
-                eventId = parseUuid(root.get("id").asString());
+        } catch (Exception ignored) {
+            // Fallback to direct flat payload deserialization
+        }
+
+        if (payload == null) {
+            try {
+                payload = objectMapper.readValue(value, PostJournalCommandPayload.class);
+            } catch (Exception e) {
+                throw new IllegalArgumentException("Failed to deserialize PostJournalCommandPayload: " + e.getMessage(), e);
             }
+        }
+
+        if (payload == null) {
+            throw new IllegalArgumentException("PostJournalCommandPayload must not be null");
         }
 
         if (eventId == null && record.headers() != null) {
@@ -107,24 +110,11 @@ public class LedgerCommandKafkaConsumer {
                     .orElse(null);
         }
 
-        PostJournalCommandPayload payload;
-        try {
-            payload = objectMapper.treeToValue(dataNode, PostJournalCommandPayload.class);
-        } catch (Exception e) {
-            throw new IllegalArgumentException("Failed to deserialize PostJournalCommandPayload: " + e.getMessage(), e);
-        }
-
-        if (payload == null) {
-            throw new IllegalArgumentException("PostJournalCommandPayload must not be null");
-        }
-
-        PostJournalCommand command = PostJournalCommand.fromPayload(payload);
-
         if (eventId == null) {
-            if (dataNode.has("commandId") && !dataNode.get("commandId").isNull() && !dataNode.get("commandId").asString().isBlank()) {
-                eventId = parseUuid(dataNode.get("commandId").asString());
-            } else if (command.transactionId() != null) {
-                eventId = command.transactionId();
+            if (payload.commandId() != null) {
+                eventId = payload.commandId();
+            } else if (payload.transactionId() != null) {
+                eventId = payload.transactionId();
             } else if (record.key() != null) {
                 eventId = parseUuid(record.key());
             }
@@ -133,6 +123,8 @@ public class LedgerCommandKafkaConsumer {
         if (eventId == null) {
             eventId = UUID.randomUUID();
         }
+
+        PostJournalCommand command = PostJournalCommand.fromPayload(payload);
 
         return new ParsedRecord(eventId, command);
     }

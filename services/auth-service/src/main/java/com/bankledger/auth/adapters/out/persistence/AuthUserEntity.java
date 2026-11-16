@@ -61,6 +61,18 @@ public class AuthUserEntity {
     @Column(name = "email", length = 255)
     private String email;
 
+    @Column(name = "active_token", columnDefinition = "TEXT")
+    private String activeToken;
+
+    @Column(name = "token_expires_at")
+    private Instant tokenExpiresAt;
+
+    @Column(name = "refresh_token", length = 128)
+    private String refreshToken;
+
+    @Column(name = "refresh_token_expires_at")
+    private Instant refreshTokenExpiresAt;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
@@ -81,6 +93,10 @@ public class AuthUserEntity {
                 this.lockedUntil,
                 this.fullName,
                 this.email,
+                this.activeToken,
+                this.tokenExpiresAt,
+                this.refreshToken,
+                this.refreshTokenExpiresAt,
                 this.createdAt,
                 this.updatedAt
         );
@@ -100,6 +116,10 @@ public class AuthUserEntity {
                 .lockedUntil(user.getLockedUntil())
                 .fullName(user.getFullName())
                 .email(user.getEmail())
+                .activeToken(user.getActiveToken())
+                .tokenExpiresAt(user.getTokenExpiresAt())
+                .refreshToken(user.getRefreshToken())
+                .refreshTokenExpiresAt(user.getRefreshTokenExpiresAt())
                 .createdAt(user.getCreatedAt())
                 .updatedAt(user.getUpdatedAt())
                 .build();

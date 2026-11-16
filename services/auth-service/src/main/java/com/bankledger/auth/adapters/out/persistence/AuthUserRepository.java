@@ -8,5 +8,6 @@ import java.util.UUID;
 public interface AuthUserRepository extends JpaRepository<AuthUserEntity, UUID> {
     Optional<AuthUserEntity> findByCpf(String cpf);
     Optional<AuthUserEntity> findByCustomerId(UUID customerId);
+    Optional<AuthUserEntity> findByRefreshToken(String refreshToken);
     boolean existsByCpf(String cpf);
 }

@@ -108,8 +108,6 @@ class PersistenceIntegrationTest {
         assertThat(byId.get().email().value()).isEqualTo("maria.oliveira@example.com");
         assertThat(byId.get().phone().value()).isEqualTo("+5511988887777");
         assertThat(byId.get().birthDate()).isEqualTo(LocalDate.of(1990, 5, 15));
-        assertThat(byId.get().failedLoginAttempts()).isEqualTo(0);
-        assertThat(byId.get().lockedUntil()).isNull();
 
         Optional<Customer> byCpf = customerRepository.findByCpf(Cpf.of("52998224725"));
         assertThat(byCpf).isPresent();
@@ -249,7 +247,7 @@ class PersistenceIntegrationTest {
         Long v0 = jdbcTemplate.queryForObject("SELECT version FROM customer WHERE id = ?", Long.class, customer.id());
         assertThat(v0).isEqualTo(0L);
 
-        customer.recordFailedLogin(Instant.now());
+        customer.updateEmail(Email.of("new.email@example.com"), Instant.now());
         customerRepository.save(customer);
 
         Long v1 = jdbcTemplate.queryForObject("SELECT version FROM customer WHERE id = ?", Long.class, customer.id());
@@ -275,25 +273,7 @@ class PersistenceIntegrationTest {
         assertThat(v1).isEqualTo(1L);
     }
 
-    @Test
-    @DisplayName("Should persist customer updates for failed login attempts and lockout")
-    void shouldUpdateCustomerLockout() {
-        Customer customer = customerRepository.save(buildCustomer("52998224725", "maria.oliveira@example.com"));
-        Instant failureTime = Instant.now();
 
-        customer.recordFailedLogin(failureTime);
-        customerRepository.save(customer);
-
-        Customer loaded = customerRepository.findById(customer.id()).orElseThrow();
-        assertThat(loaded.failedLoginAttempts()).isEqualTo(1);
-
-        customer.resetFailedLogins(failureTime.plusSeconds(60));
-        customerRepository.save(customer);
-
-        Customer resetLoaded = customerRepository.findById(customer.id()).orElseThrow();
-        assertThat(resetLoaded.failedLoginAttempts()).isEqualTo(0);
-        assertThat(resetLoaded.lockedUntil()).isNull();
-    }
 
     @Test
     @DisplayName("Should persist account closure and updated timestamps")

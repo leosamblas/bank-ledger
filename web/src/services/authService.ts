@@ -27,7 +27,7 @@ export const authService = {
       });
 
       if (response.token) {
-        tokenStorage.set(response.token);
+        tokenStorage.set(response.token, response.refreshToken);
       }
 
       return response;
@@ -41,6 +41,31 @@ export const authService = {
       }
       throw error;
     }
+  },
+
+  /**
+   * Renova o token de sessão usando o refresh token
+   */
+  async refreshToken(): Promise<TokenResponse> {
+    const refreshToken = tokenStorage.getRefreshToken();
+    if (!refreshToken) {
+      throw new ApiError({
+        status: 401,
+        title: 'Sessão Expirada',
+        detail: 'Nenhum token de atualização disponível. Efetue login novamente.',
+      });
+    }
+
+    const response = await request<TokenResponse>('/auth/refresh', {
+      method: 'POST',
+      body: JSON.stringify({ refreshToken }),
+    });
+
+    if (response.token) {
+      tokenStorage.set(response.token, response.refreshToken);
+    }
+
+    return response;
   },
 
   /**
@@ -65,11 +90,12 @@ export const authService = {
           sub: credentials.cpf,
           role: 'CLIENT',
           iat: Math.floor(Date.now() / 1000),
-          exp: Math.floor(Date.now() / 1000) + 3600,
+          exp: Math.floor(Date.now() / 1000) + 900,
         })
       )}.mock_signature_nexus_ledger`,
-      expiresIn: 3600,
+      expiresIn: 900,
       tokenType: 'Bearer',
+      refreshToken: 'nexus_mock_refresh_token_7d_validity',
       user: {
         id: '9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d',
         fullName: 'Carlos Eduardo Silva',
@@ -78,7 +104,7 @@ export const authService = {
       },
     };
 
-    tokenStorage.set(mockToken.token);
+    tokenStorage.set(mockToken.token, mockToken.refreshToken);
     return mockToken;
   },
 

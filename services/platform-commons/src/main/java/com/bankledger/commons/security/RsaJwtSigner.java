@@ -142,6 +142,7 @@ public class RsaJwtSigner {
             header.put("kid", keyId);
 
             Map<String, Object> payload = new LinkedHashMap<>();
+            payload.put("jti", UUID.randomUUID().toString());
             payload.put("iss", issuer);
             payload.put("aud", audience);
             payload.put("iat", now.getEpochSecond());

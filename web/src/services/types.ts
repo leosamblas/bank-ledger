@@ -20,6 +20,7 @@ export interface TokenResponse {
   token: string;
   expiresIn: number;
   tokenType?: string;
+  refreshToken?: string;
   user?: {
     id: string;
     fullName: string;

@@ -8,6 +8,7 @@ export const IS_MOCK_ENABLED =
   process.env.NEXT_PUBLIC_USE_MOCK !== 'false';
 
 const TOKEN_KEY = 'nexus_auth_token';
+const REFRESH_TOKEN_KEY = 'nexus_auth_refresh_token';
 
 export const tokenStorage = {
   get: (): string | null => {
@@ -18,12 +19,26 @@ export const tokenStorage = {
       return null;
     }
   },
-  set: (token: string, persistent = true): void => {
+  getRefreshToken: (): string | null => {
+    if (typeof window === 'undefined') return null;
+    try {
+      return sessionStorage.getItem(REFRESH_TOKEN_KEY) || localStorage.getItem(REFRESH_TOKEN_KEY);
+    } catch {
+      return null;
+    }
+  },
+  set: (token: string, refreshToken?: string, persistent = true): void => {
     if (typeof window === 'undefined') return;
     try {
       sessionStorage.setItem(TOKEN_KEY, token);
+      if (refreshToken) {
+        sessionStorage.setItem(REFRESH_TOKEN_KEY, refreshToken);
+      }
       if (persistent) {
         localStorage.setItem(TOKEN_KEY, token);
+        if (refreshToken) {
+          localStorage.setItem(REFRESH_TOKEN_KEY, refreshToken);
+        }
       }
     } catch {
       // Ignora falhas de storage em ambientes restritos
@@ -33,7 +48,9 @@ export const tokenStorage = {
     if (typeof window === 'undefined') return;
     try {
       sessionStorage.removeItem(TOKEN_KEY);
+      sessionStorage.removeItem(REFRESH_TOKEN_KEY);
       localStorage.removeItem(TOKEN_KEY);
+      localStorage.removeItem(REFRESH_TOKEN_KEY);
     } catch {
       // Ignora
     }
@@ -51,7 +68,7 @@ export class ApiError extends Error {
 }
 
 /**
- * Utilitário de requisição HTTP resiliente com suporte a fallback
+ * Utilitário de requisição HTTP resiliente com suporte a fallback e auto-refresh de sessão
  */
 export async function request<T>(
   endpoint: string,
@@ -72,6 +89,52 @@ export async function request<T>(
     ...options,
     headers,
   });
+
+  // Se a requisição falhar com 401 e houver refresh token (e não for rota de login/refresh), tenta renovar a sessão
+  if (response.status === 401 && !endpoint.includes('/auth/login') && !endpoint.includes('/auth/refresh')) {
+    const refreshToken = tokenStorage.getRefreshToken();
+    if (refreshToken) {
+      try {
+        const refreshResponse = await fetch(`${API_BASE_URL}/auth/refresh`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Accept: 'application/json, application/problem+json',
+          },
+          body: JSON.stringify({ refreshToken }),
+        });
+
+        if (refreshResponse.ok) {
+          const refreshData = await refreshResponse.json();
+          if (refreshData.token) {
+            tokenStorage.set(refreshData.token, refreshData.refreshToken);
+
+            // Re-executa requisição original com o novo token
+            const retryHeaders: HeadersInit = {
+              ...headers,
+              Authorization: `Bearer ${refreshData.token}`,
+            };
+
+            const retryResponse = await fetch(url, {
+              ...options,
+              headers: retryHeaders,
+            });
+
+            if (retryResponse.ok) {
+              if (retryResponse.status === 204) {
+                return {} as T;
+              }
+              return retryResponse.json() as Promise<T>;
+            }
+          }
+        } else {
+          tokenStorage.clear();
+        }
+      } catch {
+        tokenStorage.clear();
+      }
+    }
+  }
 
   if (!response.ok) {
     let problem: ProblemDetail;

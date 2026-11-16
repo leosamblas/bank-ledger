@@ -12,8 +12,9 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 
-import java.util.Map;
 import java.util.UUID;
 
 @RestController
@@ -26,8 +27,8 @@ public class InternalAuthController {
     public record CredentialResponse(UUID id, UUID customerId, String cpf) {}
 
     @PostMapping("/credentials")
-    public ResponseEntity<CredentialResponse> registerCredentials(@Valid @RequestBody RegisterCredentialsRequest request) {
-        AuthUser user = registerCredentialsUseCase.registerCredentials(new RegisterCredentialsCommand(
+    public Mono<ResponseEntity<CredentialResponse>> registerCredentials(@Valid @RequestBody RegisterCredentialsRequest request) {
+        return Mono.fromCallable(() -> registerCredentialsUseCase.registerCredentials(new RegisterCredentialsCommand(
                 request.customerId(),
                 request.cpf(),
                 request.password(),
@@ -36,9 +37,9 @@ public class InternalAuthController {
                 request.accountNumber(),
                 request.fullName(),
                 request.email()
-        ));
-
-        return ResponseEntity.status(HttpStatus.CREATED)
-                .body(new CredentialResponse(user.getId(), user.getCustomerId(), user.getCpf()));
+        )))
+        .subscribeOn(Schedulers.boundedElastic())
+        .map(user -> ResponseEntity.status(HttpStatus.CREATED)
+                .body(new CredentialResponse(user.getId(), user.getCustomerId(), user.getCpf())));
     }
 }

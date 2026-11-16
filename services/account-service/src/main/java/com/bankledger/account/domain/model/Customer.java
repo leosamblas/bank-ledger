@@ -10,21 +10,18 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.Period;
 import java.time.ZoneOffset;
-import java.time.temporal.ChronoUnit;
 import java.util.Objects;
 import java.util.UUID;
 
 /**
  * Pure domain aggregate root representing a Banking Customer.
- * Enforces invariants such as legal age (>= 18 years) and brute-force lockout rules.
+ * Enforces invariants such as legal age (>= 18 years).
  * Zero framework dependencies.
  */
 public class Customer implements Serializable {
 
     private static final long serialVersionUID = 1L;
 
-    public static final int MAX_FAILED_LOGIN_ATTEMPTS = 5;
-    public static final int LOCKOUT_DURATION_MINUTES = 15;
     public static final int MINIMUM_AGE_YEARS = 18;
 
     private final UUID id;
@@ -34,8 +31,6 @@ public class Customer implements Serializable {
     private Phone phone;
     private final LocalDate birthDate;
     private String passwordHash;
-    private int failedLoginAttempts;
-    private Instant lockedUntil;
     private final Instant createdAt;
     private Instant updatedAt;
 
@@ -50,8 +45,6 @@ public class Customer implements Serializable {
             Phone phone,
             LocalDate birthDate,
             String passwordHash,
-            int failedLoginAttempts,
-            Instant lockedUntil,
             Instant createdAt,
             Instant updatedAt
     ) {
@@ -65,10 +58,28 @@ public class Customer implements Serializable {
         this.phone = Objects.requireNonNull(phone, "phone must not be null");
         this.birthDate = Objects.requireNonNull(birthDate, "birthDate must not be null");
         this.passwordHash = Objects.requireNonNull(passwordHash, "passwordHash must not be null");
-        this.failedLoginAttempts = Math.max(0, failedLoginAttempts);
-        this.lockedUntil = lockedUntil;
         this.createdAt = Objects.requireNonNull(createdAt, "createdAt must not be null");
         this.updatedAt = Objects.requireNonNull(updatedAt, "updatedAt must not be null");
+    }
+
+    /**
+     * Legacy constructor for backwards-compatibility without login lockout fields.
+     */
+    @Deprecated
+    public Customer(
+            UUID id,
+            String fullName,
+            Cpf cpf,
+            Email email,
+            Phone phone,
+            LocalDate birthDate,
+            String passwordHash,
+            int failedLoginAttempts,
+            Instant lockedUntil,
+            Instant createdAt,
+            Instant updatedAt
+    ) {
+        this(id, fullName, cpf, email, phone, birthDate, passwordHash, createdAt, updatedAt);
     }
 
     /**
@@ -104,8 +115,6 @@ public class Customer implements Serializable {
                 phone,
                 birthDate,
                 passwordHash,
-                0,
-                null,
                 now,
                 now
         );
@@ -134,53 +143,6 @@ public class Customer implements Serializable {
         return create(UUID.randomUUID(), fullName, cpf, email, phone, birthDate, passwordHash, Instant.now());
     }
 
-    /**
-     * Returns true if customer is locked at the given instant.
-     */
-    public boolean isLocked(Instant now) {
-        return lockedUntil != null && now.isBefore(lockedUntil);
-    }
-
-    public boolean isLocked() {
-        return isLocked(Instant.now());
-    }
-
-    /**
-     * Increments failed login attempts and sets lockedUntil to now + 15 minutes
-     * if attempts reach or exceed MAX_FAILED_LOGIN_ATTEMPTS (5).
-     */
-    public void recordFailedLogin(Instant now) {
-        Objects.requireNonNull(now, "now must not be null");
-        if (this.lockedUntil != null && !now.isBefore(this.lockedUntil)) {
-            // Lockout period has elapsed: reset counter before recording new failure
-            this.failedLoginAttempts = 0;
-            this.lockedUntil = null;
-        }
-        this.failedLoginAttempts++;
-        if (this.failedLoginAttempts >= MAX_FAILED_LOGIN_ATTEMPTS) {
-            this.lockedUntil = now.plus(LOCKOUT_DURATION_MINUTES, ChronoUnit.MINUTES);
-        }
-        this.updatedAt = now;
-    }
-
-    public void recordFailedLogin() {
-        recordFailedLogin(Instant.now());
-    }
-
-    /**
-     * Resets failed login attempts to 0 and clears lockedUntil lockout.
-     */
-    public void resetFailedLogins(Instant now) {
-        Objects.requireNonNull(now, "now must not be null");
-        this.failedLoginAttempts = 0;
-        this.lockedUntil = null;
-        this.updatedAt = now;
-    }
-
-    public void resetFailedLogins() {
-        resetFailedLogins(Instant.now());
-    }
-
     public void updateEmail(Email email, Instant now) {
         this.email = Objects.requireNonNull(email, "email must not be null");
         this.updatedAt = Objects.requireNonNull(now, "now must not be null");
@@ -204,8 +166,6 @@ public class Customer implements Serializable {
     public Phone getPhone() { return phone; }
     public LocalDate getBirthDate() { return birthDate; }
     public String getPasswordHash() { return passwordHash; }
-    public int getFailedLoginAttempts() { return failedLoginAttempts; }
-    public Instant getLockedUntil() { return lockedUntil; }
     public Instant getCreatedAt() { return createdAt; }
     public Instant getUpdatedAt() { return updatedAt; }
 
@@ -217,8 +177,6 @@ public class Customer implements Serializable {
     public Phone phone() { return phone; }
     public LocalDate birthDate() { return birthDate; }
     public String passwordHash() { return passwordHash; }
-    public int failedLoginAttempts() { return failedLoginAttempts; }
-    public Instant lockedUntil() { return lockedUntil; }
     public Instant createdAt() { return createdAt; }
     public Instant updatedAt() { return updatedAt; }
 }

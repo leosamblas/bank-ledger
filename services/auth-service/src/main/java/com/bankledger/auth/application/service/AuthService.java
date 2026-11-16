@@ -6,6 +6,8 @@ import com.bankledger.auth.application.port.in.IntrospectTokenUseCase;
 import com.bankledger.auth.application.port.in.LoginCommand;
 import com.bankledger.auth.application.port.in.LoginResult;
 import com.bankledger.auth.application.port.in.LoginUseCase;
+import com.bankledger.auth.application.port.in.RefreshTokenCommand;
+import com.bankledger.auth.application.port.in.RefreshTokenUseCase;
 import com.bankledger.auth.application.port.in.RegisterCredentialsCommand;
 import com.bankledger.auth.application.port.in.RegisterCredentialsUseCase;
 import com.bankledger.auth.application.port.out.AuthUserRepositoryPort;
@@ -17,35 +19,66 @@ import com.bankledger.auth.domain.model.AuthUser;
 import com.bankledger.commons.security.RsaJwtSigner;
 import com.bankledger.commons.security.RsaJwtValidator;
 import com.bankledger.commons.security.TokenClaims;
-import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.security.SecureRandom;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.HexFormat;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 
 @Service
-@RequiredArgsConstructor
-public class AuthService implements LoginUseCase, RegisterCredentialsUseCase, IntrospectTokenUseCase {
-
-    private static final String DUMMY_ARGON2_HASH =
-            "$argon2id$v=19$m=19456,t=3,p=1$A95dCHZGbTCnwE0PsaX0Vw$PpVtTpb8S+tIiPPH7dFQLQqb1quYB17eMUJZI+Mbcz8";
+public class AuthService implements LoginUseCase, RefreshTokenUseCase, RegisterCredentialsUseCase, IntrospectTokenUseCase {
 
     private final AuthUserRepositoryPort authUserRepositoryPort;
     private final PasswordEncoderPort passwordEncoderPort;
     private final RsaJwtSigner rsaJwtSigner;
     private final RsaJwtValidator rsaJwtValidator;
     private final Clock clock;
+    private final String dummyArgon2Hash;
+    private final long accessTokenValiditySeconds;
+    private final long refreshTokenValiditySeconds;
+    private final SecureRandom secureRandom = new SecureRandom();
+
+    public AuthService(
+            AuthUserRepositoryPort authUserRepositoryPort,
+            PasswordEncoderPort passwordEncoderPort,
+            RsaJwtSigner rsaJwtSigner,
+            RsaJwtValidator rsaJwtValidator,
+            Clock clock,
+            @Value("${app.security.dummy-argon2-hash:${APP_SECURITY_DUMMY_ARGON2_HASH:$argon2id$v=19$m=19456,t=3,p=1$A95dCHZGbTCnwE0PsaX0Vw$PpVtTpb8S+tIiPPH7dFQLQqb1quYB17eMUJZI+Mbcz8}}")
+            String dummyArgon2Hash,
+            @Value("${app.security.access-token-validity-seconds:${ACCESS_TOKEN_VALIDITY_SECONDS:900}}")
+            long accessTokenValiditySeconds,
+            @Value("${app.security.refresh-token-validity-seconds:${REFRESH_TOKEN_VALIDITY_SECONDS:604800}}")
+            long refreshTokenValiditySeconds
+    ) {
+        this.authUserRepositoryPort = Objects.requireNonNull(authUserRepositoryPort, "authUserRepositoryPort must not be null");
+        this.passwordEncoderPort = Objects.requireNonNull(passwordEncoderPort, "passwordEncoderPort must not be null");
+        this.rsaJwtSigner = Objects.requireNonNull(rsaJwtSigner, "rsaJwtSigner must not be null");
+        this.rsaJwtValidator = Objects.requireNonNull(rsaJwtValidator, "rsaJwtValidator must not be null");
+        this.clock = Objects.requireNonNull(clock, "clock must not be null");
+        this.dummyArgon2Hash = dummyArgon2Hash;
+        this.accessTokenValiditySeconds = accessTokenValiditySeconds;
+        this.refreshTokenValiditySeconds = refreshTokenValiditySeconds;
+    }
 
     private String sanitizeCpf(String cpf) {
         if (cpf == null) {
             return "";
         }
         return cpf.replaceAll("\\D", "");
+    }
+
+    private String generateSecureToken() {
+        byte[] bytes = new byte[32];
+        secureRandom.nextBytes(bytes);
+        return HexFormat.of().formatHex(bytes);
     }
 
     @Override
@@ -56,7 +89,7 @@ public class AuthService implements LoginUseCase, RegisterCredentialsUseCase, In
         String sanitizedCpf = sanitizeCpf(command.cpf());
         if (sanitizedCpf.length() != 11) {
             // Timing side-channel defense on malformed CPF
-            passwordEncoderPort.matches(command.password() != null ? command.password() : "", DUMMY_ARGON2_HASH);
+            passwordEncoderPort.matches(command.password() != null ? command.password() : "", dummyArgon2Hash);
             throw new InvalidCredentialsException("Credenciais inválidas");
         }
 
@@ -65,7 +98,7 @@ public class AuthService implements LoginUseCase, RegisterCredentialsUseCase, In
         Optional<AuthUser> maybeUser = authUserRepositoryPort.findByCpf(sanitizedCpf);
         if (maybeUser.isEmpty()) {
             // Timing side-channel defense: simulate Argon2id password hash check to prevent CPF enumeration
-            passwordEncoderPort.matches(command.password() != null ? command.password() : "", DUMMY_ARGON2_HASH);
+            passwordEncoderPort.matches(command.password() != null ? command.password() : "", dummyArgon2Hash);
             throw new InvalidCredentialsException("Credenciais inválidas");
         }
 
@@ -94,8 +127,28 @@ public class AuthService implements LoginUseCase, RegisterCredentialsUseCase, In
         }
 
         user.resetFailedLogins(now);
-        authUserRepositoryPort.save(user);
 
+        // Security rule: if user already has an active unexpired token, reuse it with dynamically calculated remaining TTL
+        if (user.hasActiveToken(now)) {
+            long remainingSeconds = Duration.between(now, user.getTokenExpiresAt()).getSeconds();
+            if (remainingSeconds > 0) {
+                authUserRepositoryPort.save(user);
+                return new LoginResult(
+                        user.getActiveToken(),
+                        remainingSeconds,
+                        "Bearer",
+                        user.getRefreshToken(),
+                        new LoginResult.UserInfo(
+                                user.getCustomerId(),
+                                user.getFullName(),
+                                user.getCpf(),
+                                user.getEmail()
+                        )
+                );
+            }
+        }
+
+        // Generate fresh access token and refresh token
         TokenClaims claims = new TokenClaims(
                 user.getCustomerId(),
                 user.getAccountId(),
@@ -106,11 +159,76 @@ public class AuthService implements LoginUseCase, RegisterCredentialsUseCase, In
         );
 
         String token = rsaJwtSigner.generateToken(claims);
+        String refreshToken = generateSecureToken();
+        Instant tokenExpiresAt = now.plusSeconds(accessTokenValiditySeconds);
+        Instant refreshTokenExpiresAt = now.plusSeconds(refreshTokenValiditySeconds);
+
+        user.updateTokens(token, tokenExpiresAt, refreshToken, refreshTokenExpiresAt, now);
+        authUserRepositoryPort.save(user);
 
         return new LoginResult(
                 token,
-                3600L,
+                accessTokenValiditySeconds,
                 "Bearer",
+                refreshToken,
+                new LoginResult.UserInfo(
+                        user.getCustomerId(),
+                        user.getFullName(),
+                        user.getCpf(),
+                        user.getEmail()
+                )
+        );
+    }
+
+    @Override
+    @Transactional(noRollbackFor = {InvalidCredentialsException.class, CustomerLockedException.class})
+    public LoginResult refreshToken(RefreshTokenCommand command) {
+        Objects.requireNonNull(command, "command must not be null");
+
+        if (command.refreshToken() == null || command.refreshToken().isBlank()) {
+            throw new InvalidCredentialsException("Token de atualização inválido ou inexistente");
+        }
+
+        Instant now = Instant.now(clock);
+        Optional<AuthUser> maybeUser = authUserRepositoryPort.findByRefreshToken(command.refreshToken().trim());
+        if (maybeUser.isEmpty()) {
+            throw new InvalidCredentialsException("Token de atualização inválido ou inexistente");
+        }
+
+        AuthUser user = maybeUser.get();
+        if (user.isLocked(now)) {
+            long minutesLeft = calculateMinutesLeft(user.getLockedUntil(), now);
+            throw new CustomerLockedException(
+                    "Conta bloqueada temporariamente. Tente novamente em " + minutesLeft + " minutos."
+            );
+        }
+
+        if (user.getRefreshTokenExpiresAt() == null || !user.getRefreshTokenExpiresAt().isAfter(now)) {
+            throw new InvalidCredentialsException("Token de atualização expirado. Efetue login novamente.");
+        }
+
+        TokenClaims claims = new TokenClaims(
+                user.getCustomerId(),
+                user.getAccountId(),
+                user.getCpf(),
+                user.getRole(),
+                user.getBranch(),
+                user.getAccountNumber()
+        );
+
+        String newAccessToken = rsaJwtSigner.generateToken(claims);
+        String newRefreshToken = generateSecureToken();
+        Instant tokenExpiresAt = now.plusSeconds(accessTokenValiditySeconds);
+        Instant refreshTokenExpiresAt = now.plusSeconds(refreshTokenValiditySeconds);
+
+        user.updateTokens(newAccessToken, tokenExpiresAt, newRefreshToken, refreshTokenExpiresAt, now);
+        authUserRepositoryPort.save(user);
+
+        return new LoginResult(
+                newAccessToken,
+                accessTokenValiditySeconds,
+                "Bearer",
+                newRefreshToken,
                 new LoginResult.UserInfo(
                         user.getCustomerId(),
                         user.getFullName(),
@@ -150,6 +268,10 @@ public class AuthService implements LoginUseCase, RegisterCredentialsUseCase, In
                 null,
                 command.fullName(),
                 command.email(),
+                null,
+                null,
+                null,
+                null,
                 now,
                 now
         );

@@ -15,6 +15,12 @@ spring:
   flyway:
     enabled: false
 
+app:
+  security:
+    dummy-argon2-hash: "$argon2id$v=19$m=19456,t=3,p=1$A95dCHZGbTCnwE0PsaX0Vw$PpVtTpb8S+tIiPPH7dFQLQqb1quYB17eMUJZI+Mbcz8"
+    access-token-validity-seconds: 900
+    refresh-token-validity-seconds: 604800
+
 bankledger:
   security:
     jwt:

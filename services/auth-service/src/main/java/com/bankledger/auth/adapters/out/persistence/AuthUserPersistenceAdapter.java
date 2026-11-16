@@ -25,6 +25,11 @@ public class AuthUserPersistenceAdapter implements AuthUserRepositoryPort {
     }
 
     @Override
+    public Optional<AuthUser> findByRefreshToken(String refreshToken) {
+        return repository.findByRefreshToken(refreshToken).map(AuthUserEntity::toDomain);
+    }
+
+    @Override
     public boolean existsByCpf(String cpf) {
         return repository.existsByCpf(cpf);
     }

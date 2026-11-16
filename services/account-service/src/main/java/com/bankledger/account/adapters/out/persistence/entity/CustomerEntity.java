@@ -59,7 +59,8 @@ public class CustomerEntity {
     private String passwordHash;
 
     @Column(name = "failed_login_attempts", nullable = false)
-    private int failedLoginAttempts;
+    @Builder.Default
+    private int failedLoginAttempts = 0;
 
     @Column(name = "locked_until")
     private Instant lockedUntil;
@@ -83,8 +84,6 @@ public class CustomerEntity {
                 Phone.of(phone),
                 birthDate,
                 passwordHash,
-                failedLoginAttempts,
-                lockedUntil,
                 createdAt,
                 updatedAt
         );
@@ -102,8 +101,8 @@ public class CustomerEntity {
                 .phone(domain.phone().value())
                 .birthDate(domain.birthDate())
                 .passwordHash(domain.passwordHash())
-                .failedLoginAttempts(domain.failedLoginAttempts())
-                .lockedUntil(domain.lockedUntil())
+                .failedLoginAttempts(0)
+                .lockedUntil(null)
                 .createdAt(domain.createdAt())
                 .updatedAt(domain.updatedAt())
                 .build();

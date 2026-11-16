@@ -4,6 +4,7 @@ import com.bankledger.auth.application.port.in.IntrospectCommand;
 import com.bankledger.auth.application.port.in.IntrospectResult;
 import com.bankledger.auth.application.port.in.LoginCommand;
 import com.bankledger.auth.application.port.in.LoginResult;
+import com.bankledger.auth.application.port.in.RefreshTokenCommand;
 import com.bankledger.auth.application.port.in.RegisterCredentialsCommand;
 import com.bankledger.auth.application.port.out.AuthUserRepositoryPort;
 import com.bankledger.auth.application.port.out.PasswordEncoderPort;
@@ -41,6 +42,7 @@ import static org.mockito.Mockito.when;
 class AuthServiceTest {
 
     private static final Instant T0 = Instant.parse("2026-11-16T12:00:00Z");
+    private static final String DUMMY_HASH = "$argon2id$v=19$m=19456,t=3,p=1$mockdummyhash";
 
     @Mock
     private AuthUserRepositoryPort authUserRepositoryPort;
@@ -63,7 +65,16 @@ class AuthServiceTest {
         keyProvider.putKey(rsaJwtSigner.getKeyId(), rsaJwtSigner.getPublicKey());
         rsaJwtValidator = new RsaJwtValidator(keyProvider, mapper, clock);
 
-        authService = new AuthService(authUserRepositoryPort, passwordEncoderPort, rsaJwtSigner, rsaJwtValidator, clock);
+        authService = new AuthService(
+                authUserRepositoryPort,
+                passwordEncoderPort,
+                rsaJwtSigner,
+                rsaJwtValidator,
+                clock,
+                DUMMY_HASH,
+                900L,
+                604800L
+        );
     }
 
     private AuthUser buildUser(int failedAttempts, Instant lockedUntil) {
@@ -80,13 +91,17 @@ class AuthServiceTest {
                 lockedUntil,
                 "Carlos Silva",
                 "carlos@example.com",
+                null,
+                null,
+                null,
+                null,
                 T0,
                 T0
         );
     }
 
     @Test
-    @DisplayName("Should successfully login and return valid RS256 token")
+    @DisplayName("Should successfully login, mint token and refresh token when user has no active token")
     void shouldLoginSuccessfully() {
         AuthUser user = buildUser(0, null);
         when(authUserRepositoryPort.findByCpf("52998224725")).thenReturn(Optional.of(user));
@@ -96,14 +111,78 @@ class AuthServiceTest {
         LoginResult result = authService.login(new LoginCommand("52998224725", "Secret@123"));
 
         assertThat(result.token()).isNotEmpty();
-        assertThat(result.expiresIn()).isEqualTo(3600L);
+        assertThat(result.expiresIn()).isEqualTo(900L);
         assertThat(result.tokenType()).isEqualTo("Bearer");
+        assertThat(result.refreshToken()).isNotEmpty();
         assertThat(result.user().cpf()).isEqualTo("52998224725");
 
         var claims = rsaJwtValidator.validate(result.token());
         assertThat(claims.cpf()).isEqualTo("52998224725");
         assertThat(claims.branch()).isEqualTo("0001");
         assertThat(claims.accountNumber()).isEqualTo("123456");
+    }
+
+    @Test
+    @DisplayName("Should reuse active token and compute dynamic remaining TTL on repeated login")
+    void shouldReuseActiveTokenWithDynamicRemainingTtl() {
+        AuthUser user = buildUser(0, null);
+        String existingToken = "existing.active.jwt.token";
+        String existingRefreshToken = "existing.refresh.token.hex";
+        Instant tokenExpiresAt = T0.plusSeconds(420); // 420 seconds remaining
+        Instant refreshExpiresAt = T0.plusSeconds(86400);
+
+        user.updateTokens(existingToken, tokenExpiresAt, existingRefreshToken, refreshExpiresAt, T0);
+
+        when(authUserRepositoryPort.findByCpf("52998224725")).thenReturn(Optional.of(user));
+        when(passwordEncoderPort.matches("Secret@123", "$argon2id$mockedhash")).thenReturn(true);
+        when(authUserRepositoryPort.save(any(AuthUser.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        LoginResult result = authService.login(new LoginCommand("52998224725", "Secret@123"));
+
+        // Must return the exact same token with remaining TTL
+        assertThat(result.token()).isEqualTo(existingToken);
+        assertThat(result.expiresIn()).isEqualTo(420L);
+        assertThat(result.refreshToken()).isEqualTo(existingRefreshToken);
+    }
+
+    @Test
+    @DisplayName("Should rotate access token and refresh token upon valid refresh request")
+    void shouldRotateTokensOnValidRefreshToken() {
+        AuthUser user = buildUser(0, null);
+        String initialRefreshToken = "valid.initial.refresh.token";
+        user.updateTokens("old.token", T0.minusSeconds(10), initialRefreshToken, T0.plusSeconds(3600), T0);
+
+        when(authUserRepositoryPort.findByRefreshToken(initialRefreshToken)).thenReturn(Optional.of(user));
+        when(authUserRepositoryPort.save(any(AuthUser.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        LoginResult result = authService.refreshToken(new RefreshTokenCommand(initialRefreshToken));
+
+        assertThat(result.token()).isNotEmpty().isNotEqualTo("old.token");
+        assertThat(result.expiresIn()).isEqualTo(900L);
+        assertThat(result.refreshToken()).isNotEmpty().isNotEqualTo(initialRefreshToken);
+    }
+
+    @Test
+    @DisplayName("Should reject refresh token when token has expired")
+    void shouldRejectExpiredRefreshToken() {
+        AuthUser user = buildUser(0, null);
+        String expiredRefreshToken = "expired.refresh.token";
+        user.updateTokens("old.token", T0.minusSeconds(100), expiredRefreshToken, T0.minusSeconds(1), T0);
+
+        when(authUserRepositoryPort.findByRefreshToken(expiredRefreshToken)).thenReturn(Optional.of(user));
+
+        assertThatThrownBy(() -> authService.refreshToken(new RefreshTokenCommand(expiredRefreshToken)))
+                .isInstanceOf(InvalidCredentialsException.class)
+                .hasMessageContaining("expirado");
+    }
+
+    @Test
+    @DisplayName("Should reject refresh token when token does not exist")
+    void shouldRejectNonexistentRefreshToken() {
+        when(authUserRepositoryPort.findByRefreshToken("unknown.token")).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> authService.refreshToken(new RefreshTokenCommand("unknown.token")))
+                .isInstanceOf(InvalidCredentialsException.class);
     }
 
     @Test
@@ -128,8 +207,8 @@ class AuthServiceTest {
         assertThatThrownBy(() -> authService.login(new LoginCommand("52998224725", "Secret@123")))
                 .isInstanceOf(InvalidCredentialsException.class);
 
-        // Verify dummy hash match was executed
-        verify(passwordEncoderPort).matches(eq("Secret@123"), any(String.class));
+        // Verify injected dummy hash was used
+        verify(passwordEncoderPort).matches("Secret@123", DUMMY_HASH);
     }
 
     @Test
@@ -138,7 +217,7 @@ class AuthServiceTest {
         assertThatThrownBy(() -> authService.login(new LoginCommand("12345", "Secret@123")))
                 .isInstanceOf(InvalidCredentialsException.class);
 
-        verify(passwordEncoderPort).matches(eq("Secret@123"), any(String.class));
+        verify(passwordEncoderPort).matches("Secret@123", DUMMY_HASH);
     }
 
     @Test

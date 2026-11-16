@@ -4,34 +4,25 @@ import com.bankledger.auth.domain.exception.CredentialsAlreadyExistsException;
 import com.bankledger.auth.domain.exception.CustomerLockedException;
 import com.bankledger.auth.domain.exception.DomainException;
 import com.bankledger.auth.domain.exception.InvalidCredentialsException;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
-import org.springframework.web.context.request.WebRequest;
-import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
+import org.springframework.web.bind.support.WebExchangeBindException;
 
 import java.net.URI;
 import java.util.List;
 import java.util.Map;
 
 @RestControllerAdvice
-public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
+public class GlobalExceptionHandler {
 
     private static final URI DEFAULT_TYPE = URI.create("about:blank");
 
-    @Override
-    protected ResponseEntity<Object> handleMethodArgumentNotValid(
-            MethodArgumentNotValidException ex,
-            HttpHeaders headers,
-            HttpStatusCode status,
-            WebRequest request
-    ) {
+    @ExceptionHandler(WebExchangeBindException.class)
+    public ResponseEntity<ProblemDetail> handleValidation(WebExchangeBindException ex) {
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(
                 HttpStatus.BAD_REQUEST,
                 "Validation failed for argument"

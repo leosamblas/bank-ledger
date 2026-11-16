@@ -1,7 +1,7 @@
 package com.bankledger.auth.config;
 
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 import org.springframework.core.io.buffer.DataBuffer;
@@ -20,6 +20,7 @@ import tools.jackson.databind.ObjectMapper;
 import java.net.URI;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Optional;
 
 /**
  * Reactive WebFilter providing dynamic rate limiting using ReactiveStringRedisTemplate.
@@ -30,32 +31,26 @@ import java.time.Instant;
 @Slf4j
 @Component
 @Order(Ordered.HIGHEST_PRECEDENCE + 10)
+@RequiredArgsConstructor
 public class RateLimitingWebFilter implements WebFilter {
 
     public static final String RATELIMIT_CONFIG_KEY = "auth:ratelimit:config:tps";
     public static final String RATELIMIT_KEY_PREFIX = "auth:ratelimit:";
     public static final int DEFAULT_TPS = 20;
 
-    private final ReactiveStringRedisTemplate redisTemplate;
+    private final Optional<ReactiveStringRedisTemplate> redisTemplateOptional;
     private final ObjectMapper objectMapper;
-
-    public RateLimitingWebFilter(
-            @Autowired(required = false) ReactiveStringRedisTemplate redisTemplate,
-            ObjectMapper objectMapper
-    ) {
-        this.redisTemplate = redisTemplate;
-        this.objectMapper = objectMapper;
-    }
 
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, WebFilterChain chain) {
         String path = exchange.getRequest().getPath().value();
-        if (isExcluded(path) || redisTemplate == null) {
+        ReactiveStringRedisTemplate redis = redisTemplateOptional.orElse(null);
+        if (isExcluded(path) || redis == null) {
             return chain.filter(exchange);
         }
 
-        return getEffectiveTps()
-                .flatMap(limit -> checkRateLimit(exchange, chain, limit))
+        return getEffectiveTps(redis)
+                .flatMap(limit -> checkRateLimit(exchange, chain, limit, redis))
                 .onErrorResume(e -> {
                     log.warn("Rate limiting Redis operation failed gracefully: {}", e.getMessage());
                     return chain.filter(exchange);
@@ -70,8 +65,8 @@ public class RateLimitingWebFilter implements WebFilter {
                 || path.startsWith("/webjars");
     }
 
-    private Mono<Integer> getEffectiveTps() {
-        return redisTemplate.opsForValue().get(RATELIMIT_CONFIG_KEY)
+    private Mono<Integer> getEffectiveTps(ReactiveStringRedisTemplate redis) {
+        return redis.opsForValue().get(RATELIMIT_CONFIG_KEY)
                 .map(val -> {
                     try {
                         int parsed = Integer.parseInt(val);
@@ -84,14 +79,15 @@ public class RateLimitingWebFilter implements WebFilter {
                 .onErrorReturn(DEFAULT_TPS);
     }
 
-    private Mono<Void> checkRateLimit(ServerWebExchange exchange, WebFilterChain chain, int limit) {
+    private Mono<Void> checkRateLimit(ServerWebExchange exchange, WebFilterChain chain, int limit, ReactiveStringRedisTemplate redis) {
         long epochSecond = Instant.now().getEpochSecond();
         String windowKey = RATELIMIT_KEY_PREFIX + epochSecond;
 
-        return redisTemplate.opsForValue().increment(windowKey)
+        return redis.opsForValue().increment(windowKey)
                 .flatMap(count -> {
                     if (count == 1) {
-                        redisTemplate.expire(windowKey, Duration.ofSeconds(5)).subscribe();
+                        redis.expire(windowKey, Duration.ofSeconds(5))
+                                .subscribe(null, e -> log.warn("Failed to set TTL on rate limit key {}: {}", windowKey, e.getMessage()));
                     }
                     if (count > limit) {
                         log.warn("Rate limit exceeded for path {}: count={}, limit={}", exchange.getRequest().getPath(), count, limit);

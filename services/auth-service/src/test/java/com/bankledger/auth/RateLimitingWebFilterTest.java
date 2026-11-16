@@ -46,7 +46,7 @@ class RateLimitingWebFilterTest {
 
     @BeforeEach
     void setUp() {
-        filter = new RateLimitingWebFilter(redisTemplate, objectMapper);
+        filter = new RateLimitingWebFilter(java.util.Optional.of(redisTemplate), objectMapper);
     }
 
     @Test

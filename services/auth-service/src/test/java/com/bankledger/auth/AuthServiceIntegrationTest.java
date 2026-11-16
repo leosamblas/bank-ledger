@@ -210,4 +210,39 @@ class AuthServiceIntegrationTest {
                 .jsonPath("$.status").isEqualTo("ACTIVE")
                 .jsonPath("$.passwordHash").doesNotExist();
     }
+
+    @Test
+    @DisplayName("Swagger UI and API Docs endpoints should be accessible and return valid OpenAPI documentation")
+    void shouldAccessSwaggerAndApiDocs() {
+        client.get()
+                .uri("/v3/api-docs")
+                .exchange()
+                .expectStatus().isOk()
+                .expectHeader().contentTypeCompatibleWith(MediaType.APPLICATION_JSON)
+                .expectBody()
+                .jsonPath("$.openapi").isNotEmpty()
+                .jsonPath("$.info.title").isNotEmpty();
+
+        client.get()
+                .uri("/swagger-ui.html")
+                .exchange()
+                .expectStatus().isFound()
+                .expectHeader().value("Location", location -> assertThat(location).contains("/swagger-ui/index.html"));
+
+        client.get()
+                .uri("/swagger-ui/index.html")
+                .exchange()
+                .expectStatus().isOk()
+                .expectHeader().contentTypeCompatibleWith(MediaType.TEXT_HTML)
+                .expectBody(String.class)
+                .value(html -> assertThat(html).contains("swagger-ui"));
+
+        client.get()
+                .uri("/v3/api-docs/swagger-config")
+                .exchange()
+                .expectStatus().isOk()
+                .expectHeader().contentTypeCompatibleWith(MediaType.APPLICATION_JSON)
+                .expectBody()
+                .jsonPath("$.url").isEqualTo("/v3/api-docs");
+    }
 }

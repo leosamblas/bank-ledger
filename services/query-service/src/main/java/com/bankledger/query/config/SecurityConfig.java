@@ -1,6 +1,10 @@
 package com.bankledger.query.config;
 
+import com.bankledger.commons.security.JwksPublicKeyProvider;
+import com.bankledger.commons.security.JwtAuthenticationTokenFilter;
+import com.bankledger.commons.security.RsaJwtValidator;
 import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
@@ -22,16 +26,47 @@ import java.time.Clock;
 
 /**
  * Security configuration for query-service.
- * Provides stateless JWT authentication while permitting public documentation and gateway/query endpoints.
+ * Provides stateless JWT authentication using decentralized JWKS RS256 token verification.
  */
 @Configuration
 @EnableWebSecurity
 public class SecurityConfig {
 
     @Bean
+    public JwksPublicKeyProvider jwksPublicKeyProvider(
+            @Value("${app.security.jwks-url:http://localhost:8086/.well-known/jwks.json}") String jwksUrl,
+            ObjectMapper objectMapper
+    ) {
+        return new JwksPublicKeyProvider(jwksUrl, objectMapper);
+    }
+
+    @Bean
+    public RsaJwtValidator rsaJwtValidator(
+            JwksPublicKeyProvider jwksPublicKeyProvider,
+            ObjectMapper objectMapper,
+            Clock clock
+    ) {
+        return new RsaJwtValidator(jwksPublicKeyProvider, objectMapper, clock);
+    }
+
+    @Bean
+    public JwtAuthenticationTokenFilter jwtAuthenticationTokenFilter(RsaJwtValidator rsaJwtValidator) {
+        return new JwtAuthenticationTokenFilter(rsaJwtValidator);
+    }
+
+    @Bean
+    public FilterRegistrationBean<JwtAuthenticationTokenFilter> jwtAuthenticationTokenFilterRegistration(
+            JwtAuthenticationTokenFilter filter
+    ) {
+        FilterRegistrationBean<JwtAuthenticationTokenFilter> registration = new FilterRegistrationBean<>(filter);
+        registration.setEnabled(false);
+        return registration;
+    }
+
+    @Bean
     public SecurityFilterChain securityFilterChain(
             HttpSecurity http,
-            JwtAuthenticationFilter jwtAuthenticationFilter,
+            JwtAuthenticationTokenFilter jwtAuthenticationTokenFilter,
             ObjectMapper objectMapper
     ) throws Exception {
         return http
@@ -41,7 +76,6 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/actuator/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/swagger-ui/**", "/swagger-ui.html", "/v3/api-docs/**").permitAll()
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                        .requestMatchers("/api/v1/queries/**").permitAll()
                         .anyRequest().authenticated()
                 )
                 .exceptionHandling(exceptions -> exceptions
@@ -58,17 +92,8 @@ public class SecurityConfig {
                             objectMapper.writeValue(response.getOutputStream(), problem);
                         })
                 )
-                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
+                .addFilterBefore(jwtAuthenticationTokenFilter, UsernamePasswordAuthenticationFilter.class)
                 .build();
-    }
-
-    @Bean
-    public FilterRegistrationBean<JwtAuthenticationFilter> jwtAuthenticationFilterRegistration(
-            JwtAuthenticationFilter filter
-    ) {
-        FilterRegistrationBean<JwtAuthenticationFilter> registration = new FilterRegistrationBean<>(filter);
-        registration.setEnabled(false);
-        return registration;
     }
 
     @Bean

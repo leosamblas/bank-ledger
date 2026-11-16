@@ -1,12 +1,15 @@
 package com.bankledger.query.integration;
 
+import com.bankledger.commons.constant.HttpHeaderConstants;
 import com.bankledger.commons.constant.KafkaTopics;
 import com.bankledger.commons.events.v1.account.AccountOpenedPayload;
+import com.bankledger.commons.security.JwksPublicKeyProvider;
+import com.bankledger.commons.security.RsaJwtSigner;
+import com.bankledger.commons.security.TokenClaims;
 import com.bankledger.query.adapters.out.persistence.AccountBalanceEntity;
 import com.bankledger.query.adapters.out.persistence.AccountBalanceRepository;
 import com.bankledger.query.adapters.out.persistence.StatementEntryEntity;
 import com.bankledger.query.adapters.out.persistence.StatementEntryRepository;
-import com.bankledger.query.config.JwtTokenService;
 import org.awaitility.Awaitility;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -27,6 +30,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.kafka.ConfluentKafkaContainer;
 import tools.jackson.databind.ObjectMapper;
 
+import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
@@ -74,9 +78,11 @@ class QueryServiceIntegrationTest {
     private final StatementEntryRepository statementEntryRepository;
     private final KafkaTemplate<String, String> kafkaTemplate;
     private final ObjectMapper objectMapper;
-    private final JwtTokenService jwtTokenService;
+    private final JwksPublicKeyProvider jwksPublicKeyProvider;
+    private final Clock clock;
 
     private MockMvc mockMvc;
+    private RsaJwtSigner rsaJwtSigner;
 
     public QueryServiceIntegrationTest(
             WebApplicationContext context,
@@ -84,14 +90,16 @@ class QueryServiceIntegrationTest {
             StatementEntryRepository statementEntryRepository,
             KafkaTemplate<String, String> kafkaTemplate,
             ObjectMapper objectMapper,
-            JwtTokenService jwtTokenService
+            JwksPublicKeyProvider jwksPublicKeyProvider,
+            Clock clock
     ) {
         this.context = context;
         this.accountBalanceRepository = accountBalanceRepository;
         this.statementEntryRepository = statementEntryRepository;
         this.kafkaTemplate = kafkaTemplate;
         this.objectMapper = objectMapper;
-        this.jwtTokenService = jwtTokenService;
+        this.jwksPublicKeyProvider = jwksPublicKeyProvider;
+        this.clock = clock;
     }
 
     @BeforeEach
@@ -100,14 +108,25 @@ class QueryServiceIntegrationTest {
                 .webAppContextSetup(context)
                 .apply(springSecurity())
                 .build();
+
+        rsaJwtSigner = new RsaJwtSigner(objectMapper, clock, "test-query-key");
+        jwksPublicKeyProvider.putKey(rsaJwtSigner.getKeyId(), rsaJwtSigner.getPublicKey());
+    }
+
+    private String createToken(UUID customerId, UUID accountId) {
+        TokenClaims claims = new TokenClaims(customerId, accountId, "12345678900", "ROLE_USER", "0001", "12345678");
+        return rsaJwtSigner.generateToken(claims, Duration.ofHours(1));
     }
 
     @Test
     @DisplayName("Garantia de saldo zero: consulta direta de conta recém-criada sem eventos retorna strictly 0 centavos")
     void testDirectQueryUnseenAccountReturnsZeroBalance() throws Exception {
         UUID newAccountId = UUID.randomUUID();
+        UUID customerId = UUID.randomUUID();
+        String token = createToken(customerId, newAccountId);
 
         mockMvc.perform(get("/api/v1/queries/accounts/{id}/balance", newAccountId)
+                        .header(HttpHeaderConstants.AUTHORIZATION, "Bearer " + token)
                         .accept(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.accountId").value(newAccountId.toString()))
@@ -158,8 +177,10 @@ class QueryServiceIntegrationTest {
                     assertThat(balanceOpt.get().getCurrency()).isEqualTo("BRL");
                 });
 
-        // Consulta via REST endpoint
-        mockMvc.perform(get("/api/v1/queries/accounts/{id}/balance", accountId))
+        // Consulta via REST endpoint com token válido do proprietário
+        String token = createToken(customerId, accountId);
+        mockMvc.perform(get("/api/v1/queries/accounts/{id}/balance", accountId)
+                        .header(HttpHeaderConstants.AUTHORIZATION, "Bearer " + token))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.accountId").value(accountId.toString()))
                 .andExpect(jsonPath("$.availableCents").value(0))
@@ -171,6 +192,7 @@ class QueryServiceIntegrationTest {
     @DisplayName("Recebimento de EntryPosted com crédito de 10.000 centavos -> atualiza saldo e extrato")
     void testEntryPostedUpdatesBalanceAndStatement() throws Exception {
         UUID accountId = UUID.randomUUID();
+        UUID customerId = UUID.randomUUID();
         UUID entryId = UUID.randomUUID();
         UUID journalId = UUID.randomUUID();
         UUID transactionId = UUID.randomUUID();
@@ -178,7 +200,7 @@ class QueryServiceIntegrationTest {
         // 1. Envia primeiro AccountOpened para inicializar com zero
         AccountOpenedPayload accountPayload = new AccountOpenedPayload(
                 accountId,
-                UUID.randomUUID(),
+                customerId,
                 "999.888.777-66",
                 "João Santos",
                 "0001",
@@ -240,16 +262,19 @@ class QueryServiceIntegrationTest {
                     assertThat(entry.getSequence()).isEqualTo(1L);
                 });
 
-        // 4. Valida endpoint REST de saldo
-        mockMvc.perform(get("/api/v1/queries/accounts/{id}/balance", accountId))
+        // 4. Valida endpoint REST de saldo com token válido
+        String token = createToken(customerId, accountId);
+        mockMvc.perform(get("/api/v1/queries/accounts/{id}/balance", accountId)
+                        .header(HttpHeaderConstants.AUTHORIZATION, "Bearer " + token))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.accountId").value(accountId.toString()))
                 .andExpect(jsonPath("$.availableCents").value(10000))
                 .andExpect(jsonPath("$.balance").value(10000))
                 .andExpect(jsonPath("$.asOfSequence").value(1));
 
-        // 5. Valida endpoint REST de extrato
-        mockMvc.perform(get("/api/v1/queries/accounts/{id}/statement", accountId))
+        // 5. Valida endpoint REST de extrato com token válido
+        mockMvc.perform(get("/api/v1/queries/accounts/{id}/statement", accountId)
+                        .header(HttpHeaderConstants.AUTHORIZATION, "Bearer " + token))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.items").isArray())
                 .andExpect(jsonPath("$.items.length()").value(1))

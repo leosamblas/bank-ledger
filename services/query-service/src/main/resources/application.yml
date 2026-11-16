@@ -40,13 +40,9 @@ spring:
     listener:
       ack-mode: manual_immediate
 
-bankledger:
-  security:
-    jwt:
-      secret: ${JWT_SECRET:bankledger-super-secure-secret-key-that-is-at-least-256-bits-long}
-      expiration-seconds: ${JWT_EXPIRATION_SECONDS:3600}
-
 app:
+  security:
+    jwks-url: ${JWKS_URL:http://localhost:8086/.well-known/jwks.json}
   kafka:
     topics:
       account-events: account.events.v1

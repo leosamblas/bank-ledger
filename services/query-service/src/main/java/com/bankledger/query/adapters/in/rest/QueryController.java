@@ -1,5 +1,6 @@
 package com.bankledger.query.adapters.in.rest;
 
+import com.bankledger.commons.security.CommonAuthenticatedUser;
 import com.bankledger.query.adapters.in.rest.dto.BalanceResponse;
 import com.bankledger.query.adapters.in.rest.dto.StatementItemResponse;
 import com.bankledger.query.adapters.in.rest.dto.StatementResponse;
@@ -11,19 +12,26 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.net.URI;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
 /**
  * REST controller serving CQRS queries for account balances and historical statement entries.
+ * Hardened against OWASP BOLA / IDOR by enforcing account ownership verification.
  */
 @Slf4j
 @RestController
@@ -37,7 +45,17 @@ public class QueryController {
 
     @Operation(summary = "Get account balance", description = "Returns available balance, limits, and projection sequence")
     @GetMapping("/accounts/{accountId}/balance")
-    public ResponseEntity<BalanceResponse> getBalance(@PathVariable UUID accountId) {
+    public ResponseEntity<?> getBalance(
+            @PathVariable UUID accountId,
+            @AuthenticationPrincipal CommonAuthenticatedUser user,
+            Authentication authentication
+    ) {
+        CommonAuthenticatedUser principal = resolvePrincipal(user, authentication);
+        ResponseEntity<?> authCheck = checkOwnership(accountId, principal);
+        if (authCheck != null) {
+            return authCheck;
+        }
+
         log.info("Querying balance for accountId={}", accountId);
 
         BalanceResponse response = accountBalanceRepository.findById(accountId)
@@ -70,12 +88,20 @@ public class QueryController {
 
     @Operation(summary = "Get account statement", description = "Returns ordered list of statement entries for the given account")
     @GetMapping("/accounts/{accountId}/statement")
-    public ResponseEntity<StatementResponse> getStatement(
+    public ResponseEntity<?> getStatement(
             @PathVariable UUID accountId,
             @RequestParam(required = false) Instant from,
             @RequestParam(required = false) Instant to,
-            @RequestParam(required = false, defaultValue = "50") int size
+            @RequestParam(required = false, defaultValue = "50") int size,
+            @AuthenticationPrincipal CommonAuthenticatedUser user,
+            Authentication authentication
     ) {
+        CommonAuthenticatedUser principal = resolvePrincipal(user, authentication);
+        ResponseEntity<?> authCheck = checkOwnership(accountId, principal);
+        if (authCheck != null) {
+            return authCheck;
+        }
+
         log.info("Querying statement for accountId={}, from={}, to={}, size={}", accountId, from, to, size);
 
         List<StatementEntryEntity> entities;
@@ -91,6 +117,49 @@ public class QueryController {
                 .toList();
 
         return ResponseEntity.ok(new StatementResponse(items));
+    }
+
+    private CommonAuthenticatedUser resolvePrincipal(CommonAuthenticatedUser user, Authentication authentication) {
+        if (user != null) {
+            return user;
+        }
+        if (authentication != null && authentication.getPrincipal() instanceof CommonAuthenticatedUser authUser) {
+            return authUser;
+        }
+        return null;
+    }
+
+    private ResponseEntity<?> checkOwnership(UUID accountId, CommonAuthenticatedUser user) {
+        if (user == null || user.getAccountId() == null) {
+            ProblemDetail problem = ProblemDetail.forStatusAndDetail(
+                    HttpStatus.UNAUTHORIZED,
+                    "Authentication is required to access this resource"
+            );
+            problem.setTitle("Unauthorized");
+            problem.setType(URI.create("about:blank"));
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .contentType(MediaType.APPLICATION_PROBLEM_JSON)
+                    .body(problem);
+        }
+
+        boolean isOwner = accountId.equals(user.getAccountId());
+        boolean isAdmin = "ROLE_ADMIN".equalsIgnoreCase(user.getRole())
+                || (user.getAuthorities() != null && user.getAuthorities().stream()
+                        .anyMatch(a -> "ROLE_ADMIN".equalsIgnoreCase(a.getAuthority())));
+
+        if (!isOwner && !isAdmin) {
+            ProblemDetail problem = ProblemDetail.forStatusAndDetail(
+                    HttpStatus.FORBIDDEN,
+                    "Access denied: user is not the owner of this account"
+            );
+            problem.setTitle("Forbidden");
+            problem.setType(URI.create("about:blank"));
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .contentType(MediaType.APPLICATION_PROBLEM_JSON)
+                    .body(problem);
+        }
+
+        return null;
     }
 
     private StatementItemResponse toItemResponse(StatementEntryEntity entity) {

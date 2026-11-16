@@ -15,10 +15,12 @@ import java.security.KeyFactory;
 import java.security.interfaces.RSAPublicKey;
 import java.security.spec.RSAPublicKeySpec;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.Base64;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * Parses and caches RSA public keys by Key ID (kid) conforming to RFC 7517 (JWKS).
@@ -28,10 +30,13 @@ public class JwksPublicKeyProvider {
 
     private static final Logger log = LoggerFactory.getLogger(JwksPublicKeyProvider.class);
     private static final Duration DEFAULT_HTTP_TIMEOUT = Duration.ofSeconds(5);
+    private static final Duration DEFAULT_REFRESH_COOLDOWN = Duration.ofSeconds(10);
 
     private final ObjectMapper objectMapper;
     private final String jwksUrl;
     private final HttpClient httpClient;
+    private final Duration refreshCooldown;
+    private final AtomicReference<Instant> lastRefreshTime = new AtomicReference<>(Instant.EPOCH);
     private final Map<String, RSAPublicKey> keyCache = new ConcurrentHashMap<>();
 
     public JwksPublicKeyProvider() {
@@ -43,13 +48,18 @@ public class JwksPublicKeyProvider {
     }
 
     public JwksPublicKeyProvider(String jwksUrl, ObjectMapper objectMapper) {
-        this(jwksUrl, objectMapper, HttpClient.newBuilder().connectTimeout(DEFAULT_HTTP_TIMEOUT).build());
+        this(jwksUrl, objectMapper, HttpClient.newBuilder().connectTimeout(DEFAULT_HTTP_TIMEOUT).build(), DEFAULT_REFRESH_COOLDOWN);
     }
 
     public JwksPublicKeyProvider(String jwksUrl, ObjectMapper objectMapper, HttpClient httpClient) {
+        this(jwksUrl, objectMapper, httpClient, DEFAULT_REFRESH_COOLDOWN);
+    }
+
+    public JwksPublicKeyProvider(String jwksUrl, ObjectMapper objectMapper, HttpClient httpClient, Duration refreshCooldown) {
         this.jwksUrl = jwksUrl;
         this.objectMapper = Objects.requireNonNull(objectMapper, "objectMapper must not be null");
         this.httpClient = Objects.requireNonNull(httpClient, "httpClient must not be null");
+        this.refreshCooldown = refreshCooldown != null ? refreshCooldown : DEFAULT_REFRESH_COOLDOWN;
     }
 
     /**
@@ -75,7 +85,7 @@ public class JwksPublicKeyProvider {
             return keyCache.values().iterator().next();
         }
 
-        return keyCache.get(kid);
+        return kid != null ? keyCache.get(kid) : null;
     }
 
     /**
@@ -137,10 +147,17 @@ public class JwksPublicKeyProvider {
     }
 
     /**
-     * Refreshes public keys from the configured remote JWKS endpoint.
+     * Refreshes public keys from the configured remote JWKS endpoint if cooldown elapsed.
      */
     public synchronized void refreshFromUrl() {
         if (jwksUrl == null || jwksUrl.isBlank()) {
+            return;
+        }
+
+        Instant now = Instant.now();
+        Instant last = lastRefreshTime.get();
+        if (Duration.between(last, now).compareTo(refreshCooldown) < 0) {
+            log.debug("Skipping JWKS refresh: throttled by cooldown of {}", refreshCooldown);
             return;
         }
 
@@ -153,6 +170,7 @@ public class JwksPublicKeyProvider {
                     .build();
 
             HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+            lastRefreshTime.set(Instant.now());
             if (response.statusCode() == 200) {
                 loadJwks(response.body());
                 log.info("Successfully refreshed JWKS keys from {}", jwksUrl);
@@ -160,6 +178,7 @@ public class JwksPublicKeyProvider {
                 log.warn("Failed to fetch JWKS from {}: HTTP {}", jwksUrl, response.statusCode());
             }
         } catch (Exception ex) {
+            lastRefreshTime.set(Instant.now());
             log.warn("Error refreshing JWKS keys from {}: {}", jwksUrl, ex.getMessage());
         }
     }

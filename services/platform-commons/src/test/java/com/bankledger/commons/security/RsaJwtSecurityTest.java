@@ -97,6 +97,53 @@ class RsaJwtSecurityTest {
             assertThat(key.getModulus()).isEqualTo(signer.getPublicKey().getModulus());
             assertThat(key.getPublicExponent()).isEqualTo(signer.getPublicKey().getPublicExponent());
         }
+
+        @Test
+        @DisplayName("JwksPublicKeyProvider should handle null kid safely without throwing NullPointerException")
+        void shouldHandleNullKeyIdSafely() {
+            // 1. Single key in cache: kid == null returns the single key
+            RSAPublicKey singleKey = keyProvider.getPublicKey(null);
+            assertThat(singleKey).isNotNull();
+            assertThat(singleKey).isEqualTo(signer.getPublicKey());
+
+            // 2. Empty cache: kid == null returns null without NPE
+            JwksPublicKeyProvider emptyProvider = new JwksPublicKeyProvider(objectMapper);
+            assertThat(emptyProvider.getPublicKey(null)).isNull();
+
+            // 3. Multi-key cache: kid == null returns null without NPE
+            JwksPublicKeyProvider multiProvider = new JwksPublicKeyProvider(objectMapper);
+            RsaJwtSigner signer2 = new RsaJwtSigner(objectMapper, fixedClock, "bankledger-test-key-2");
+            multiProvider.putKey(signer.getKeyId(), signer.getPublicKey());
+            multiProvider.putKey(signer2.getKeyId(), signer2.getPublicKey());
+            assertThat(multiProvider.getPublicKey(null)).isNull();
+        }
+
+        @Test
+        @DisplayName("JwksPublicKeyProvider should throttle refreshFromUrl within cooldown")
+        void shouldThrottleRefreshWithinCooldown() throws Exception {
+            java.net.http.HttpClient mockHttpClient = org.mockito.Mockito.mock(java.net.http.HttpClient.class);
+            @SuppressWarnings("unchecked")
+            java.net.http.HttpResponse<String> mockResponse = org.mockito.Mockito.mock(java.net.http.HttpResponse.class);
+            org.mockito.Mockito.when(mockResponse.statusCode()).thenReturn(200);
+            org.mockito.Mockito.when(mockResponse.body()).thenReturn(signer.toJwksJson());
+            org.mockito.Mockito.doReturn(mockResponse).when(mockHttpClient)
+                    .send(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
+
+            JwksPublicKeyProvider throttledProvider = new JwksPublicKeyProvider(
+                    "http://localhost:8080/jwks",
+                    objectMapper,
+                    mockHttpClient,
+                    Duration.ofSeconds(10)
+            );
+
+            // First call refreshes
+            throttledProvider.getPublicKey("unknown-key");
+            // Immediate second call should be throttled by cooldown
+            throttledProvider.getPublicKey("unknown-key-2");
+
+            org.mockito.Mockito.verify(mockHttpClient, org.mockito.Mockito.times(1))
+                    .send(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
+        }
     }
 
     @Nested

@@ -4,6 +4,7 @@ import com.bankledger.commons.events.v1.account.AccountReadyPayload;
 import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.MailPreparationException;
 import org.springframework.mail.javamail.JavaMailSender;
@@ -28,25 +29,28 @@ public class EmailNotificationService {
     private final String loginUrl;
     private final String emailTemplate;
 
-    public EmailNotificationService(
-            JavaMailSender mailSender,
-            @Value("${app.mail.enabled:false}") boolean mailEnabled,
-            @Value("${spring.mail.username:noreply@bankledger.com}") String fromAddress
-    ) {
-        this(mailSender, mailEnabled, fromAddress, "http://localhost:3000/login");
-    }
-
+    @Autowired
     public EmailNotificationService(
             JavaMailSender mailSender,
             @Value("${app.mail.enabled:false}") boolean mailEnabled,
             @Value("${spring.mail.username:noreply@bankledger.com}") String fromAddress,
             @Value("${app.mail.login-url:http://localhost:3000/login}") String loginUrl
     ) {
+        this(mailSender, mailEnabled, fromAddress, loginUrl, "templates/account-ready-email.html");
+    }
+
+    EmailNotificationService(
+            JavaMailSender mailSender,
+            boolean mailEnabled,
+            String fromAddress,
+            String loginUrl,
+            String templatePath
+    ) {
         this.mailSender = mailSender;
         this.mailEnabled = mailEnabled;
         this.fromAddress = (fromAddress != null && !fromAddress.isBlank()) ? fromAddress : "noreply@bankledger.com";
         this.loginUrl = (loginUrl != null && !loginUrl.isBlank()) ? loginUrl : "http://localhost:3000/login";
-        this.emailTemplate = loadTemplate("templates/account-ready-email.html");
+        this.emailTemplate = loadTemplate(templatePath);
     }
 
     public Mono<Void> sendAccountReadyEmail(AccountReadyPayload payload) {
@@ -91,9 +95,12 @@ public class EmailNotificationService {
     }
 
     String buildPlainText(AccountReadyPayload payload) {
+        String name = payload.fullName() != null ? payload.fullName() : "";
+        String branch = payload.branch() != null ? payload.branch() : "";
+        String account = payload.accountNumber() != null ? payload.accountNumber() : "";
         return String.format(
                 "Olá %s,%n%nSua conta no Nexus Bank está pronta para uso!%nAgência: %s%nConta: %s%n%nAcesse sua conta em: %s%n%nObrigado por escolher o Nexus Bank.",
-                payload.fullName(), payload.branch(), payload.accountNumber(), loginUrl
+                name, branch, account, loginUrl
         );
     }
 
@@ -105,11 +112,14 @@ public class EmailNotificationService {
                 .replace("{{fullName}}", escapeHtml(payload.fullName()))
                 .replace("{{branch}}", escapeHtml(payload.branch()))
                 .replace("{{accountNumber}}", escapeHtml(payload.accountNumber()))
-                .replace("{{loginUrl}}", loginUrl)
+                .replace("{{loginUrl}}", escapeHtml(loginUrl))
                 .replace("{{currentYear}}", String.valueOf(Year.now().getValue()));
     }
 
     private String loadTemplate(String path) {
+        if (path == null) {
+            return null;
+        }
         try (InputStream is = getClass().getClassLoader().getResourceAsStream(path)) {
             if (is == null) {
                 log.warn("Email template not found on classpath: {}. Falling back to plain text.", path);

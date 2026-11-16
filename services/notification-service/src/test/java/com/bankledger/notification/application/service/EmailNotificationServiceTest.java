@@ -198,6 +198,62 @@ class EmailNotificationServiceTest {
                 .contains("&lt;script&gt;alert(&#39;XSS&#39;)&lt;/script&gt; &amp; Companhia");
     }
 
+    @Test
+    @DisplayName("Should fallback to plain-text dispatch when classpath template is missing")
+    void whenTemplateMissing_shouldFallbackToPlainText() throws MessagingException, IOException {
+        EmailNotificationService service = new EmailNotificationService(
+                mailSender,
+                true,
+                "noreply@bankledger.com",
+                "http://localhost:3000/login",
+                "non-existent-template.html"
+        );
+
+        Mono<Void> result = service.sendAccountReadyEmail(payload);
+
+        StepVerifier.create(result)
+                .verifyComplete();
+
+        ArgumentCaptor<MimeMessage> captor = ArgumentCaptor.forClass(MimeMessage.class);
+        verify(mailSender, times(1)).send(captor.capture());
+
+        MimeMessage sentMessage = captor.getValue();
+        assertThat(sentMessage.getSubject()).isEqualTo("Bem-vindo ao Nexus Bank! Sua conta está pronta para uso");
+
+        String contentText = extractMessageContent(sentMessage);
+        assertThat(contentText)
+                .contains("Alice Silva")
+                .contains("0001")
+                .contains("123456-7");
+    }
+
+    @Test
+    @DisplayName("Should handle empty strings in payload fields cleanly without throwing")
+    void whenPayloadHasEmptyStrings_shouldRenderCleanly() {
+        EmailNotificationService service = new EmailNotificationService(
+                mailSender,
+                true,
+                "noreply@bankledger.com",
+                "http://localhost:3000/login"
+        );
+
+        AccountReadyPayload emptyPayload = new AccountReadyPayload(
+                UUID.randomUUID(),
+                UUID.randomUUID(),
+                "test@example.com",
+                "",
+                "",
+                "",
+                Instant.now()
+        );
+
+        String html = service.renderHtml(emptyPayload);
+        assertThat(html).isNotNull().isNotEmpty();
+
+        String plainText = service.buildPlainText(emptyPayload);
+        assertThat(plainText).isNotNull().contains("Olá ,");
+    }
+
     private String extractMessageContent(Part part) throws MessagingException, IOException {
         Object content = part.getContent();
         if (content instanceof String) {

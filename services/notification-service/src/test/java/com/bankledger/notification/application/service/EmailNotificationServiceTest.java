@@ -1,6 +1,12 @@
 package com.bankledger.notification.application.service;
 
 import com.bankledger.commons.events.v1.account.AccountReadyPayload;
+import jakarta.mail.Address;
+import jakarta.mail.MessagingException;
+import jakarta.mail.Multipart;
+import jakarta.mail.Part;
+import jakarta.mail.Session;
+import jakarta.mail.internet.MimeMessage;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -9,18 +15,21 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.mail.MailSendException;
-import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
+import java.io.IOException;
 import java.time.Instant;
+import java.util.Arrays;
+import java.util.Properties;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -32,10 +41,14 @@ class EmailNotificationServiceTest {
     @Mock
     private JavaMailSender mailSender;
 
+    private Session mailSession;
     private AccountReadyPayload payload;
 
     @BeforeEach
     void setUp() {
+        mailSession = Session.getInstance(new Properties());
+        lenient().when(mailSender.createMimeMessage()).thenAnswer(inv -> new MimeMessage(mailSession));
+
         payload = new AccountReadyPayload(
                 UUID.randomUUID(),
                 UUID.randomUUID(),
@@ -53,7 +66,8 @@ class EmailNotificationServiceTest {
         EmailNotificationService service = new EmailNotificationService(
                 mailSender,
                 false,
-                "noreply@bankledger.com"
+                "noreply@bankledger.com",
+                "http://localhost:3000/login"
         );
 
         Mono<Void> result = service.sendAccountReadyEmail(payload);
@@ -61,16 +75,17 @@ class EmailNotificationServiceTest {
         StepVerifier.create(result)
                 .verifyComplete();
 
-        verify(mailSender, never()).send(any(SimpleMailMessage.class));
+        verify(mailSender, never()).send(any(MimeMessage.class));
     }
 
     @Test
-    @DisplayName("Should construct message and send via mailSender when mailEnabled is true")
-    void whenMailEnabled_shouldConstructCorrectMessageAndSend() {
+    @DisplayName("Should construct rich MimeMessage and send via mailSender when mailEnabled is true")
+    void whenMailEnabled_shouldConstructCorrectMimeMessageAndSend() throws MessagingException, IOException {
         EmailNotificationService service = new EmailNotificationService(
                 mailSender,
                 true,
-                "noreply@bankledger.com"
+                "noreply@bankledger.com",
+                "http://localhost:3000/login"
         );
 
         Mono<Void> result = service.sendAccountReadyEmail(payload);
@@ -78,17 +93,26 @@ class EmailNotificationServiceTest {
         StepVerifier.create(result)
                 .verifyComplete();
 
-        ArgumentCaptor<SimpleMailMessage> captor = ArgumentCaptor.forClass(SimpleMailMessage.class);
+        ArgumentCaptor<MimeMessage> captor = ArgumentCaptor.forClass(MimeMessage.class);
         verify(mailSender, times(1)).send(captor.capture());
 
-        SimpleMailMessage sentMessage = captor.getValue();
-        assertThat(sentMessage.getFrom()).isEqualTo("noreply@bankledger.com");
-        assertThat(sentMessage.getTo()).containsExactly("alice@example.com");
-        assertThat(sentMessage.getSubject()).isEqualTo("Bem-vindo ao BankLedger! Sua conta está pronta para uso");
-        assertThat(sentMessage.getText())
+        MimeMessage sentMessage = captor.getValue();
+        assertThat(sentMessage.getFrom()).hasSize(1);
+        assertThat(sentMessage.getFrom()[0].toString()).contains("noreply@bankledger.com");
+
+        Address[] recipients = sentMessage.getAllRecipients();
+        assertThat(recipients).hasSize(1);
+        assertThat(recipients[0].toString()).contains("alice@example.com");
+
+        assertThat(sentMessage.getSubject()).isEqualTo("Bem-vindo ao Nexus Bank! Sua conta está pronta para uso");
+
+        String contentText = extractMessageContent(sentMessage);
+        assertThat(contentText)
                 .contains("Alice Silva")
                 .contains("0001")
-                .contains("123456-7");
+                .contains("123456-7")
+                .contains("Nexus Bank")
+                .contains("http://localhost:3000/login");
     }
 
     @Test
@@ -97,11 +121,12 @@ class EmailNotificationServiceTest {
         EmailNotificationService service = new EmailNotificationService(
                 mailSender,
                 true,
-                "noreply@bankledger.com"
+                "noreply@bankledger.com",
+                "http://localhost:3000/login"
         );
 
         doThrow(new MailSendException("SMTP connection timed out"))
-                .when(mailSender).send(any(SimpleMailMessage.class));
+                .when(mailSender).send(any(MimeMessage.class));
 
         Mono<Void> result = service.sendAccountReadyEmail(payload);
 
@@ -112,11 +137,12 @@ class EmailNotificationServiceTest {
 
     @Test
     @DisplayName("Should fallback to default fromAddress when given blank fromAddress")
-    void whenFromAddressIsBlank_shouldFallbackToDefaultFromAddress() {
+    void whenFromAddressIsBlank_shouldFallbackToDefaultFromAddress() throws MessagingException {
         EmailNotificationService service = new EmailNotificationService(
                 mailSender,
                 true,
-                "   "
+                "   ",
+                "http://localhost:3000/login"
         );
 
         Mono<Void> result = service.sendAccountReadyEmail(payload);
@@ -124,11 +150,11 @@ class EmailNotificationServiceTest {
         StepVerifier.create(result)
                 .verifyComplete();
 
-        ArgumentCaptor<SimpleMailMessage> captor = ArgumentCaptor.forClass(SimpleMailMessage.class);
+        ArgumentCaptor<MimeMessage> captor = ArgumentCaptor.forClass(MimeMessage.class);
         verify(mailSender, times(1)).send(captor.capture());
 
-        SimpleMailMessage sentMessage = captor.getValue();
-        assertThat(sentMessage.getFrom()).isEqualTo("noreply@bankledger.com");
+        MimeMessage sentMessage = captor.getValue();
+        assertThat(sentMessage.getFrom()[0].toString()).contains("noreply@bankledger.com");
     }
 
     @Test
@@ -137,11 +163,57 @@ class EmailNotificationServiceTest {
         EmailNotificationService service = new EmailNotificationService(
                 mailSender,
                 true,
-                "noreply@bankledger.com"
+                "noreply@bankledger.com",
+                "http://localhost:3000/login"
         );
 
         assertThatThrownBy(() -> service.sendAccountReadyEmail(null))
                 .isInstanceOf(NullPointerException.class)
                 .hasMessage("payload must not be null");
+    }
+
+    @Test
+    @DisplayName("Should sanitize HTML special characters in customer full name")
+    void shouldSanitizeHtmlSpecialCharactersInFullName() {
+        EmailNotificationService service = new EmailNotificationService(
+                mailSender,
+                true,
+                "noreply@bankledger.com",
+                "http://localhost:3000/login"
+        );
+
+        AccountReadyPayload xssPayload = new AccountReadyPayload(
+                UUID.randomUUID(),
+                UUID.randomUUID(),
+                "test@example.com",
+                "<script>alert('XSS')</script> & Companhia",
+                "0001",
+                "123456-7",
+                Instant.now()
+        );
+
+        String html = service.renderHtml(xssPayload);
+        assertThat(html)
+                .doesNotContain("<script>alert('XSS')</script>")
+                .contains("&lt;script&gt;alert(&#39;XSS&#39;)&lt;/script&gt; &amp; Companhia");
+    }
+
+    private String extractMessageContent(Part part) throws MessagingException, IOException {
+        Object content = part.getContent();
+        if (content instanceof String) {
+            return (String) content;
+        }
+        if (content instanceof Multipart) {
+            Multipart multipart = (Multipart) content;
+            StringBuilder sb = new StringBuilder();
+            for (int i = 0; i < multipart.getCount(); i++) {
+                sb.append(extractMessageContent(multipart.getBodyPart(i))).append("\n");
+            }
+            return sb.toString();
+        }
+        if (content instanceof java.io.InputStream) {
+            return new String(((java.io.InputStream) content).readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+        }
+        return content != null ? content.toString() : "";
     }
 }

@@ -39,6 +39,10 @@ spring:
     listener:
       ack-mode: manual_immediate
 
+app:
+  security:
+    jwks-url: ${JWKS_URL:http://localhost:8086/.well-known/jwks.json}
+
 bankledger:
   outbox:
     poller:
@@ -48,10 +52,6 @@ bankledger:
       interval-ms: ${OUTBOX_POLLER_INTERVAL_MS:200}
       max-attempts: ${OUTBOX_POLLER_MAX_ATTEMPTS:5}
       publish-timeout-ms: ${OUTBOX_POLLER_PUBLISH_TIMEOUT_MS:2000}
-  security:
-    jwt:
-      secret: ${JWT_SECRET:bankledger-super-secure-secret-key-that-is-at-least-256-bits-long}
-      expiration-seconds: ${JWT_EXPIRATION_SECONDS:3600}
 
 management:
   opentelemetry:

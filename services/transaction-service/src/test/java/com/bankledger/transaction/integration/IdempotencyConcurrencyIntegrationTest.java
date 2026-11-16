@@ -1,11 +1,13 @@
 package com.bankledger.transaction.integration;
 
 import com.bankledger.commons.constant.HttpHeaderConstants;
+import com.bankledger.commons.security.JwksPublicKeyProvider;
+import com.bankledger.commons.security.RsaJwtSigner;
+import com.bankledger.commons.security.TokenClaims;
 import com.bankledger.transaction.adapters.in.rest.dto.DepositRequest;
 import com.bankledger.transaction.adapters.out.persistence.entity.IdempotencyKeyEntity;
 import com.bankledger.transaction.adapters.out.persistence.repository.IdempotencySpringDataRepository;
 import com.bankledger.transaction.adapters.out.persistence.repository.TransactionSpringDataRepository;
-import com.bankledger.transaction.config.JwtTokenService;
 import com.bankledger.transaction.domain.model.IdempotencyStatus;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -73,22 +75,23 @@ class IdempotencyConcurrencyIntegrationTest {
     }
 
     private final WebApplicationContext context;
-    private final JwtTokenService jwtTokenService;
+    private final JwksPublicKeyProvider jwksPublicKeyProvider;
     private final TransactionSpringDataRepository transactionRepository;
     private final IdempotencySpringDataRepository idempotencyRepository;
     private final ObjectMapper objectMapper;
 
     private MockMvc mockMvc;
+    private RsaJwtSigner rsaJwtSigner;
 
     public IdempotencyConcurrencyIntegrationTest(
             WebApplicationContext context,
-            JwtTokenService jwtTokenService,
+            JwksPublicKeyProvider jwksPublicKeyProvider,
             TransactionSpringDataRepository transactionRepository,
             IdempotencySpringDataRepository idempotencyRepository,
             ObjectMapper objectMapper
     ) {
         this.context = context;
-        this.jwtTokenService = jwtTokenService;
+        this.jwksPublicKeyProvider = jwksPublicKeyProvider;
         this.transactionRepository = transactionRepository;
         this.idempotencyRepository = idempotencyRepository;
         this.objectMapper = objectMapper;
@@ -96,10 +99,17 @@ class IdempotencyConcurrencyIntegrationTest {
 
     @BeforeEach
     void setUp() {
+        rsaJwtSigner = new RsaJwtSigner();
+        jwksPublicKeyProvider.putKey(rsaJwtSigner.getKeyId(), rsaJwtSigner.getPublicKey());
         mockMvc = MockMvcBuilders
                 .webAppContextSetup(context)
                 .apply(springSecurity())
                 .build();
+    }
+
+    private String generateToken(UUID customerId, UUID accountId) {
+        TokenClaims claims = new TokenClaims(customerId, accountId, "0001", "123456", "ROLE_USER");
+        return rsaJwtSigner.generateToken(claims);
     }
 
     @Test
@@ -107,7 +117,7 @@ class IdempotencyConcurrencyIntegrationTest {
     void testConcurrentRequestsWithSameIdempotencyKey() throws Exception {
         UUID customerId = UUID.randomUUID();
         UUID accountId = UUID.randomUUID();
-        String token = jwtTokenService.generateToken(customerId, accountId);
+        String token = generateToken(customerId, accountId);
 
         UUID idempotencyKey = UUID.randomUUID();
         DepositRequest depositRequest = new DepositRequest(50000L, "Depósito concorrente");

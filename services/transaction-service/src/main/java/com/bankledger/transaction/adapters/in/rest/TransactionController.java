@@ -1,6 +1,7 @@
 package com.bankledger.transaction.adapters.in.rest;
 
 import com.bankledger.commons.constant.HttpHeaderConstants;
+import com.bankledger.commons.security.CommonAuthenticatedUser;
 import com.bankledger.transaction.adapters.in.rest.dto.DepositRequest;
 import com.bankledger.transaction.adapters.in.rest.dto.TransactionResponse;
 import com.bankledger.transaction.adapters.in.rest.dto.TransferRequest;
@@ -55,7 +56,7 @@ public class TransactionController {
     public ResponseEntity<?> createDeposit(
             @RequestHeader(HttpHeaderConstants.IDEMPOTENCY_KEY) UUID idempotencyKey,
             @Valid @RequestBody DepositRequest request,
-            @AuthenticationPrincipal AuthenticatedUser user
+            @AuthenticationPrincipal CommonAuthenticatedUser user
     ) {
         if (user == null || user.customerId() == null || user.accountId() == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
@@ -121,7 +122,7 @@ public class TransactionController {
     public ResponseEntity<?> createWithdrawal(
             @RequestHeader(HttpHeaderConstants.IDEMPOTENCY_KEY) UUID idempotencyKey,
             @Valid @RequestBody WithdrawalRequest request,
-            @AuthenticationPrincipal AuthenticatedUser user
+            @AuthenticationPrincipal CommonAuthenticatedUser user
     ) {
         if (user == null || user.customerId() == null || user.accountId() == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
@@ -187,7 +188,7 @@ public class TransactionController {
     public ResponseEntity<?> createTransfer(
             @RequestHeader(HttpHeaderConstants.IDEMPOTENCY_KEY) UUID idempotencyKey,
             @Valid @RequestBody TransferRequest request,
-            @AuthenticationPrincipal AuthenticatedUser user
+            @AuthenticationPrincipal CommonAuthenticatedUser user
     ) {
         if (user == null || user.customerId() == null || user.accountId() == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
@@ -257,7 +258,7 @@ public class TransactionController {
     @GetMapping("/{transactionId}")
     public ResponseEntity<TransactionResponse> getTransaction(
             @PathVariable UUID transactionId,
-            @AuthenticationPrincipal AuthenticatedUser user
+            @AuthenticationPrincipal CommonAuthenticatedUser user
     ) {
         if (user == null || user.customerId() == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();

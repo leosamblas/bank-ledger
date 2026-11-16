@@ -1,6 +1,10 @@
 package com.bankledger.transaction.config;
 
+import com.bankledger.commons.security.JwksPublicKeyProvider;
+import com.bankledger.commons.security.JwtAuthenticationTokenFilter;
+import com.bankledger.commons.security.RsaJwtValidator;
 import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
@@ -22,16 +26,38 @@ import java.time.Clock;
 
 /**
  * Infrastructure security configuration.
- * Configures stateless JWT authentication, public endpoints, and RFC 7807 ProblemDetail entry point.
+ * Configures stateless JWT authentication via JWKS (RS256), public endpoints, and RFC 7807 ProblemDetail entry point.
  */
 @Configuration
 @EnableWebSecurity
 public class SecurityConfig {
 
     @Bean
+    public JwksPublicKeyProvider jwksPublicKeyProvider(
+            @Value("${app.security.jwks-url:http://localhost:8086/.well-known/jwks.json}") String jwksUrl,
+            ObjectMapper objectMapper
+    ) {
+        return new JwksPublicKeyProvider(jwksUrl, objectMapper);
+    }
+
+    @Bean
+    public RsaJwtValidator rsaJwtValidator(
+            JwksPublicKeyProvider jwksPublicKeyProvider,
+            ObjectMapper objectMapper,
+            Clock clock
+    ) {
+        return new RsaJwtValidator(jwksPublicKeyProvider, objectMapper, clock);
+    }
+
+    @Bean
+    public JwtAuthenticationTokenFilter jwtAuthenticationTokenFilter(RsaJwtValidator rsaJwtValidator) {
+        return new JwtAuthenticationTokenFilter(rsaJwtValidator);
+    }
+
+    @Bean
     public SecurityFilterChain securityFilterChain(
             HttpSecurity http,
-            JwtAuthenticationFilter jwtAuthenticationFilter,
+            JwtAuthenticationTokenFilter jwtAuthenticationFilter,
             ObjectMapper objectMapper
     ) throws Exception {
         return http
@@ -61,10 +87,10 @@ public class SecurityConfig {
     }
 
     @Bean
-    public FilterRegistrationBean<JwtAuthenticationFilter> jwtAuthenticationFilterRegistration(
-            JwtAuthenticationFilter filter
+    public FilterRegistrationBean<JwtAuthenticationTokenFilter> jwtAuthenticationFilterRegistration(
+            JwtAuthenticationTokenFilter filter
     ) {
-        FilterRegistrationBean<JwtAuthenticationFilter> registration = new FilterRegistrationBean<>(filter);
+        FilterRegistrationBean<JwtAuthenticationTokenFilter> registration = new FilterRegistrationBean<>(filter);
         registration.setEnabled(false);
         return registration;
     }

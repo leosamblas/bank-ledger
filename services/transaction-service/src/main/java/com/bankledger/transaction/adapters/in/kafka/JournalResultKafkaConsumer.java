@@ -42,7 +42,8 @@ public class JournalResultKafkaConsumer {
     @KafkaListener(
             topics = "${app.kafka.topics.journal-results:" + KafkaTopics.LEDGER_JOURNAL_RESULTS_V1 + "}",
             groupId = "${spring.kafka.consumer.group-id:transaction-service-journal-results}",
-            containerFactory = "kafkaListenerContainerFactory"
+            containerFactory = "kafkaListenerContainerFactory",
+            concurrency = "3"
     )
     public void onMessage(ConsumerRecord<String, String> record, Acknowledgment acknowledgment) {
         Objects.requireNonNull(record, "record must not be null");

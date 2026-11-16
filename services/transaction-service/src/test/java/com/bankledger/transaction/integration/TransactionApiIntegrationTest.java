@@ -3,11 +3,13 @@ package com.bankledger.transaction.integration;
 import com.bankledger.commons.constant.BankingConstants;
 import com.bankledger.commons.constant.HttpHeaderConstants;
 import com.bankledger.commons.outbox.OutboxEventRepository;
+import com.bankledger.commons.security.JwksPublicKeyProvider;
+import com.bankledger.commons.security.RsaJwtSigner;
+import com.bankledger.commons.security.TokenClaims;
 import com.bankledger.transaction.adapters.in.rest.dto.DepositRequest;
 import com.bankledger.transaction.adapters.in.rest.dto.WithdrawalRequest;
 import com.bankledger.transaction.adapters.out.persistence.repository.IdempotencySpringDataRepository;
 import com.bankledger.transaction.adapters.out.persistence.repository.TransactionSpringDataRepository;
-import com.bankledger.transaction.config.JwtTokenService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -71,24 +73,25 @@ class TransactionApiIntegrationTest {
     }
 
     private final WebApplicationContext context;
-    private final JwtTokenService jwtTokenService;
+    private final JwksPublicKeyProvider jwksPublicKeyProvider;
     private final TransactionSpringDataRepository transactionRepository;
     private final IdempotencySpringDataRepository idempotencyRepository;
     private final OutboxEventRepository outboxEventRepository;
     private final ObjectMapper objectMapper;
 
     private MockMvc mockMvc;
+    private RsaJwtSigner rsaJwtSigner;
 
     public TransactionApiIntegrationTest(
             WebApplicationContext context,
-            JwtTokenService jwtTokenService,
+            JwksPublicKeyProvider jwksPublicKeyProvider,
             TransactionSpringDataRepository transactionRepository,
             IdempotencySpringDataRepository idempotencyRepository,
             OutboxEventRepository outboxEventRepository,
             ObjectMapper objectMapper
     ) {
         this.context = context;
-        this.jwtTokenService = jwtTokenService;
+        this.jwksPublicKeyProvider = jwksPublicKeyProvider;
         this.transactionRepository = transactionRepository;
         this.idempotencyRepository = idempotencyRepository;
         this.outboxEventRepository = outboxEventRepository;
@@ -97,10 +100,17 @@ class TransactionApiIntegrationTest {
 
     @BeforeEach
     void setUp() {
+        rsaJwtSigner = new RsaJwtSigner();
+        jwksPublicKeyProvider.putKey(rsaJwtSigner.getKeyId(), rsaJwtSigner.getPublicKey());
         mockMvc = MockMvcBuilders
                 .webAppContextSetup(context)
                 .apply(springSecurity())
                 .build();
+    }
+
+    private String generateToken(UUID customerId, UUID accountId) {
+        TokenClaims claims = new TokenClaims(customerId, accountId, "0001", "123456", "ROLE_USER");
+        return rsaJwtSigner.generateToken(claims);
     }
 
     @Test
@@ -108,11 +118,11 @@ class TransactionApiIntegrationTest {
     void testDepositFlowWithIdempotencyAndAuthorization() throws Exception {
         UUID customerA = UUID.randomUUID();
         UUID accountA = UUID.randomUUID();
-        String tokenA = jwtTokenService.generateToken(customerA, accountA);
+        String tokenA = generateToken(customerA, accountA);
 
         UUID customerB = UUID.randomUUID();
         UUID accountB = UUID.randomUUID();
-        String tokenB = jwtTokenService.generateToken(customerB, accountB);
+        String tokenB = generateToken(customerB, accountB);
 
         UUID idempotencyKey = UUID.randomUUID();
         DepositRequest depositRequest = new DepositRequest(15000L, "Depósito inicial");
@@ -190,7 +200,7 @@ class TransactionApiIntegrationTest {
     void testWithdrawalFlow() throws Exception {
         UUID customer = UUID.randomUUID();
         UUID account = UUID.randomUUID();
-        String token = jwtTokenService.generateToken(customer, account);
+        String token = generateToken(customer, account);
 
         UUID idempotencyKey = UUID.randomUUID();
         WithdrawalRequest withdrawalRequest = new WithdrawalRequest(5000L, "Saque em caixa eletrônico");
@@ -223,7 +233,7 @@ class TransactionApiIntegrationTest {
     void testValidationAndSecurityErrors() throws Exception {
         UUID customer = UUID.randomUUID();
         UUID account = UUID.randomUUID();
-        String token = jwtTokenService.generateToken(customer, account);
+        String token = generateToken(customer, account);
 
         // Missing Idempotency-Key header -> 400 Bad Request
         DepositRequest validRequest = new DepositRequest(1000L, "Sem chave");

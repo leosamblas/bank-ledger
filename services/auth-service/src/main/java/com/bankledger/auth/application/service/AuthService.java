@@ -25,11 +25,15 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
 public class AuthService implements LoginUseCase, RegisterCredentialsUseCase, IntrospectTokenUseCase {
+
+    private static final String DUMMY_ARGON2_HASH =
+            "$argon2id$v=19$m=19456,t=3,p=1$A95dCHZGbTCnwE0PsaX0Vw$PpVtTpb8S+tIiPPH7dFQLQqb1quYB17eMUJZI+Mbcz8";
 
     private final AuthUserRepositoryPort authUserRepositoryPort;
     private final PasswordEncoderPort passwordEncoderPort;
@@ -37,15 +41,35 @@ public class AuthService implements LoginUseCase, RegisterCredentialsUseCase, In
     private final RsaJwtValidator rsaJwtValidator;
     private final Clock clock;
 
+    private String sanitizeCpf(String cpf) {
+        if (cpf == null) {
+            return "";
+        }
+        return cpf.replaceAll("\\D", "");
+    }
+
     @Override
     @Transactional(noRollbackFor = {InvalidCredentialsException.class, CustomerLockedException.class})
     public LoginResult login(LoginCommand command) {
         Objects.requireNonNull(command, "command must not be null");
 
+        String sanitizedCpf = sanitizeCpf(command.cpf());
+        if (sanitizedCpf.length() != 11) {
+            // Timing side-channel defense on malformed CPF
+            passwordEncoderPort.matches(command.password() != null ? command.password() : "", DUMMY_ARGON2_HASH);
+            throw new InvalidCredentialsException("Credenciais inválidas");
+        }
+
         Instant now = Instant.now(clock);
 
-        AuthUser user = authUserRepositoryPort.findByCpf(command.cpf())
-                .orElseThrow(() -> new InvalidCredentialsException("Credenciais inválidas"));
+        Optional<AuthUser> maybeUser = authUserRepositoryPort.findByCpf(sanitizedCpf);
+        if (maybeUser.isEmpty()) {
+            // Timing side-channel defense: simulate Argon2id password hash check to prevent CPF enumeration
+            passwordEncoderPort.matches(command.password() != null ? command.password() : "", DUMMY_ARGON2_HASH);
+            throw new InvalidCredentialsException("Credenciais inválidas");
+        }
+
+        AuthUser user = maybeUser.get();
 
         if (user.isLocked(now)) {
             long minutesLeft = calculateMinutesLeft(user.getLockedUntil(), now);
@@ -101,8 +125,13 @@ public class AuthService implements LoginUseCase, RegisterCredentialsUseCase, In
     public AuthUser registerCredentials(RegisterCredentialsCommand command) {
         Objects.requireNonNull(command, "command must not be null");
 
-        if (authUserRepositoryPort.existsByCpf(command.cpf())) {
-            throw new CredentialsAlreadyExistsException("Credenciais já cadastradas para o CPF: " + command.cpf());
+        String sanitizedCpf = sanitizeCpf(command.cpf());
+        if (sanitizedCpf.length() != 11) {
+            throw new InvalidCredentialsException("CPF inválido: deve conter exatamente 11 dígitos");
+        }
+
+        if (authUserRepositoryPort.existsByCpf(sanitizedCpf)) {
+            throw new CredentialsAlreadyExistsException("Credenciais já cadastradas para o CPF: " + sanitizedCpf);
         }
 
         Instant now = Instant.now(clock);
@@ -110,7 +139,7 @@ public class AuthService implements LoginUseCase, RegisterCredentialsUseCase, In
 
         AuthUser user = new AuthUser(
                 UUID.randomUUID(),
-                command.cpf(),
+                sanitizedCpf,
                 hashedPassword,
                 "ROLE_USER",
                 command.customerId(),

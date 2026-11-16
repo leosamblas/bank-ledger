@@ -11,4 +11,10 @@ public record RegisterCredentialsCommand(
         String accountNumber,
         String fullName,
         String email
-) {}
+) {
+    public RegisterCredentialsCommand {
+        if (cpf != null) {
+            cpf = cpf.replaceAll("\\D", "");
+        }
+    }
+}

@@ -33,6 +33,7 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -99,11 +100,45 @@ class AuthServiceTest {
         assertThat(result.tokenType()).isEqualTo("Bearer");
         assertThat(result.user().cpf()).isEqualTo("52998224725");
 
-        // Verify token can be verified with validator
         var claims = rsaJwtValidator.validate(result.token());
         assertThat(claims.cpf()).isEqualTo("52998224725");
         assertThat(claims.branch()).isEqualTo("0001");
         assertThat(claims.accountNumber()).isEqualTo("123456");
+    }
+
+    @Test
+    @DisplayName("Should sanitize formatted CPF during login (e.g. 529.982.247-25)")
+    void shouldSanitizeFormattedCpfDuringLogin() {
+        AuthUser user = buildUser(0, null);
+        when(authUserRepositoryPort.findByCpf("52998224725")).thenReturn(Optional.of(user));
+        when(passwordEncoderPort.matches("Secret@123", "$argon2id$mockedhash")).thenReturn(true);
+        when(authUserRepositoryPort.save(any(AuthUser.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        LoginResult result = authService.login(new LoginCommand("529.982.247-25", "Secret@123"));
+
+        assertThat(result.token()).isNotEmpty();
+        verify(authUserRepositoryPort).findByCpf("52998224725");
+    }
+
+    @Test
+    @DisplayName("Should execute dummy password check to defend against timing side-channel when user not found")
+    void shouldPerformDummyHashCheckWhenUserNotFound() {
+        when(authUserRepositoryPort.findByCpf("52998224725")).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> authService.login(new LoginCommand("52998224725", "Secret@123")))
+                .isInstanceOf(InvalidCredentialsException.class);
+
+        // Verify dummy hash match was executed
+        verify(passwordEncoderPort).matches(eq("Secret@123"), any(String.class));
+    }
+
+    @Test
+    @DisplayName("Should execute dummy password check on malformed CPF length")
+    void shouldPerformDummyHashCheckOnMalformedCpf() {
+        assertThatThrownBy(() -> authService.login(new LoginCommand("12345", "Secret@123")))
+                .isInstanceOf(InvalidCredentialsException.class);
+
+        verify(passwordEncoderPort).matches(eq("Secret@123"), any(String.class));
     }
 
     @Test
@@ -148,8 +183,8 @@ class AuthServiceTest {
     }
 
     @Test
-    @DisplayName("Should register new credentials with encoded password")
-    void shouldRegisterCredentials() {
+    @DisplayName("Should register new credentials with sanitized CPF and encoded password")
+    void shouldRegisterCredentialsWithSanitizedCpf() {
         when(authUserRepositoryPort.existsByCpf("52998224725")).thenReturn(false);
         when(passwordEncoderPort.encode("Secret@123")).thenReturn("$argon2id$encodedhash");
         when(authUserRepositoryPort.save(any(AuthUser.class))).thenAnswer(inv -> inv.getArgument(0));
@@ -158,7 +193,7 @@ class AuthServiceTest {
         UUID accountId = UUID.randomUUID();
         AuthUser saved = authService.registerCredentials(new RegisterCredentialsCommand(
                 customerId,
-                "52998224725",
+                "529.982.247-25",
                 "Secret@123",
                 accountId,
                 "0001",
@@ -171,6 +206,21 @@ class AuthServiceTest {
         assertThat(saved.getPasswordHash()).isEqualTo("$argon2id$encodedhash");
         assertThat(saved.getCustomerId()).isEqualTo(customerId);
         assertThat(saved.getAccountId()).isEqualTo(accountId);
+    }
+
+    @Test
+    @DisplayName("Should throw exception when registering CPF with invalid length")
+    void shouldThrowWhenRegisteringInvalidCpfLength() {
+        assertThatThrownBy(() -> authService.registerCredentials(new RegisterCredentialsCommand(
+                UUID.randomUUID(),
+                "123456",
+                "Secret@123",
+                UUID.randomUUID(),
+                "0001",
+                "123456",
+                "Carlos Silva",
+                "carlos@example.com"
+        ))).isInstanceOf(InvalidCredentialsException.class);
     }
 
     @Test

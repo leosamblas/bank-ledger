@@ -15,8 +15,8 @@ CREATE TABLE IF NOT EXISTS auth_credentials (
     full_name VARCHAR(150),
     email VARCHAR(255),
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT uk_auth_customer UNIQUE (customer_id)
 );
 
-CREATE INDEX idx_auth_credentials_customer_id ON auth_credentials(customer_id);
 CREATE INDEX idx_auth_credentials_account_id ON auth_credentials(account_id);

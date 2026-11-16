@@ -1,6 +1,6 @@
 rootProject.name = 'bank-ledger-services'
 
-['platform-commons', 'account-service', 'ledger-service', 'transaction-service', 'query-service'].each { projectName ->
+['platform-commons', 'auth-service', 'account-service', 'ledger-service', 'transaction-service', 'query-service'].each { projectName ->
     if (file(projectName).exists()) {
         include projectName
     }

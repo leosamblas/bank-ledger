@@ -46,7 +46,7 @@ dependencies {
     implementation 'org.springdoc:springdoc-openapi-starter-webflux-ui:2.8.5'
 
     // Kafka
-    implementation 'org.springframework.kafka:spring-kafka'
+    implementation 'org.springframework.boot:spring-boot-starter-kafka'
 
     // Bouncy Castle (for Argon2id Password Hashing)
     implementation 'org.bouncycastle:bcprov-jdk18on:1.80'
@@ -68,6 +68,11 @@ dependencies {
     testImplementation 'org.assertj:assertj-core'
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
     testImplementation 'org.springframework.security:spring-security-test'
+    testImplementation 'org.springframework.kafka:spring-kafka-test'
+    testImplementation 'org.testcontainers:junit-jupiter'
+    testImplementation 'org.testcontainers:postgresql'
+    testImplementation 'org.testcontainers:kafka'
+    testImplementation 'org.awaitility:awaitility:4.2.2'
     testImplementation 'com.h2database:h2'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
     testRuntimeOnly 'org.postgresql:postgresql'

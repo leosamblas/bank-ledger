@@ -9,7 +9,11 @@ import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.json.JsonMapper;
 
 @EnableKafka
-@SpringBootApplication
+@SpringBootApplication(excludeName = {
+    "org.springframework.boot.jdbc.autoconfigure.DataSourceAutoConfiguration",
+    "org.springframework.boot.jdbc.autoconfigure.DataSourceTransactionManagerAutoConfiguration",
+    "org.springframework.boot.hibernate.autoconfigure.HibernateJpaAutoConfiguration"
+})
 public class NotificationServiceApplication {
 
     public static void main(String[] args) {

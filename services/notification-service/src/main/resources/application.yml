@@ -4,6 +4,11 @@ server:
 spring:
   application:
     name: notification-service
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.jdbc.autoconfigure.DataSourceAutoConfiguration
+      - org.springframework.boot.jdbc.autoconfigure.DataSourceTransactionManagerAutoConfiguration
+      - org.springframework.boot.hibernate.autoconfigure.HibernateJpaAutoConfiguration
   jackson:
     default-property-inclusion: non_null
   kafka:
@@ -37,7 +42,25 @@ app:
       account-ready: ${ACCOUNT_READY_TOPIC:account.ready.v1}
 
 management:
+  opentelemetry:
+    resource-attributes:
+      service.name: ${spring.application.name}
+    tracing:
+      export:
+        otlp:
+          endpoint: ${OTEL_EXPORTER_OTLP_ENDPOINT:http://localhost:4318}/v1/traces
+    logging:
+      export:
+        otlp:
+          endpoint: ${OTEL_EXPORTER_OTLP_ENDPOINT:http://localhost:4318}/v1/logs
+  otlp:
+    metrics:
+      export:
+        url: ${MANAGEMENT_OTLP_METRICS_EXPORT_URL:${OTEL_EXPORTER_OTLP_ENDPOINT:http://localhost:4318}/v1/metrics}
   endpoints:
     web:
       exposure:
         include: health,info,metrics
+  endpoint:
+    health:
+      show-details: always

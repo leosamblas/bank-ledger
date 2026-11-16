@@ -96,7 +96,7 @@ flowchart TD
   - **Lock de Contas no Redis:** Chaves `auth:failed_attempts:{cpf}` e `auth:lock:{cpf}` (TTL 15 min). A validação de bloqueio ocorre no Redis **antes** de tocar no banco de dados, protegendo o PostgreSQL e o CPU contra ataques de força bruta.
   - **Rate Limiting Dinâmico a 20 TPS:** `RateLimitingWebFilter` reativo no Redis. Endpoint `PUT /internal/auth/ratelimit` com payload `{"tps": 20}` para reconfiguração dinâmica em testes locais.
   - **Endpoint Reativo de Alto Tráfego:** `GET /internal/auth/users/{customerId}` e `by-cpf/{cpf}` protegido por `X-Internal-Service-Key`, retornando `AuthUserSummaryResponse` sanitizado (zero senhas, zero contadores).
-  - Consumo assíncrono de `auth.credentials-registration.v1` e publicação de `AccountReadyEvent` no tópico `account.ready.v1`.
+  - **Integração Kafka & Consumo Assíncrono:** Utiliza `spring-boot-starter-kafka`, `@EnableKafka` e container factory customizado com `AckMode.MANUAL_IMMEDIATE`. Consome `auth.credentials-registration.v1` via `RegisterCredentialsKafkaConsumer` (suportando tanto `KafkaEventEnvelope<RegisterCredentialsPayload>` quanto payload plano) e publica `AccountReadyEvent` via `KafkaAccountReadyEventPublisher` (`KafkaTemplate<String, String>`).
 
 #### 2. `account-service` (Porta 8081)
 - **Tipo:** Spring Boot MVC com Virtual Threads ativas.
@@ -134,6 +134,8 @@ flowchart TD
 - **Tipo:** Full Reativo (Spring WebFlux + Netty).
 - **Responsabilidades:**
   - Consumo assíncrono do tópico `account.ready.v1` através de listener Kafka fortemente tipado (sem `JsonNode`).
+  - **Design sem Banco de Dados:** Exclusão explícita de autoconfigurações JPA e DataSource (`DataSourceAutoConfiguration`, `DataSourceTransactionManagerAutoConfiguration`, `HibernateJpaAutoConfiguration`).
+  - **Telemetria OpenTelemetry (OTLP):** Exporta métricas, traces e logs para o coletor `otel-lgtm:4318`.
   - Envio de e-mails de boas-vindas via Google SMTP (`smtp.gmail.com:587`, TLS) isolando o I/O bloqueante do `JavaMailSender` no `Schedulers.boundedElastic()`.
   - **Feature Flag de Carga:** `app.mail.enabled: ${MAIL_ENABLED:true}`. Quando desativada, registra o log estruturado do envio sem disparar chamadas SMTP, permitindo testes de carga com 500+ threads com zero dependência externa.
 
@@ -146,11 +148,203 @@ flowchart TD
 
 ---
 
-## 4. Padrões de Código e Diretrizes Arquiteturais (Regras de Ouro)
+## 4. Mapa Completo de Arquivos e Estrutura de Diretórios (Guia para IA e Desenvolvedores)
+
+Para facilitar a navegação autônoma por agentes de IA e engenheiros de software, abaixo está o mapa detalhado de diretórios e arquivos do repositório, identificando a finalidade técnica de cada componente:
+
+```text
+bank-ledger/
+├── api-contracts/                     # Contratos OpenAPI 3.0 (YAML) de cada microsserviço
+│   ├── account-service.yaml           # Endpoints de criação de conta e dados do cliente
+│   ├── auth-service.yaml              # Endpoints de autenticação, JWKS e rate-limiting
+│   ├── ledger-service.yaml            # Contrato contábil interno (lançamento de journals e balancete)
+│   ├── query-service.yaml             # Contrato de consultas CQRS (saldo e extrato)
+│   └── transaction-service.yaml       # Contrato de depósitos, saques e transferências
+│
+├── design/                            # Especificações funcionais, protótipos visuais e design de telas
+│   ├── institutional_ledger_core_banking/DESIGN.md # Documento de design do core bancário
+│   ├── nexus_bank_abrir_conta/        # Mockups e HTML da jornada de abertura de conta
+│   ├── nexus_bank_login/              # Mockups e HTML da jornada de autenticação
+│   ├── web_banking_depositar_sacar/   # Mockups das operações de caixa
+│   ├── web_banking_extrato_banc_rio_completo/ # Mockups do extrato financeiro
+│   ├── web_banking_transfer_ncia_entre_contas/ # Mockups de transferência segura
+│   └── web_banking_vis_o_geral_saldo/ # Mockups da dashboard de visão geral
+│
+├── docs/                              # Documentação viva e consolidada do projeto
+│   ├── ARQUITETURA_CONSOLIDADA.md     # Documento mestre: padrões, topologia, stack e diretrizes
+│   └── SUGESTOES_DE_MELHORIAS.md      # Roadmap de evolução técnica (CDC Debezium, R2DBC, MFA, Pix)
+│
+├── infra/                             # Orquestração e infraestrutura local (Docker)
+│   └── docker/
+│       ├── docker-compose.yml         # Stack com 13 containers (Postgres, Redis, Kafka KRaft, OTel, Gateway, Web)
+│       ├── nginx/
+│       │   └── nginx.conf             # API Gateway unificado (porta 8080) com CORS e roteamento reverso
+│       └── postgres/
+│           └── init-databases.sql     # Script SQL que provisiona os 5 bancos isolados por serviço
+│
+├── load-tests/                        # Ferramenta autônoma de teste de carga em Node.js puro (zero k6/JMeter)
+│   ├── package.json                   # Dependência única: @faker-js/faker
+│   ├── README.md                      # Instruções de benchmark e parametrização
+│   ├── run.js                         # CLI executável (-c concorrência, -n requisições, -u URL)
+│   ├── src/
+│   │   ├── cli.js                     # Parser de argumentos CLI e help interativo
+│   │   ├── cpf.js                     # Algoritmo Módulo 11 para geração de CPF válido
+│   │   ├── generator.js               # Gerador sintético de dados bancários (idade >= 18 anos)
+│   │   ├── metrics.js                 # Coleta e cálculo de percentis de latência (p50, p90, p95, p99)
+│   │   └── runner.js                  # Pool concorrente assíncrono de chamadas HTTP fetch nativas
+│   └── tests/                         # Suíte de testes do próprio framework de carga
+│
+├── services/                          # Monorepo Backend multi-módulo Gradle em Java 25 & Spring Boot 4.1.2
+│   ├── build.gradle                   # Configurações raiz do Gradle e dependências globais
+│   ├── settings.gradle                # Registro dos 7 projetos Java integrados
+│   ├── gradlew / gradlew.bat          # Wrapper oficial do Gradle 9.x
+│   │
+│   ├── platform-commons/              # Biblioteca compartilhada interna entre os microsserviços
+│   │   ├── build.gradle
+│   │   └── src/main/java/com/bankledger/commons/
+│   │       ├── constant/              # BankingConstants, BankingErrorCodes, KafkaTopics, HttpHeaderConstants
+│   │       ├── domain/event/          # EventEnvelope genérico e metadados
+│   │       ├── events/                # KafkaEventEnvelope<T> (CloudEvents 1.0 com Jackson 3)
+│   │       │   └── v1/
+│   │       │       ├── account/       # AccountOpenedPayload, AccountReadyPayload
+│   │       │       └── ledger/        # PostJournalCommandPayload, JournalPostedPayload, JournalRejectedPayload, EntryPostedPayload
+│   │       ├── inbox/                 # InboxEvent, InboxEventRepository, InboxHandler (idempotência exatamente-uma-vez)
+│   │       ├── outbox/                # OutboxEvent, OutboxEventRepository, OutboxPoller, OutboxPublisher
+│   │       ├── observability/         # Auto-configuração OTLP e enriquecimento MDC para logs
+│   │       └── security/              # TokenClaims, RsaJwtSigner, RsaJwtValidator, JwksPublicKeyProvider, RegisterCredentialsPayload
+│   │
+│   ├── auth-service/                  # Microsserviço Reativo de Autenticação, Tokens e Segurança (Porta 8086)
+│   │   ├── build.gradle               # WebFlux, Data JPA, Redis Reactive, Starter Kafka, Flyway, BouncyCastle
+│   │   ├── Dockerfile                 # Multi-stage Temurin 25 JDK -> JRE Alpine
+│   │   └── src/main/
+│   │       ├── java/com/bankledger/auth/
+│   │       │   ├── AuthServiceApplication.java # @EnableKafka e exclusão de UserDetails autoconfig
+│   │       │   ├── config/            # JwtSignerConfig, KafkaConfig (AckMode.MANUAL_IMMEDIATE), RateLimitingWebFilter, SecurityConfig
+│   │       │   ├── domain/            # AuthUser, AccountReadyEvent, exceções (InvalidCredentials, CustomerLocked)
+│   │       │   ├── application/       # Portas de entrada/saída e AuthService (login, jwks, registerCredentials)
+│   │       │   └── adapters/
+│   │       │       ├── in/rest/       # AuthController (login, refresh, jwks), InternalAuthController (introspect, rate-limit, lookup)
+│   │       │       ├── in/kafka/      # RegisterCredentialsKafkaConsumer (consumo assíncrono de auth.credentials-registration.v1)
+│   │       │       ├── out/persistence/# AuthUserEntity, AuthUserRepository, AuthUserPersistenceAdapter
+│   │       │       ├── out/redis/     # RedisAccountLockoutAdapter (lock de brute-force e rate-limiting no Redis)
+│   │       │       ├── out/security/  # BCryptPasswordEncoderAdapter (BCrypt 10), Argon2PasswordEncoderAdapter
+│   │       │       └── out/kafka/     # KafkaAccountReadyEventPublisher (publica account.ready.v1 via KafkaTemplate)
+│   │       └── resources/
+│   │           ├── application.yml
+│   │           └── db/migration/V1__init_auth_schema.sql
+│   │
+│   ├── account-service/               # Microsserviço de Clientes & Contas Bancárias (Porta 8081)
+│   │   ├── build.gradle               # MVC, Virtual Threads, Starter Kafka, Flyway, HikariCP (30/10)
+│   │   ├── Dockerfile
+│   │   └── src/main/
+│   │       ├── java/com/bankledger/account/
+│   │       │   ├── AccountServiceApplication.java
+│   │       │   ├── config/            # KafkaConfig, OpenApiConfig, OutboxPollerProperties, SecurityConfig
+│   │       │   ├── domain/            # Account, Customer, AccountStatus, VOs (Cpf Módulo 11, Email, Phone, AccountNumber)
+│   │       │   ├── application/       # CreateAccountService (abertura atômica < 10ms), AccountQueryService
+│   │       │   └── adapters/
+│   │       │       ├── in/rest/       # AccountController (POST /api/v1/accounts, GET /me, GET /lookup)
+│   │       │       ├── out/persistence/# AccountEntity, CustomerEntity, OutboxPersistenceAdapter
+│   │       │       └── out/kafka/     # KafkaOutboxPublisher, OutboxPollerLifecycle
+│   │       └── resources/
+│   │           ├── application.yml
+│   │           └── db/migration/V1__init_account_schema.sql
+│   │
+│   ├── transaction-service/           # Microsserviço de Movimentações Financeiras (Porta 8082)
+│   │   ├── build.gradle               # MVC, Virtual Threads, Starter Kafka, Flyway, HikariCP (30/10)
+│   │   ├── Dockerfile
+│   │   └── src/main/
+│   │       ├── java/com/bankledger/transaction/
+│   │       │   ├── TransactionServiceApplication.java
+│   │       │   ├── config/            # KafkaConfig, SecurityConfig, OutboxPollerProperties
+│   │       │   ├── domain/            # FinancialTransaction, IdempotencyRecord, PostJournalCommand
+│   │       │   ├── application/       # CreateTransferService, TransactionOperationService, IdempotencyValidatorService
+│   │       │   └── adapters/
+│   │       │       ├── in/rest/       # TransactionController (endpoints 202 Accepted de transferências, depósitos, saques)
+│   │       │       ├── in/kafka/      # JournalResultKafkaConsumer (recebe resposta do Ledger)
+│   │       │       ├── out/persistence/# IdempotencyPersistenceAdapter (Tier 2), TransactionPersistenceAdapter
+│   │       │       └── out/kafka/     # KafkaOutboxPublisher (envia ledger.commands.v1)
+│   │       └── resources/
+│   │           ├── application.yml
+│   │           └── db/migration/V1__init_transaction_schema.sql
+│   │
+│   ├── ledger-service/                # Core Bancário de Partidas Dobradas (Porta 8084 - Interno e Privado)
+│   │   ├── build.gradle               # MVC, Virtual Threads, Starter Kafka, Flyway, HikariCP (30/10)
+│   │   ├── Dockerfile
+│   │   └── src/main/
+│   │       ├── java/com/bankledger/ledger/
+│   │       │   ├── LedgerServiceApplication.java
+│   │       │   ├── config/            # CashShardConfig (16 shards SYS-CASH), SecurityConfig
+│   │       │   ├── domain/            # Journal, Entry, LedgerAccount, AccountKind, NormalBalance, TrialBalanceTotals
+│   │       │   ├── application/       # PostJournalService, ProvisionAccountService, PostingStrategies (Deposit, Withdrawal, Transfer)
+│   │       │   └── adapters/
+│   │       │       ├── in/rest/       # InternalLedgerController (balancete e consultas protegidas por X-Internal-Service-Key)
+│   │       │       ├── in/kafka/      # AccountOpenedKafkaConsumer, LedgerCommandKafkaConsumer
+│   │       │       ├── out/cache/     # CashShardCache (cache em memória das contas de caixa)
+│   │       │       ├── out/persistence/# JournalEntity, EntryEntity, LedgerAccountEntity
+│   │       │       └── out/kafka/     # KafkaOutboxPublisher (publica journal-results e entries)
+│   │       └── resources/
+│   │           ├── application.yml
+│   │           └── db/migration/V1__init_ledger_schema.sql
+│   │
+│   ├── query-service/                 # Microsserviço de Leitura CQRS & Extrato (Porta 8083)
+│   │   ├── build.gradle               # MVC, Virtual Threads, Starter Kafka, Flyway, HikariCP (30/10)
+│   │   ├── Dockerfile
+│   │   └── src/main/
+│   │       ├── java/com/bankledger/query/
+│   │       │   ├── QueryServiceApplication.java
+│   │       │   ├── config/            # SecurityConfig com mitigação estrita de BOLA/IDOR
+│   │       │   ├── domain/            # AccountBalance, StatementEntry (modelos de leitura desnormalizados)
+│   │       │   └── adapters/
+│   │       │       ├── in/rest/       # QueryController (GET /api/v1/queries/balance e /statement)
+│   │       │       ├── in/kafka/      # QueryEventConsumer (ingestão contínua de account.events e ledger.entries)
+│   │       │       └── out/persistence/# AccountBalanceEntity, StatementEntryEntity
+│   │       └── resources/
+│   │           ├── application.yml
+│   │           └── db/migration/V1__init_query_schema.sql
+│   │
+│   └── notification-service/          # Microsserviço de Notificações & E-mail (Porta 8087)
+│       ├── build.gradle               # WebFlux, Starter Mail, Starter Kafka, Starter Actuator
+│       ├── Dockerfile                 # Multi-stage Temurin 25 Alpine
+│       └── src/main/
+│           ├── java/com/bankledger/notification/
+│           │   ├── NotificationServiceApplication.java  # Exclusão de autoconfigurações JPA/DataSource
+│           │   ├── adapters/in/kafka/ # AccountReadyKafkaConsumer (escuta account.ready.v1)
+│           │   └── application/service/# EmailNotificationService (envio SMTP assíncrono com feature flag)
+│           └── resources/
+│               └── application.yml    # Configurações de SMTP, Kafka e exportação OTLP
+│
+└── web/                               # Aplicação Frontend Web Banking (Next.js 16 / TypeScript / Tailwind CSS v4)
+    ├── package.json                   # Next.js 16.4.3, React 19, Lucide React, Tailwind CSS v4
+    ├── Dockerfile                     # Multi-stage Node Alpine otimizado para produção
+    ├── next.config.ts
+    ├── src/
+    │   ├── app/                       # Next.js App Router
+    │   │   ├── page.tsx               # Landing Page institucional Nexus Bank
+    │   │   ├── login/page.tsx         # Tela de Login com autenticação JWT
+    │   │   ├── signup/page.tsx        # Tela de Abertura de Conta (stepper guiado com validação CPF)
+    │   │   └── dashboard/             # Área logada do cliente
+    │   │       ├── page.tsx           # Visão Geral: saldo em tempo real e atalhos rápidos
+    │   │       ├── operations/page.tsx# Depósitos e saques simulados
+    │   │       ├── statement/page.tsx # Extrato Bancário com filtros e exportação CSV
+    │   │       └── transfer/page.tsx  # Transferência entre contas com confirmação segura
+    │   ├── components/                # Componentes visuais modulares
+    │   │   ├── banking/               # AuthGuard, BankingHeader, BankingFooter
+    │   │   ├── forms/                 # OpenAccountForm
+    │   │   ├── landing/               # HeroSection, CoreFeatures, OmnichannelSection, Simulator
+    │   │   └── ui/                    # CpfInput, Stepper, NexusBlackCard, NexusBlackCardPreview
+    │   ├── hooks/                     # useBanking (gerenciamento centralizado de autenticação e contas)
+    │   ├── services/                  # Clientes de API (authService, accountService, transactionService, queryService)
+    │   └── utils/                     # Utilitários de formatação (cpf, currency, date, exportStatement, uuid)
+```
+
+---
+
+## 5. Padrões de Código e Diretrizes Arquiteturais (Regras de Ouro)
 
 Qualquer IA, desenvolvedor ou agente autônomo que continuar o desenvolvimento deste projeto **DEVE** seguir rigorosamente estes padrões:
 
-### 4.1 Arquitetura Hexagonal (Ports & Adapters)
+### 5.1 Arquitetura Hexagonal (Ports & Adapters)
 - **Camada de Domínio (`domain`):** Pure Java POJOs/Records e exceções de domínio. **Zero dependências de frameworks** (proibido importar Spring, Hibernate, JPA ou Jackson em modelos e regras de negócio puras).
 - **Camada de Aplicação (`application`):** Casos de uso (`*UseCase`), portas de entrada (`port.in`), portas de saída (`port.out`) e orquestração de serviços de aplicação.
 - **Camada de Adaptadores (`adapters`):**
@@ -160,7 +354,7 @@ Qualquer IA, desenvolvedor ou agente autônomo que continuar o desenvolvimento d
   - `adapters.out.kafka`: Produtores de eventos e adaptadores de publicação.
   - `adapters.out.redis`: Adaptadores de lock, cache e limitação de taxa.
 
-### 4.2 Mensageria Kafka: Proibição Estrita de `JsonNode`
+### 5.2 Mensageria Kafka: Proibição Estrita de `JsonNode`
 - **Regra:** Nunca utilizar `JsonNode`, `ObjectNode`, `readTree`, `treeToValue` ou `node.path(...)` em consumidores Kafka.
 - **Padrão Obrigatório:** Utilizar sempre a desserialização tipada direta do Jackson 3 (`ObjectMapper.readValue`) com o envelope genérico:
   ```java
@@ -171,8 +365,10 @@ Qualquer IA, desenvolvedor ou agente autônomo que continuar o desenvolvimento d
   MyPayload payload = envelope.data() != null ? envelope.data() : objectMapper.readValue(record.value(), MyPayload.class);
   ```
 - **Mapeamento Prévio:** Todos os atributos devem ser validados e convertidos para DTOs/Records fortemente tipados **antes** de acionar o `InboxHandler` ou o caso de uso de aplicação.
+- **Configuração de Listeners e AckMode:**
+  - Todo microsserviço que consome Kafka deve obrigatoriamente incluir `org.springframework.boot:spring-boot-starter-kafka`, a anotação `@EnableKafka` e registrar um `ConcurrentKafkaListenerContainerFactory` com `AckMode.MANUAL_IMMEDIATE` quando o método consumidor utilizar `Acknowledgment` manual para confirmação transacional da mensagem.
 
-### 4.3 Banco de Dados e Conexões (HikariCP)
+### 5.3 Banco de Dados e Conexões (HikariCP)
 - **Tamanho dos Pools:** Todos os microsserviços utilizam o pool dimensionado para:
   ```yaml
   spring:
@@ -185,14 +381,14 @@ Qualquer IA, desenvolvedor ou agente autônomo que continuar o desenvolvimento d
   ```
 - **Proibição de I/O Externo em Transações:** **É terminantemente proibido realizar chamadas HTTP de rede ou esperas longas dentro de métodos anotados com `@Transactional`**. Transações devem durar menos de 10ms. Comunicação entre serviços deve ser assíncrona via Outbox no Kafka.
 
-### 4.4 Autenticação e Segurança
+### 5.4 Autenticação e Segurança
 - **Assinatura e Validação:** Assinatura RS256 centralizada no `auth-service` e validação descentralizada nos Resource Servers via cache de chaves públicas do JWKS.
 - **Tratamento de Erros:** Todos os erros de segurança (401 Unauthorized, 403 Forbidden, 429 Too Many Requests) retornam o padrão corporativo **RFC 7807 ProblemDetail**.
 - **Serviços Internos:** Endpoints internos de infraestrutura (ex: chamadas ao `ledger-service` ou consultas de resumo no `auth-service`) utilizam autenticação por chave de serviço via header `X-Internal-Service-Key`.
 
 ---
 
-## 5. Tópicos do Kafka e Contratos de Mensageria
+## 6. Tópicos do Kafka e Contratos de Mensageria
 
 | Tópico | Produtor | Consumidores | Payload / Evento | Função |
 | :--- | :--- | :--- | :--- | :--- |
@@ -205,20 +401,23 @@ Qualquer IA, desenvolvedor ou agente autônomo que continuar o desenvolvimento d
 
 ---
 
-## 6. Guia Prático de Execução e Desenvolvimento Local
+## 7. Guia Prático de Execução e Desenvolvimento Local
 
-### 6.1 Pré-requisitos
+### 7.1 Pré-requisitos
 - **Java 25** instalado e configurado no `JAVA_HOME`.
 - **Docker & Docker Compose** (versão 2.20+).
 - **Node.js 20+** (para o frontend `web`).
 
-### 6.2 Subindo a Infraestrutura com Docker Compose
+### 7.2 Subindo com Docker Compose
 ```bash
-# Subir toda a infraestrutura base (Postgres, Kafka KRaft, Redis 7, Nginx Gateway, Kafka UI e LGTM):
-docker compose -f infra/docker/docker-compose.yml up -d postgres kafka kafka-init redis nginx kafka-ui
+# Subir toda a stack completa (Infraestrutura + 6 Microsserviços + Gateway + Web Banking):
+docker compose -f infra/docker/docker-compose.yml up --build -d
+
+# Ou subir apenas a infraestrutura base (Postgres, Kafka KRaft, Redis 7, Nginx Gateway, Kafka UI e LGTM):
+docker compose -f infra/docker/docker-compose.yml up -d postgres kafka kafka-init redis nginx kafka-ui otel-lgtm
 ```
 
-### 6.3 Executando os Testes do Backend (Gradle)
+### 7.3 Executando os Testes do Backend (Gradle)
 ```bash
 # Executar todos os testes de todos os 7 projetos (a partir da raiz):
 cd services
@@ -233,7 +432,7 @@ gradlew.bat :account-service:test
 gradlew.bat :notification-service:test
 ```
 
-### 6.4 Rodando os Microsserviços Localmente
+### 7.4 Rodando os Microsserviços Localmente
 ```bash
 # Exemplos de inicialização via Gradle:
 gradlew.bat :auth-service:bootRun
@@ -244,7 +443,7 @@ gradlew.bat :query-service:bootRun
 gradlew.bat :notification-service:bootRun
 ```
 
-### 6.5 Rodando o Frontend (Web Banking)
+### 7.5 Rodando o Frontend (Web Banking)
 ```bash
 cd web
 npm install
@@ -252,14 +451,14 @@ npm run dev
 # Interface acessível em: http://localhost:3000
 ```
 
-### 6.6 Derrubando a Infraestrutura e Limpando Recursos
+### 7.6 Derrubando a Infraestrutura e Limpando Recursos
 ```bash
 docker compose -f infra/docker/docker-compose.yml down -v
 ```
 
 ---
 
-## 7. Mapa de Portas e Endpoints Úteis
+## 8. Mapa de Portas e Endpoints Úteis
 
 | Recurso / Serviço | URL / Host | Função |
 | :--- | :--- | :--- |

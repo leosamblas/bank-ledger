@@ -30,6 +30,7 @@ spring:
       value-serializer: org.apache.kafka.common.serialization.StringSerializer
       acks: all
     consumer:
+      group-id: ${KAFKA_CONSUMER_GROUP_ID:auth-service-credentials-registration}
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
       value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
       enable-auto-commit: false
@@ -49,6 +50,10 @@ spring:
     locations: classpath:db/migration
 
 app:
+  kafka:
+    topics:
+      credentials-registration: ${AUTH_CREDENTIALS_REGISTRATION_TOPIC:auth.credentials-registration.v1}
+      account-ready: ${ACCOUNT_READY_TOPIC:account.ready.v1}
   security:
     internal-service-key: ${INTERNAL_SERVICE_KEY:bankledger-internal-secret-ledger-key-2026}
     dummy-hash: ${APP_SECURITY_DUMMY_HASH:$2a$10$7EqJtq98hPqEX7fNZaFWoO0Z4qD5gR4m8YQ0CqD8.7Uu7W9n7I.wK}

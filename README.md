@@ -121,17 +121,20 @@ Ideal para desenvolvimento ativo no terminal ou na IDE (VS Code / IntelliJ):
 | :--- | :--- | :--- |
 | **Web Banking (Next.js)** | [`http://localhost:3000`](http://localhost:3000) | Interface web do cliente bancário (Next.js 16 / App Router) |
 | **API Gateway (Nginx)** | `http://localhost:8080` | Entrada central com CORS habilitado para o frontend |
-| **Account Service** | `http://localhost:8081` | Gestão de contas, clientes e autenticação JWT |
+| **Auth Service** | `http://localhost:8086` | Autenticação reativa, emissão de JWT/JWKS, rate limit e lock no Redis |
+| **Account Service** | `http://localhost:8081` | Gestão de clientes, contas bancárias e abertura assíncrona |
 | **Transaction Service** | `http://localhost:8082` | Orquestração de transações, depósitos, saques e transferências |
 | **Query Service** | `http://localhost:8083` | Projeções de leitura CQRS, extrato e saldos desnormalizados |
 | **Ledger Service** | `http://localhost:8084` | Core bancário interno (Partidas Dobradas, Shards de Caixa, Journal) |
+| **Notification Service** | `http://localhost:8087` | Notificações reativas de boas-vindas via Kafka e SMTP |
 | **Swagger UI (Account)** | [`http://localhost:8081/swagger-ui.html`](http://localhost:8081/swagger-ui.html) | Documentação interativa OpenAPI 3.0 com autenticação JWT |
 | **Actuator Health (Account)** | [`http://localhost:8081/actuator/health`](http://localhost:8081/actuator/health) | Health check detalhado da aplicação |
 | **Kafka UI** | [`http://localhost:8085`](http://localhost:8085) | Painel visual para inspeção de tópicos e mensagens Kafka |
 | **Grafana UI (LGTM)** | [`http://localhost:3001`](http://localhost:3001) | Painel unificado de Observabilidade (Logs, Traces e Métricas - user/pass: `admin`/`admin`) |
 | **OTLP Exporter (HTTP)** | `http://localhost:4318` | Endpoint de recepção de telemetria OpenTelemetry via HTTP |
 | **OTLP Exporter (gRPC)** | `http://localhost:4317` | Endpoint de recepção de telemetria OpenTelemetry via gRPC |
-| **PostgreSQL 18** | `localhost:5432` | Bancos: `account_db`, `ledger_db`, `transaction_db`, `query_db`<br>Usuário: `bank_ledger` / Senha: `bank_ledger_secret` |
+| **Redis 7** | `localhost:6379` | Cache, locks de concorrência e rate-limiting reativo |
+| **PostgreSQL 18** | `localhost:5432` | Bancos: `auth_db`, `account_db`, `ledger_db`, `transaction_db`, `query_db`<br>Usuário: `bank_ledger` / Senha: `bank_ledger_secret` |
 
 ---
 

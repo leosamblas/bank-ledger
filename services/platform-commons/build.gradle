@@ -55,6 +55,11 @@ dependencies {
     // Spring Boot Starter Data JPA (gerenciado pelo Spring Boot BOM)
     api 'org.springframework.boot:spring-boot-starter-data-jpa'
 
+    // Security & Servlet (gerenciados pelo Spring Boot BOM)
+    api 'org.springframework.security:spring-security-core'
+    api 'org.springframework.security:spring-security-web'
+    api 'jakarta.servlet:jakarta.servlet-api'
+
     // OpenTelemetry & Logging
     api 'org.springframework.boot:spring-boot-starter-opentelemetry'
     api 'io.opentelemetry.instrumentation:opentelemetry-logback-appender-1.0:2.16.0-alpha'
@@ -72,6 +77,7 @@ dependencies {
     testImplementation 'org.junit.jupiter:junit-jupiter'
     testImplementation 'org.assertj:assertj-core'
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testImplementation 'org.springframework.security:spring-security-test'
     testImplementation 'org.testcontainers:junit-jupiter'
     testImplementation 'org.testcontainers:postgresql'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'

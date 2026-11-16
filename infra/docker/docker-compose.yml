@@ -167,6 +167,7 @@ services:
       REDIS_PORT: 6379
       KAFKA_BOOTSTRAP_SERVERS: kafka:29092
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      JAVA_TOOL_OPTIONS: "-Dreactor.schedulers.defaultBoundedElasticOnVirtualThreads=true"
     deploy:
       resources:
         limits:
@@ -198,6 +199,7 @@ services:
       SPRING_DATASOURCE_USERNAME: bank_ledger
       SPRING_DATASOURCE_PASSWORD: bank_ledger_secret
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      JAVA_TOOL_OPTIONS: "-Dreactor.schedulers.defaultBoundedElasticOnVirtualThreads=true"
       SERVER_PORT: 8081
       OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-lgtm:4318
       APP_SECURITY_JWKS_URL: http://auth-service:8086/.well-known/jwks.json
@@ -235,6 +237,7 @@ services:
       SPRING_DATASOURCE_USERNAME: bank_ledger
       SPRING_DATASOURCE_PASSWORD: bank_ledger_secret
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      JAVA_TOOL_OPTIONS: "-Dreactor.schedulers.defaultBoundedElasticOnVirtualThreads=true"
       SERVER_PORT: 8084
       OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-lgtm:4318
       APP_SECURITY_INTERNAL_SERVICE_KEY: bankledger-internal-secret-ledger-key-2026
@@ -269,6 +272,7 @@ services:
       SPRING_DATASOURCE_USERNAME: bank_ledger
       SPRING_DATASOURCE_PASSWORD: bank_ledger_secret
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      JAVA_TOOL_OPTIONS: "-Dreactor.schedulers.defaultBoundedElasticOnVirtualThreads=true"
       SERVER_PORT: 8082
       OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-lgtm:4318
       APP_SECURITY_JWKS_URL: http://auth-service:8086/.well-known/jwks.json
@@ -307,6 +311,7 @@ services:
       SPRING_DATASOURCE_USERNAME: bank_ledger
       SPRING_DATASOURCE_PASSWORD: bank_ledger_secret
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      JAVA_TOOL_OPTIONS: "-Dreactor.schedulers.defaultBoundedElasticOnVirtualThreads=true"
       SERVER_PORT: 8083
       OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-lgtm:4318
       APP_SECURITY_JWKS_URL: http://auth-service:8086/.well-known/jwks.json
@@ -342,6 +347,7 @@ services:
       SPRING_PROFILES_ACTIVE: docker
       SERVER_PORT: 8087
       KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      JAVA_TOOL_OPTIONS: "-Dreactor.schedulers.defaultBoundedElasticOnVirtualThreads=true"
       OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-lgtm:4318
       MANAGEMENT_OTLP_METRICS_EXPORT_URL: http://otel-lgtm:4318/v1/metrics
       SMTP_HOST: smtp.gmail.com

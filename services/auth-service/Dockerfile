@@ -16,4 +16,4 @@ COPY --from=builder /workspace/services/auth-service/build/libs/auth-service-0.1
 
 EXPOSE 8086
 
-ENTRYPOINT ["java", "--enable-preview", "-XX:+UseZGC", "-XX:+UseCompactObjectHeaders", "-XX:+ExitOnOutOfMemoryError", "-jar", "app.jar"]
+ENTRYPOINT ["java", "--enable-preview", "-XX:+UseZGC", "-XX:+UseCompactObjectHeaders", "-XX:+ExitOnOutOfMemoryError", "-Dreactor.schedulers.defaultBoundedElasticOnVirtualThreads=true", "-jar", "app.jar"]

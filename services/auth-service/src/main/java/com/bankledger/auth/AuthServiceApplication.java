@@ -13,7 +13,12 @@ import org.springframework.kafka.annotation.EnableKafka;
 })
 public class AuthServiceApplication {
 
+    static {
+        System.setProperty("reactor.schedulers.defaultBoundedElasticOnVirtualThreads", "true");
+    }
+
     public static void main(String[] args) {
+        System.setProperty("reactor.schedulers.defaultBoundedElasticOnVirtualThreads", "true");
         SpringApplication.run(AuthServiceApplication.class, args);
     }
 }

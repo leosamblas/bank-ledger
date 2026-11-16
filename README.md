@@ -7,7 +7,7 @@ Este projeto baseia-se no princípio contábil das **Partidas Dobradas (Double-E
 ## 🏗️ Arquitetura Resumida
 
 O sistema utiliza padrões modernos para garantir alta disponibilidade e escalabilidade de dados financeiros:
-* **Backend em Java 25 & Spring Boot 4.1.2**: Microsserviços independentes com Gradle (sintaxe padrão Java) sobre Spring Boot 4.1.2 (starters modulares, Spring Framework 7, Jackson 3) com suporte a Virtual Threads nativas.
+* **Backend em Java 25 & Spring Boot 4.1.2**: Microsserviços independentes com Gradle (sintaxe padrão Java) sobre Spring Boot 4.1.2 (starters modulares, Spring Framework 7, Jackson 3) com suporte a Virtual Threads nativas e Project Reactor configurado via JVM (`reactor.schedulers.defaultBoundedElasticOnVirtualThreads=true`) para executar `Schedulers.boundedElastic()` em threads virtuais.
 * **API Gateway (Nginx na porta 8080)**: Ponto de entrada unificado para o tráfego do frontend, distribuindo chamadas para os microsserviços isolados.
 * **Arquitetura Hexagonal (Ports & Adapters)**: Desacoplamento da regra de negócio (domínio) de frameworks, bancos de dados e mensageria.
 * **Injeção de Dependências com Lombok (@RequiredArgsConstructor)**: Padrão arquitetural obrigatório para todos os microsserviços. É terminantemente proibido o uso de `@Autowired` em construtores ou sobre atributos (`field injection`). Dependências são declaradas como `private final` e propriedades externas são encapsuladas via classes dedicadas com `@ConfigurationProperties`.

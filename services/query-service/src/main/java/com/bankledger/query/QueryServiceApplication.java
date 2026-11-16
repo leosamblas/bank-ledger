@@ -10,7 +10,12 @@ import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 @EnableJpaRepositories(basePackages = {"com.bankledger.query", "com.bankledger.commons"})
 public class QueryServiceApplication {
 
+    static {
+        System.setProperty("reactor.schedulers.defaultBoundedElasticOnVirtualThreads", "true");
+    }
+
     public static void main(String[] args) {
+        System.setProperty("reactor.schedulers.defaultBoundedElasticOnVirtualThreads", "true");
         SpringApplication.run(QueryServiceApplication.class, args);
     }
 }

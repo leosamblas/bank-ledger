@@ -395,6 +395,15 @@ Qualquer IA, desenvolvedor ou agente autônomo que continuar o desenvolvimento d
   - **Padrão Oficial:** Encapsule propriedades em classes de configuração dedicadas anotadas com `@ConfigurationProperties` e `@Component` (utilizando `@Getter` e `@Setter` do Lombok), por exemplo `EmailNotificationProperties` ou `OutboxPollerProperties`, injetando a classe de propriedades como `private final` no serviço via `@RequiredArgsConstructor`.
 - **Testabilidade:** Em testes unitários, instancie os serviços diretamente passando os mocks e a instância das propriedades no construtor gerado pelo Lombok, sem depender do runner de injeção de contexto quando não for teste de integração.
 
+### 5.6 Project Reactor & Virtual Threads (Java 21+)
+- **Regra:** O `Schedulers.boundedElastic()` do Project Reactor (utilizado no Spring WebFlux e operações assíncronas do ecossistema) **DEVE** utilizar Virtual Threads do Java para garantir máxima escalabilidade e evitar saturação de threads nativas do sistema operacional.
+- **Configuração Obrigatória da JVM:**
+  - Propriedade de sistema: `reactor.schedulers.defaultBoundedElasticOnVirtualThreads=true`.
+  - **Auto-configuração:** Implementada via `ReactorVirtualThreadsEnvironmentPostProcessor` no `platform-commons` (`HIGHEST_PRECEDENCE`), garantindo ativação automática no início do ciclo de vida do Spring Boot.
+  - **Garantia de Inicialização Precoce:** Declarada no bloco `static {}` e no método `main()` de todos os pontos de entrada `*Application.java`.
+  - **Ambiente de Teste e Execução:** Configurada nas tarefas `Test` e `JavaExec` no `build.gradle` multi-projeto.
+  - **Contêineres Docker:** Incluída no `ENTRYPOINT` de todos os `Dockerfile` e via variável `JAVA_TOOL_OPTIONS` no `docker-compose.yml`.
+
 ---
 
 ## 6. Tópicos do Kafka e Contratos de Mensageria

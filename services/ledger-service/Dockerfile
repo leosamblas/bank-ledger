@@ -16,5 +16,5 @@ COPY --from=builder /workspace/services/ledger-service/build/libs/ledger-service
 
 EXPOSE 8084
 
-ENTRYPOINT ["java", "--enable-preview", "-XX:+UseZGC", "-XX:+UseCompactObjectHeaders", "-XX:+ExitOnOutOfMemoryError", "-jar", "app.jar"]
+ENTRYPOINT ["java", "--enable-preview", "-XX:+UseZGC", "-XX:+UseCompactObjectHeaders", "-XX:+ExitOnOutOfMemoryError", "-Dreactor.schedulers.defaultBoundedElasticOnVirtualThreads=true", "-jar", "app.jar"]
 

@@ -16,7 +16,12 @@ import tools.jackson.databind.json.JsonMapper;
 })
 public class NotificationServiceApplication {
 
+    static {
+        System.setProperty("reactor.schedulers.defaultBoundedElasticOnVirtualThreads", "true");
+    }
+
     public static void main(String[] args) {
+        System.setProperty("reactor.schedulers.defaultBoundedElasticOnVirtualThreads", "true");
         SpringApplication.run(NotificationServiceApplication.class, args);
     }
 

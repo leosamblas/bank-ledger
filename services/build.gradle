@@ -6,3 +6,12 @@ allprojects {
     group = 'com.bankledger'
     version = '0.1.0-SNAPSHOT'
 }
+
+subprojects {
+    tasks.withType(Test).configureEach {
+        systemProperty 'reactor.schedulers.defaultBoundedElasticOnVirtualThreads', 'true'
+    }
+    tasks.withType(JavaExec).configureEach {
+        systemProperty 'reactor.schedulers.defaultBoundedElasticOnVirtualThreads', 'true'
+    }
+}

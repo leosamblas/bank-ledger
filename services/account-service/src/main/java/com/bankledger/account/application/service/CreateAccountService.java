@@ -17,24 +17,34 @@ import com.bankledger.account.domain.vo.Cpf;
 import com.bankledger.account.domain.vo.Email;
 import com.bankledger.account.domain.vo.Phone;
 import com.bankledger.commons.outbox.OutboxEvent;
-import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.MediaType;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.client.RestClient;
 import tools.jackson.databind.ObjectMapper;
 
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 
 /**
  * Application service for opening a new bank account.
  * Atomically creates Customer, Account, and records an OutboxEvent.
+ * Delegates credential registration to auth-service with timeout and fallback.
  */
 @Service
 @Transactional
-@RequiredArgsConstructor
 public class CreateAccountService implements CreateAccountUseCase {
+
+    private static final Logger log = LoggerFactory.getLogger(CreateAccountService.class);
 
     private final CustomerRepositoryPort customerRepositoryPort;
     private final AccountRepositoryPort accountRepositoryPort;
@@ -42,6 +52,30 @@ public class CreateAccountService implements CreateAccountUseCase {
     private final OutboxPort outboxPort;
     private final ObjectMapper objectMapper;
     private final Clock clock;
+    private final String authServiceUrl;
+    private final RestClient restClient;
+
+    public CreateAccountService(
+            CustomerRepositoryPort customerRepositoryPort,
+            AccountRepositoryPort accountRepositoryPort,
+            PasswordEncoderPort passwordEncoderPort,
+            OutboxPort outboxPort,
+            ObjectMapper objectMapper,
+            Clock clock,
+            @Value("${app.auth-service.url:http://localhost:8086}") String authServiceUrl,
+            RestClient.Builder restClientBuilder
+    ) {
+        this.customerRepositoryPort = Objects.requireNonNull(customerRepositoryPort, "customerRepositoryPort must not be null");
+        this.accountRepositoryPort = Objects.requireNonNull(accountRepositoryPort, "accountRepositoryPort must not be null");
+        this.passwordEncoderPort = Objects.requireNonNull(passwordEncoderPort, "passwordEncoderPort must not be null");
+        this.outboxPort = Objects.requireNonNull(outboxPort, "outboxPort must not be null");
+        this.objectMapper = Objects.requireNonNull(objectMapper, "objectMapper must not be null");
+        this.clock = Objects.requireNonNull(clock, "clock must not be null");
+        this.authServiceUrl = (authServiceUrl != null && !authServiceUrl.isBlank()) ? authServiceUrl : "http://localhost:8086";
+
+        RestClient.Builder builder = restClientBuilder != null ? restClientBuilder : RestClient.builder();
+        this.restClient = builder.build();
+    }
 
     @Override
     public CreatedAccountResult createAccount(CreateAccountCommand command) {
@@ -103,6 +137,17 @@ public class CreateAccountService implements CreateAccountUseCase {
         Account savedAccount = accountRepositoryPort.save(account);
         outboxPort.save(outboxEvent);
 
+        registerCredentialsWithAuthService(
+                savedCustomer.getId(),
+                command.cpf(),
+                command.password(),
+                savedAccount.getId(),
+                savedAccount.getBranch(),
+                savedAccount.getAccountNumber().number(),
+                command.fullName(),
+                command.email()
+        );
+
         return new CreatedAccountResult(
                 savedAccount.getId(),
                 savedCustomer.getId(),
@@ -112,5 +157,43 @@ public class CreateAccountService implements CreateAccountUseCase {
                 savedAccount.getStatus(),
                 savedAccount.getCreatedAt()
         );
+    }
+
+    private void registerCredentialsWithAuthService(
+            UUID customerId,
+            String cpf,
+            String password,
+            UUID accountId,
+            String branch,
+            String accountNumber,
+            String fullName,
+            String email
+    ) {
+        String endpoint = authServiceUrl.replaceAll("/+$", "") + "/internal/v1/auth/credentials";
+        try {
+            Map<String, Object> body = new LinkedHashMap<>();
+            body.put("customerId", customerId);
+            body.put("cpf", cpf);
+            body.put("password", password);
+            body.put("accountId", accountId);
+            body.put("branch", branch);
+            body.put("accountNumber", accountNumber);
+            body.put("fullName", fullName);
+            body.put("email", email);
+
+            String json = objectMapper.writeValueAsString(body);
+
+            restClient.post()
+                    .uri(endpoint)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(json)
+                    .retrieve()
+                    .toBodilessEntity();
+
+            log.info("Credentials registered in auth-service for customerId: {}", customerId);
+        } catch (Exception ex) {
+            log.warn("Failed to delegate credentials to auth-service at {}: {}. Proceeding with local fallback.",
+                    endpoint, ex.getMessage());
+        }
     }
 }

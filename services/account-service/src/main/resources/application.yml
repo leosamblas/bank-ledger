@@ -52,6 +52,12 @@ bankledger:
       secret: ${JWT_SECRET:bankledger-super-secure-secret-key-that-is-at-least-256-bits-long}
       expiration-seconds: ${JWT_EXPIRATION_SECONDS:3600}
 
+app:
+  security:
+    jwks-url: ${JWKS_URL:http://localhost:8086/.well-known/jwks.json}
+  auth-service:
+    url: ${AUTH_SERVICE_URL:http://localhost:8086}
+
 management:
   opentelemetry:
     tracing:

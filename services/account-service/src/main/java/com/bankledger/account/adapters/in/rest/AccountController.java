@@ -4,6 +4,7 @@ import com.bankledger.account.adapters.in.rest.dto.AccountCreationRequest;
 import com.bankledger.account.adapters.in.rest.dto.AccountLookupResponse;
 import com.bankledger.account.adapters.in.rest.dto.AccountResponse;
 import com.bankledger.account.application.port.in.*;
+import com.bankledger.commons.security.CommonAuthenticatedUser;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -52,10 +53,10 @@ public class AccountController {
 
     @GetMapping("/me")
     public ResponseEntity<?> getAccountMe(
-            @AuthenticationPrincipal AuthenticatedUser user,
+            @AuthenticationPrincipal CommonAuthenticatedUser user,
             Authentication authentication
     ) {
-        AuthenticatedUser principal = resolvePrincipal(user, authentication);
+        CommonAuthenticatedUser principal = resolvePrincipal(user, authentication);
         if (principal == null || principal.accountId() == null) {
             ProblemDetail problem = ProblemDetail.forStatusAndDetail(
                     HttpStatus.UNAUTHORIZED,
@@ -88,10 +89,10 @@ public class AccountController {
     @GetMapping("/{accountId}")
     public ResponseEntity<?> getAccountById(
             @PathVariable UUID accountId,
-            @AuthenticationPrincipal AuthenticatedUser user,
+            @AuthenticationPrincipal CommonAuthenticatedUser user,
             Authentication authentication
     ) {
-        AuthenticatedUser principal = resolvePrincipal(user, authentication);
+        CommonAuthenticatedUser principal = resolvePrincipal(user, authentication);
         if (principal == null || principal.accountId() == null) {
             ProblemDetail problem = ProblemDetail.forStatusAndDetail(
                     HttpStatus.UNAUTHORIZED,
@@ -122,12 +123,24 @@ public class AccountController {
         return ResponseEntity.ok(toAccountResponse(result));
     }
 
-    private AuthenticatedUser resolvePrincipal(AuthenticatedUser user, Authentication authentication) {
+    private CommonAuthenticatedUser resolvePrincipal(CommonAuthenticatedUser user, Authentication authentication) {
         if (user != null) {
             return user;
         }
-        if (authentication != null && authentication.getPrincipal() instanceof AuthenticatedUser authUser) {
-            return authUser;
+        if (authentication != null) {
+            if (authentication.getPrincipal() instanceof CommonAuthenticatedUser authUser) {
+                return authUser;
+            }
+            if (authentication.getPrincipal() instanceof AuthenticatedUser legacyUser) {
+                return new CommonAuthenticatedUser(
+                        legacyUser.customerId(),
+                        legacyUser.accountId(),
+                        null,
+                        legacyUser.role(),
+                        legacyUser.branch(),
+                        legacyUser.accountNumber()
+                );
+            }
         }
         return null;
     }

@@ -17,8 +17,6 @@ import com.bankledger.account.domain.model.Customer;
 import com.bankledger.account.domain.vo.Cpf;
 import com.bankledger.account.domain.vo.Email;
 import com.bankledger.commons.outbox.OutboxEvent;
-import tools.jackson.databind.ObjectMapper;
-import tools.jackson.databind.json.JsonMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -26,6 +24,13 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.test.web.client.MockRestServiceServer;
+import org.springframework.web.client.RestClient;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 
 import java.time.Clock;
 import java.time.Instant;
@@ -36,6 +41,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
+import static org.springframework.test.web.client.match.MockRestRequestMatchers.*;
+import static org.springframework.test.web.client.response.MockRestResponseCreators.withServerError;
+import static org.springframework.test.web.client.response.MockRestResponseCreators.withStatus;
 
 @ExtendWith(MockitoExtension.class)
 class CreateAccountServiceTest {
@@ -68,7 +76,9 @@ class CreateAccountServiceTest {
                 passwordEncoder,
                 outboxPort,
                 objectMapper,
-                fixedClock
+                fixedClock,
+                "http://localhost:8086",
+                RestClient.builder()
         );
     }
 
@@ -138,6 +148,103 @@ class CreateAccountServiceTest {
     }
 
     @Test
+    @DisplayName("Should successfully delegate credentials to auth-service internal API")
+    void shouldDelegateCredentialsToAuthServiceSuccessfully() {
+        RestClient.Builder builder = RestClient.builder();
+        MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+
+        CreateAccountService serviceWithMockServer = new CreateAccountService(
+                customerRepository,
+                accountRepository,
+                passwordEncoder,
+                outboxPort,
+                objectMapper,
+                fixedClock,
+                "http://localhost:8086",
+                builder
+        );
+
+        CreateAccountCommand command = new CreateAccountCommand(
+                "Carlos Eduardo Silva",
+                "52998224725",
+                LocalDate.of(1990, 1, 1),
+                "carlos.silva@example.com",
+                "+5511999998888",
+                "StrongPassword123!"
+        );
+
+        when(customerRepository.existsByCpf(Cpf.of("52998224725"))).thenReturn(false);
+        when(customerRepository.existsByEmail(Email.of("carlos.silva@example.com"))).thenReturn(false);
+        when(passwordEncoder.encode("StrongPassword123!")).thenReturn("$2a$12$hashedpassword");
+        when(accountRepository.nextAccountNumber()).thenReturn(100000L);
+        when(customerRepository.save(any(Customer.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(accountRepository.save(any(Account.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        server.expect(requestTo("http://localhost:8086/internal/v1/auth/credentials"))
+                .andExpect(method(HttpMethod.POST))
+                .andExpect(content().contentType(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$.cpf").value("52998224725"))
+                .andExpect(jsonPath("$.password").value("StrongPassword123!"))
+                .andExpect(jsonPath("$.fullName").value("Carlos Eduardo Silva"))
+                .andExpect(jsonPath("$.email").value("carlos.silva@example.com"))
+                .andExpect(jsonPath("$.branch").value("0001"))
+                .andExpect(jsonPath("$.accountNumber").value("100000"))
+                .andRespond(withStatus(HttpStatus.CREATED));
+
+        CreatedAccountResult result = serviceWithMockServer.createAccount(command);
+
+        assertThat(result).isNotNull();
+        server.verify();
+    }
+
+    @Test
+    @DisplayName("Should proceed with local fallback when auth-service returns error")
+    void shouldFallbackGracefullyWhenAuthServiceFails() {
+        RestClient.Builder builder = RestClient.builder();
+        MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+
+        CreateAccountService serviceWithMockServer = new CreateAccountService(
+                customerRepository,
+                accountRepository,
+                passwordEncoder,
+                outboxPort,
+                objectMapper,
+                fixedClock,
+                "http://localhost:8086",
+                builder
+        );
+
+        CreateAccountCommand command = new CreateAccountCommand(
+                "Carlos Eduardo Silva",
+                "52998224725",
+                LocalDate.of(1990, 1, 1),
+                "carlos.silva@example.com",
+                "+5511999998888",
+                "StrongPassword123!"
+        );
+
+        when(customerRepository.existsByCpf(Cpf.of("52998224725"))).thenReturn(false);
+        when(customerRepository.existsByEmail(Email.of("carlos.silva@example.com"))).thenReturn(false);
+        when(passwordEncoder.encode("StrongPassword123!")).thenReturn("$2a$12$hashedpassword");
+        when(accountRepository.nextAccountNumber()).thenReturn(100000L);
+        when(customerRepository.save(any(Customer.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(accountRepository.save(any(Account.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        server.expect(requestTo("http://localhost:8086/internal/v1/auth/credentials"))
+                .andExpect(method(HttpMethod.POST))
+                .andRespond(withServerError());
+
+        CreatedAccountResult result = serviceWithMockServer.createAccount(command);
+
+        assertThat(result).isNotNull();
+        assertThat(result.status()).isEqualTo(AccountStatus.ACTIVE);
+        verify(customerRepository).save(any(Customer.class));
+        verify(accountRepository).save(any(Account.class));
+        verify(outboxPort).save(any(OutboxEvent.class));
+        server.verify();
+    }
+
+    @Test
     @DisplayName("Should reject account creation when CPF already exists")
     void shouldRejectWhenCpfAlreadyExists() {
         CreateAccountCommand command = new CreateAccountCommand(
@@ -190,7 +297,7 @@ class CreateAccountServiceTest {
         CreateAccountCommand command = new CreateAccountCommand(
                 "Minor Customer",
                 "52998224725",
-                LocalDate.of(2015, 1, 1), // 11 years old in 2026
+                LocalDate.of(2015, 1, 1),
                 "minor@example.com",
                 "+5511999998888",
                 "StrongPassword123!"

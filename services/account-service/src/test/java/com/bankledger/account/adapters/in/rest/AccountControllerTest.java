@@ -7,6 +7,12 @@ import com.bankledger.account.application.port.in.*;
 import com.bankledger.account.domain.exception.*;
 import com.bankledger.account.domain.model.AccountStatus;
 import com.bankledger.commons.constant.HttpHeaderConstants;
+import com.bankledger.commons.security.CommonAuthenticatedUser;
+import com.bankledger.commons.security.JwksPublicKeyProvider;
+import com.bankledger.commons.security.JwtAuthenticationTokenFilter;
+import com.bankledger.commons.security.RsaJwtSigner;
+import com.bankledger.commons.security.RsaJwtValidator;
+import com.bankledger.commons.security.TokenClaims;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -26,6 +32,7 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.json.JsonMapper;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
@@ -56,15 +63,26 @@ class AccountControllerTest {
 
     private AccountController accountController;
     private GlobalExceptionHandler globalExceptionHandler;
+    private RsaJwtSigner rsaJwtSigner;
+    private JwksPublicKeyProvider jwksPublicKeyProvider;
+    private RsaJwtValidator rsaJwtValidator;
+    private JwtAuthenticationTokenFilter jwtAuthenticationTokenFilter;
 
     @BeforeEach
     void setUp() {
         accountController = new AccountController(createAccountUseCase, getAccountMeUseCase, lookupAccountUseCase);
         globalExceptionHandler = new GlobalExceptionHandler();
 
+        rsaJwtSigner = new RsaJwtSigner();
+        jwksPublicKeyProvider = new JwksPublicKeyProvider();
+        jwksPublicKeyProvider.putKey(rsaJwtSigner.getKeyId(), rsaJwtSigner.getPublicKey());
+        rsaJwtValidator = new RsaJwtValidator(jwksPublicKeyProvider);
+        jwtAuthenticationTokenFilter = new JwtAuthenticationTokenFilter(rsaJwtValidator);
+
         mockMvc = MockMvcBuilders
                 .standaloneSetup(accountController)
                 .setControllerAdvice(globalExceptionHandler)
+                .addFilters(jwtAuthenticationTokenFilter)
                 .setCustomArgumentResolvers(new AuthenticationPrincipalArgumentResolver())
                 .setMessageConverters(new JacksonJsonHttpMessageConverter(objectMapper))
                 .build();
@@ -75,8 +93,8 @@ class AccountControllerTest {
     }
 
     private UsernamePasswordAuthenticationToken createAuthToken(UUID customerId, UUID accountId, String role) {
-        AuthenticatedUser user = new AuthenticatedUser(customerId, accountId, "0001", "123456", role);
-        return new UsernamePasswordAuthenticationToken(user, null, List.of(new SimpleGrantedAuthority(role)));
+        CommonAuthenticatedUser user = new CommonAuthenticatedUser(customerId, accountId, "52998224725", role, "0001", "123456");
+        return new UsernamePasswordAuthenticationToken(user, null, user.getAuthorities());
     }
 
     @Nested
@@ -467,6 +485,133 @@ class AccountControllerTest {
                     .andExpect(jsonPath("$.id").value(targetAccountId.toString()))
                     .andExpect(jsonPath("$.agency").value("0001"))
                     .andExpect(jsonPath("$.number").value("654321"));
+        }
+    }
+
+    @Nested
+    @DisplayName("Decentralized RS256 JWKS Token Authentication")
+    class JwksAuthenticationTests {
+
+        @Test
+        @DisplayName("200 OK when accessing /api/v1/accounts/me with valid RS256 token matching JWKS")
+        void shouldAuthorizeWithValidRs256Token() throws Exception {
+            UUID customerId = UUID.randomUUID();
+            UUID accountId = UUID.randomUUID();
+
+            AccountMeResult meResult = new AccountMeResult(
+                    accountId,
+                    customerId,
+                    "0001",
+                    "123456",
+                    "7",
+                    AccountStatus.ACTIVE,
+                    Instant.parse("2026-11-09T20:00:00Z"),
+                    "Carlos Silva",
+                    "52998224725",
+                    "carlos@example.com"
+            );
+            when(getAccountMeUseCase.getAccountMe(accountId)).thenReturn(meResult);
+
+            TokenClaims claims = new TokenClaims(customerId, accountId, "52998224725", "ROLE_USER", "0001", "123456");
+            String token = rsaJwtSigner.generateToken(claims);
+
+            mockMvc.perform(get("/api/v1/accounts/me")
+                            .header(HttpHeaderConstants.AUTHORIZATION, HttpHeaderConstants.BEARER_PREFIX + token))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.id").value(accountId.toString()))
+                    .andExpect(jsonPath("$.agency").value("0001"))
+                    .andExpect(jsonPath("$.number").value("123456"));
+        }
+
+        @Test
+        @DisplayName("200 OK when administrator accesses another account with valid RS256 admin token")
+        void shouldAuthorizeAdminAccessWithRs256Token() throws Exception {
+            UUID adminAccountId = UUID.randomUUID();
+            UUID targetAccountId = UUID.randomUUID();
+            UUID customerId = UUID.randomUUID();
+
+            AccountMeResult meResult = new AccountMeResult(
+                    targetAccountId,
+                    customerId,
+                    "0001",
+                    "654321",
+                    "8",
+                    AccountStatus.ACTIVE,
+                    Instant.parse("2026-11-09T20:00:00Z"),
+                    "Target Customer",
+                    "12345678909",
+                    "target@example.com"
+            );
+            when(getAccountMeUseCase.getAccountMe(targetAccountId)).thenReturn(meResult);
+
+            TokenClaims claims = new TokenClaims(customerId, adminAccountId, "52998224725", "ROLE_ADMIN", "0001", "123456");
+            String token = rsaJwtSigner.generateToken(claims);
+
+            mockMvc.perform(get("/api/v1/accounts/" + targetAccountId)
+                            .header(HttpHeaderConstants.AUTHORIZATION, HttpHeaderConstants.BEARER_PREFIX + token))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.id").value(targetAccountId.toString()));
+        }
+
+        @Test
+        @DisplayName("403 Forbidden when regular user accesses another account with valid RS256 token")
+        void shouldReturn403WhenRs256TokenUserIsNotOwner() throws Exception {
+            UUID userAccountId = UUID.randomUUID();
+            UUID targetAccountId = UUID.randomUUID();
+            UUID customerId = UUID.randomUUID();
+
+            TokenClaims claims = new TokenClaims(customerId, userAccountId, "52998224725", "ROLE_USER", "0001", "123456");
+            String token = rsaJwtSigner.generateToken(claims);
+
+            mockMvc.perform(get("/api/v1/accounts/" + targetAccountId)
+                            .header(HttpHeaderConstants.AUTHORIZATION, HttpHeaderConstants.BEARER_PREFIX + token))
+                    .andExpect(status().isForbidden())
+                    .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+                    .andExpect(jsonPath("$.status").value(403))
+                    .andExpect(jsonPath("$.title").value("Forbidden"));
+        }
+
+        @Test
+        @DisplayName("401 Unauthorized when RS256 token signature is signed by untrusted key")
+        void shouldReturn401WhenRs256TokenSignedByUntrustedKey() throws Exception {
+            RsaJwtSigner untrustedSigner = new RsaJwtSigner();
+            UUID customerId = UUID.randomUUID();
+            UUID accountId = UUID.randomUUID();
+
+            TokenClaims claims = new TokenClaims(customerId, accountId, "52998224725", "ROLE_USER", "0001", "123456");
+            String untrustedToken = untrustedSigner.generateToken(claims);
+
+            mockMvc.perform(get("/api/v1/accounts/me")
+                            .header(HttpHeaderConstants.AUTHORIZATION, HttpHeaderConstants.BEARER_PREFIX + untrustedToken))
+                    .andExpect(status().isUnauthorized())
+                    .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+                    .andExpect(jsonPath("$.status").value(401));
+        }
+
+        @Test
+        @DisplayName("401 Unauthorized when RS256 token is expired")
+        void shouldReturn401WhenRs256TokenIsExpired() throws Exception {
+            UUID customerId = UUID.randomUUID();
+            UUID accountId = UUID.randomUUID();
+
+            TokenClaims claims = new TokenClaims(customerId, accountId, "52998224725", "ROLE_USER", "0001", "123456");
+            String expiredToken = rsaJwtSigner.generateToken(claims, Duration.ofSeconds(-60));
+
+            mockMvc.perform(get("/api/v1/accounts/me")
+                            .header(HttpHeaderConstants.AUTHORIZATION, HttpHeaderConstants.BEARER_PREFIX + expiredToken))
+                    .andExpect(status().isUnauthorized())
+                    .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+                    .andExpect(jsonPath("$.status").value(401));
+        }
+
+        @Test
+        @DisplayName("401 Unauthorized when Bearer token is malformed")
+        void shouldReturn401WhenTokenIsMalformed() throws Exception {
+            mockMvc.perform(get("/api/v1/accounts/me")
+                            .header(HttpHeaderConstants.AUTHORIZATION, HttpHeaderConstants.BEARER_PREFIX + "malformed.jwt.token"))
+                    .andExpect(status().isUnauthorized())
+                    .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+                    .andExpect(jsonPath("$.status").value(401));
         }
     }
 }

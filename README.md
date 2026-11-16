@@ -19,7 +19,8 @@ O sistema utiliza padrões modernos para garantir alta disponibilidade e escalab
 
 Todo o planejamento de negócio, topologia do sistema, diagramas de sequência, contratos e fluxos assíncronos foram detalhados e mantidos internamente.
 
-* 👉 **[Plano de Desenvolvimento e Arquitetura (Spring Boot 4.1.2 & Java 25)](./docs/plano_desenvolvimento_ledger.md)**: Roteiro técnico completo, decisões arquiteturais, requisitos de governança com ArchUnit e modelagem de domínios bancários.
+* 👉 **[Arquitetura Consolidada do Sistema (Spring Boot 4.1.2 & Java 25)](./docs/ARQUITETURA_CONSOLIDADA.md)**: Roteiro técnico completo, decisões arquiteturais consolidadas, topologia de microsserviços, governança e modelagem de domínios bancários.
+* 👉 **[Sugestões de Melhorias e Roadmap Evolutivo](./docs/SUGESTOES_DE_MELHORIAS.md)**: Propostas de engenharia, otimizações de concorrência e roadmap de produto.
 * 👉 **[Contratos de API (Swagger/OpenAPI)](./api-contracts/)**
 * 👉 **[Frontend Web Banking (Next.js 16 / App Router)](./web/)**: Interface de Web Banking completa e funcional em modo autônomo (mock reativo integrado), incluindo telas de Visão Geral de Saldo, Extrato Oficial, Transferência Segura entre Contas, Depósito e Saque, com linguagem 100% amigável ao cliente bancário e zero jargões de infraestrutura.
 * 👉 **[Suíte de Testes de Carga (Pure JS)](./load-tests/README.md)**: Ferramenta de teste de carga e estresse para o `account-service`, sem dependências externas pesadas (k6/JMeter), com geração de dados realistas brasileiros (CPF módulo 11, idade >= 18 anos) e métricas detalhadas de latência e throughput.

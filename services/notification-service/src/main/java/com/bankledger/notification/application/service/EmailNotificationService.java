@@ -1,11 +1,11 @@
 package com.bankledger.notification.application.service;
 
 import com.bankledger.commons.events.v1.account.AccountReadyPayload;
+import com.bankledger.notification.config.EmailNotificationProperties;
 import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.MailPreparationException;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
@@ -13,50 +13,23 @@ import org.springframework.stereotype.Service;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
 
-import java.io.IOException;
-import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.time.Year;
 import java.util.Objects;
 
 @Slf4j
 @Service
+@RequiredArgsConstructor
 public class EmailNotificationService {
 
     private final JavaMailSender mailSender;
-    private final boolean mailEnabled;
-    private final String fromAddress;
-    private final String loginUrl;
-    private final String emailTemplate;
-
-    @Autowired
-    public EmailNotificationService(
-            JavaMailSender mailSender,
-            @Value("${app.mail.enabled:false}") boolean mailEnabled,
-            @Value("${spring.mail.username:noreply@bankledger.com}") String fromAddress,
-            @Value("${app.mail.login-url:http://localhost:3000/login}") String loginUrl
-    ) {
-        this(mailSender, mailEnabled, fromAddress, loginUrl, "templates/account-ready-email.html");
-    }
-
-    EmailNotificationService(
-            JavaMailSender mailSender,
-            boolean mailEnabled,
-            String fromAddress,
-            String loginUrl,
-            String templatePath
-    ) {
-        this.mailSender = mailSender;
-        this.mailEnabled = mailEnabled;
-        this.fromAddress = (fromAddress != null && !fromAddress.isBlank()) ? fromAddress : "noreply@bankledger.com";
-        this.loginUrl = (loginUrl != null && !loginUrl.isBlank()) ? loginUrl : "http://localhost:3000/login";
-        this.emailTemplate = loadTemplate(templatePath);
-    }
+    private final EmailNotificationProperties properties;
+    private final EmailTemplateLoader templateLoader;
 
     public Mono<Void> sendAccountReadyEmail(AccountReadyPayload payload) {
         Objects.requireNonNull(payload, "payload must not be null");
 
-        if (!mailEnabled) {
+        if (!properties.isEnabled()) {
             log.info("Email sending is DISABLED (feature flag app.mail.enabled=false). Skipping SMTP for customer: {} (email: {})",
                     payload.customerId(), payload.email());
             return Mono.empty();
@@ -71,6 +44,7 @@ public class EmailNotificationService {
                         StandardCharsets.UTF_8.name()
                 );
 
+                String fromAddress = properties.getFrom();
                 helper.setFrom(fromAddress);
                 helper.setTo(payload.email());
                 helper.setSubject("Bem-vindo ao Nexus Bank! Sua conta está pronta para uso");
@@ -100,36 +74,21 @@ public class EmailNotificationService {
         String account = payload.accountNumber() != null ? payload.accountNumber() : "";
         return String.format(
                 "Olá %s,%n%nSua conta no Nexus Bank está pronta para uso!%nAgência: %s%nConta: %s%n%nAcesse sua conta em: %s%n%nObrigado por escolher o Nexus Bank.",
-                name, branch, account, loginUrl
+                name, branch, account, properties.getLoginUrl()
         );
     }
 
     String renderHtml(AccountReadyPayload payload) {
-        if (emailTemplate == null) {
+        String template = templateLoader.loadTemplate("templates/account-ready-email.html");
+        if (template == null) {
             return null;
         }
-        return emailTemplate
+        return template
                 .replace("{{fullName}}", escapeHtml(payload.fullName()))
                 .replace("{{branch}}", escapeHtml(payload.branch()))
                 .replace("{{accountNumber}}", escapeHtml(payload.accountNumber()))
-                .replace("{{loginUrl}}", escapeHtml(loginUrl))
+                .replace("{{loginUrl}}", escapeHtml(properties.getLoginUrl()))
                 .replace("{{currentYear}}", String.valueOf(Year.now().getValue()));
-    }
-
-    private String loadTemplate(String path) {
-        if (path == null) {
-            return null;
-        }
-        try (InputStream is = getClass().getClassLoader().getResourceAsStream(path)) {
-            if (is == null) {
-                log.warn("Email template not found on classpath: {}. Falling back to plain text.", path);
-                return null;
-            }
-            return new String(is.readAllBytes(), StandardCharsets.UTF_8);
-        } catch (IOException e) {
-            log.warn("Failed to load email template: {}. Falling back to plain text.", path, e);
-            return null;
-        }
     }
 
     private String escapeHtml(String text) {

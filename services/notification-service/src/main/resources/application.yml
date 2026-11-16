@@ -37,6 +37,7 @@ spring:
 app:
   mail:
     enabled: ${MAIL_ENABLED:false}
+    from: ${SPRING_MAIL_USERNAME:${SMTP_USERNAME:noreply@bankledger.com}}
     login-url: ${LOGIN_URL:http://localhost:3000/login}
   kafka:
     topics:

@@ -386,6 +386,15 @@ Qualquer IA, desenvolvedor ou agente autônomo que continuar o desenvolvimento d
 - **Tratamento de Erros:** Todos os erros de segurança (401 Unauthorized, 403 Forbidden, 429 Too Many Requests) retornam o padrão corporativo **RFC 7807 ProblemDetail**.
 - **Serviços Internos:** Endpoints internos de infraestrutura (ex: chamadas ao `ledger-service` ou consultas de resumo no `auth-service`) utilizam autenticação por chave de serviço via header `X-Internal-Service-Key`.
 
+### 5.5 Injeção de Dependências: Construtores com Lombok (@RequiredArgsConstructor) e Proibição Estrita de @Autowired
+- **Regra Obrigatória:** Em **todos os projetos e microsserviços do Bank Ledger**, a injeção de dependências em componentes gerenciados pelo Spring (`@Service`, `@Component`, `@Controller`, etc.) **DEVE** utilizar construtor gerado automaticamente pelo **Lombok** através da anotação `@RequiredArgsConstructor`.
+- **Proibição Estrita de `@Autowired`:** É expressamente **proibido** utilizar a anotação `@Autowired` em construtores ou sobre atributos (`field injection`). O Spring Framework injeta automaticamente as dependências quando existe um único construtor público na classe, tornando `@Autowired` redundante e propenso a falhas de ambiguidade de beans.
+- **Imutabilidade (`private final`):** Todas as dependências a serem injetadas devem ser declaradas como `private final`.
+- **Propriedades e Configurações (`@ConfigurationProperties`):**
+  - **Proibição de `@Value` solto em construtores:** Não utilize anotações `@Value` diretamente em parâmetros de construtores de serviços ou múltiplos construtores sobrecarregados.
+  - **Padrão Oficial:** Encapsule propriedades em classes de configuração dedicadas anotadas com `@ConfigurationProperties` e `@Component` (utilizando `@Getter` e `@Setter` do Lombok), por exemplo `EmailNotificationProperties` ou `OutboxPollerProperties`, injetando a classe de propriedades como `private final` no serviço via `@RequiredArgsConstructor`.
+- **Testabilidade:** Em testes unitários, instancie os serviços diretamente passando os mocks e a instância das propriedades no construtor gerado pelo Lombok, sem depender do runner de injeção de contexto quando não for teste de integração.
+
 ---
 
 ## 6. Tópicos do Kafka e Contratos de Mensageria

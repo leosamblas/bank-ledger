@@ -404,6 +404,23 @@ Qualquer IA, desenvolvedor ou agente autônomo que continuar o desenvolvimento d
   - **Ambiente de Teste e Execução:** Configurada nas tarefas `Test` e `JavaExec` no `build.gradle` multi-projeto.
   - **Contêineres Docker:** Incluída no `ENTRYPOINT` de todos os `Dockerfile` e via variável `JAVA_TOOL_OPTIONS` no `docker-compose.yml`.
 
+### 5.7 Padrão Unificado de Logs para Observabilidade no Grafana / Loki
+- **Objetivo:** Facilitar a busca e filtragem no Grafana (Loki) e exportação OpenTelemetry ao visualizar streams agregados de todos os microsserviços do Bank Ledger.
+- **Estrutura do Padrão (`CONSOLE_LOG_PATTERN` e `FILE_LOG_PATTERN`):**
+  ```xml
+  %clr(%d{yyyy-MM-dd'T'HH:mm:ss.SSSXXX}){faint} %clr(${LOG_LEVEL_PATTERN:-%5p}) %clr([${springAppName}]){yellow} %clr([%X{traceId:-},%X{spanId:-}]){cyan} %clr(${PID:- }){magenta} %clr(---){faint} %clr([%15.15t]){faint} %clr(%-40.40logger{39}){cyan} %clr(:){faint} %m%n${LOG_EXCEPTION_CONVERSION_WORD:-%wEx}
+  ```
+- **Campos Principais:**
+  1. **Data e Hora:** Formato ISO-8601 estendido com milissegundos e fuso (`yyyy-MM-dd'T'HH:mm:ss.SSSXXX`).
+  2. **Nível de Severidade:** `%5p` (`INFO`, `WARN`, `ERROR`, `DEBUG`).
+  3. **Nome do Serviço (`[<service-name>]`):** Extraído dinamicamente via `<springProperty scope="context" name="springAppName" source="spring.application.name" defaultValue="bank-ledger-service"/>` e destacado em amarelo (`yellow`). Permite filtros imediatos e sem ambiguidade no Grafana Explore (`{app=~".+"} |= "[notification-service]"` ou busca textual por `[auth-service]`).
+  4. **Correlação de Tracing Distribuído (`[<traceId>,<spanId>]`):** Extraído do MDC via Micrometer Tracing / OpenTelemetry e destacado em ciano (`cyan`). Permite correlacionar logs com traces do Grafana Tempo em um clique.
+  5. **Process ID (`PID`) e Thread:** `%clr(${PID:- }){magenta}` e `%clr([%15.15t]){faint}`.
+  6. **Logger e Mensagem:** `%clr(%-40.40logger{39}){cyan} : %m%n`.
+- **Centralização e Boas Práticas:**
+  - Configurado centralizadamente em `services/platform-commons/src/main/resources/logback-spring.xml` (carregado automaticamente por todos os serviços).
+  - **Proibição de sobrescrita local:** É proibido declarar `logging.pattern.level` nos arquivos `application.yml` locais de cada microsserviço, garantindo que o padrão visual permaneça idêntico e consistente em todo o ecossistema.
+
 ---
 
 ## 6. Tópicos do Kafka e Contratos de Mensageria

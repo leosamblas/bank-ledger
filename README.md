@@ -190,15 +190,15 @@ A stack de observabilidade é executada localmente via container All-in-One (`gr
 
 ### 🏷️ Padrão de Logs e Correlação de Traces
 
-Todos os microsserviços utilizam o starter oficial `org.springframework.boot:spring-boot-starter-opentelemetry` configurado com propagação de MDC (`service_name`, `trace_id`, `span_id`). O padrão de log configurado é:
+Todos os microsserviços utilizam o starter oficial `org.springframework.boot:spring-boot-starter-opentelemetry` e o `logback-spring.xml` unificado em `platform-commons`. O nome do serviço é configurado explicitamente no padrão de log para simplificar e agilizar buscas e filtros no Grafana Loki:
 
 ```text
-[service-name,traceId,spanId]
+[<service-name>] [<traceId>,<spanId>]
 ```
 
 Exemplo real capturado no console:
 ```text
-2026-11-14T20:30:15.123Z  INFO [transaction-service,67362a7b10f84a3b8e2d4f119a733d4e,01f84a3b8e2d4f11] 1 --- [transaction-service] [virtual-28] c.b.t.a.i.w.TransactionController : Received deposit request for account 01923456-789a-7b8c-9d0e-1f2a3b4c5d6e
+2026-11-16T19:30:15.123-03:00  INFO [transaction-service] [67362a7b10f84a3b8e2d4f119a733d4e,01f84a3b8e2d4f11] 1 --- [          main] c.b.t.a.i.w.TransactionController       : Received deposit request for account 01923456-789a-7b8c-9d0e-1f2a3b4c5d6e
 ```
 
 O contexto W3C Trace Context (`traceparent`) é propagado automaticamente nas chamadas síncronas HTTP (via RestClient/RestTemplate/WebClient). Para fluxos assíncronos desacoplados via Transactional Outbox e Kafka, a propagação contínua de trace entre fronteiras assíncronas requer a captura do `traceparent` no momento da criação do evento de Outbox e a habilitação de `spring.kafka.template.observation-enabled: true` e `spring.kafka.listener.observation-enabled: true`, planejada para evolução das sagas assíncronas.

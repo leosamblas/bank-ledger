@@ -21,7 +21,7 @@ public class EmailNotificationService {
 
     public EmailNotificationService(
             JavaMailSender mailSender,
-            @Value("${app.mail.enabled:true}") boolean mailEnabled,
+            @Value("${app.mail.enabled:false}") boolean mailEnabled,
             @Value("${spring.mail.username:noreply@bankledger.com}") String fromAddress
     ) {
         this.mailSender = mailSender;

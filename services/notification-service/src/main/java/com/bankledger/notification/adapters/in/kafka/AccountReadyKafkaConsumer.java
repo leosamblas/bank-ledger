@@ -25,7 +25,8 @@ public class AccountReadyKafkaConsumer {
 
     @KafkaListener(
             topics = "${app.kafka.topics.account-ready:" + KafkaTopics.ACCOUNT_READY_V1 + "}",
-            groupId = "${spring.kafka.consumer.group-id:notification-service-group}"
+            groupId = "${spring.kafka.consumer.group-id:notification-service-group}",
+            concurrency = "3"
     )
     public void onMessage(ConsumerRecord<String, String> record, Acknowledgment acknowledgment) {
         Objects.requireNonNull(record, "record must not be null");

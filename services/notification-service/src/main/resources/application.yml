@@ -37,6 +37,7 @@ spring:
 app:
   mail:
     enabled: ${MAIL_ENABLED:false}
+    login-url: ${LOGIN_URL:http://localhost:3000/login}
   kafka:
     topics:
       account-ready: ${ACCOUNT_READY_TOPIC:account.ready.v1}

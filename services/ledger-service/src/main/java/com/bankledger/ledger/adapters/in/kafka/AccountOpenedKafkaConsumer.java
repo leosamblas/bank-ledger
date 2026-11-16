@@ -38,7 +38,8 @@ public class AccountOpenedKafkaConsumer {
     @KafkaListener(
             topics = "${app.kafka.topics.account-events:" + KafkaTopics.ACCOUNT_EVENTS_V1 + "}",
             groupId = "${spring.kafka.consumer.group-id:ledger-service-account-opened}",
-            containerFactory = "kafkaListenerContainerFactory"
+            containerFactory = "kafkaListenerContainerFactory", 
+            concurrency = "3"
     )
     public void onMessage(ConsumerRecord<String, String> record, Acknowledgment acknowledgment) {
         Objects.requireNonNull(record, "record must not be null");

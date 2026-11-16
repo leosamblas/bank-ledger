@@ -49,6 +49,10 @@ bankledger:
       max-attempts: ${OUTBOX_POLLER_MAX_ATTEMPTS:5}
       publish-timeout-ms: ${OUTBOX_POLLER_PUBLISH_TIMEOUT_MS:2000}
 
+app:
+  security:
+    internal-service-key: ${INTERNAL_SERVICE_KEY:bankledger-internal-secret-ledger-key-2026}
+
 management:
   opentelemetry:
     tracing:

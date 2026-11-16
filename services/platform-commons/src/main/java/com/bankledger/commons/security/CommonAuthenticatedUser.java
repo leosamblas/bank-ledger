@@ -27,6 +27,30 @@ public record CommonAuthenticatedUser(
         this(customerId, accountId, null, role, branch, accountNumber);
     }
 
+    public UUID getAccountId() {
+        return accountId;
+    }
+
+    public UUID getCustomerId() {
+        return customerId;
+    }
+
+    public String getRole() {
+        return role;
+    }
+
+    public String getBranch() {
+        return branch;
+    }
+
+    public String getAccountNumber() {
+        return accountNumber;
+    }
+
+    public String getCpf() {
+        return cpf;
+    }
+
     @Override
     public String getName() {
         return customerId != null ? customerId.toString() : (cpf != null ? cpf : "");

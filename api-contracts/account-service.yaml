@@ -43,22 +43,6 @@ components:
         password:
           type: string
           format: password
-    LoginRequest:
-      type: object
-      required: [cpf, password]
-      properties:
-        cpf:
-          type: string
-        password:
-          type: string
-          format: password
-    TokenResponse:
-      type: object
-      properties:
-        token:
-          type: string
-        expiresIn:
-          type: integer
     AccountResponse:
       type: object
       properties:
@@ -134,28 +118,6 @@ paths:
                 $ref: '#/components/schemas/ProblemDetail'
         '422':
           description: Unprocessable Entity (e.g. Invalid CPF or Underage)
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetail'
-  /auth/login:
-    post:
-      summary: Autentica o usuário e retorna o JWT
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/LoginRequest'
-      responses:
-        '200':
-          description: Sucesso
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/TokenResponse'
-        '401':
-          description: Unauthorized
           content:
             application/problem+json:
               schema:

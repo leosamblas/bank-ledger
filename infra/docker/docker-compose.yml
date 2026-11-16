@@ -129,6 +129,36 @@ services:
     networks:
       - bank-ledger-network
 
+  auth-service:
+    build:
+      context: ../../
+      dockerfile: services/auth-service/Dockerfile
+    container_name: bank-ledger-auth-service
+    restart: unless-stopped
+    ports:
+      - "8086:8086"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/auth_db
+      SPRING_DATASOURCE_USERNAME: bank_ledger
+      SPRING_DATASOURCE_PASSWORD: bank_ledger_secret
+      SERVER_PORT: 8086
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-lgtm:4318
+    deploy:
+      resources:
+        limits:
+          memory: 1024M
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://127.0.0.1:8086/actuator/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    networks:
+      - bank-ledger-network
+
   account-service:
     build:
       context: ../../
@@ -144,6 +174,8 @@ services:
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
       SERVER_PORT: 8081
       OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-lgtm:4318
+      APP_SECURITY_JWKS_URL: http://auth-service:8086/.well-known/jwks.json
+      APP_AUTH_SERVICE_URL: http://auth-service:8086
     deploy:
       resources:
         limits:
@@ -152,6 +184,8 @@ services:
       postgres:
         condition: service_healthy
       kafka:
+        condition: service_healthy
+      auth-service:
         condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://127.0.0.1:8081/actuator/health || exit 1"]
@@ -168,8 +202,8 @@ services:
       dockerfile: services/ledger-service/Dockerfile
     container_name: bank-ledger-ledger-service
     restart: unless-stopped
-    ports:
-      - "8084:8084"
+    expose:
+      - "8084"
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/ledger_db
       SPRING_DATASOURCE_USERNAME: bank_ledger
@@ -177,6 +211,7 @@ services:
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
       SERVER_PORT: 8084
       OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-lgtm:4318
+      APP_SECURITY_INTERNAL_SERVICE_KEY: bankledger-internal-secret-ledger-key-2026
     deploy:
       resources:
         limits:
@@ -210,6 +245,7 @@ services:
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
       SERVER_PORT: 8082
       OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-lgtm:4318
+      APP_SECURITY_JWKS_URL: http://auth-service:8086/.well-known/jwks.json
     deploy:
       resources:
         limits:
@@ -220,6 +256,8 @@ services:
       kafka:
         condition: service_healthy
       ledger-service:
+        condition: service_healthy
+      auth-service:
         condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://127.0.0.1:8082/actuator/health || exit 1"]
@@ -245,6 +283,7 @@ services:
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
       SERVER_PORT: 8083
       OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-lgtm:4318
+      APP_SECURITY_JWKS_URL: http://auth-service:8086/.well-known/jwks.json
     deploy:
       resources:
         limits:
@@ -253,6 +292,8 @@ services:
       postgres:
         condition: service_healthy
       kafka:
+        condition: service_healthy
+      auth-service:
         condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://127.0.0.1:8083/actuator/health || exit 1"]
@@ -275,6 +316,15 @@ services:
       resources:
         limits:
           memory: 256M
+    depends_on:
+      auth-service:
+        condition: service_healthy
+      account-service:
+        condition: service_healthy
+      transaction-service:
+        condition: service_healthy
+      query-service:
+        condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://127.0.0.1:8080/health || exit 1"]
       interval: 5s

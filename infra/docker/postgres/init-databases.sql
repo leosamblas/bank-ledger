@@ -12,3 +12,6 @@ GRANT ALL PRIVILEGES ON DATABASE transaction_db TO bank_ledger;
 
 CREATE DATABASE query_db OWNER bank_ledger;
 GRANT ALL PRIVILEGES ON DATABASE query_db TO bank_ledger;
+
+CREATE DATABASE auth_db OWNER bank_ledger;
+GRANT ALL PRIVILEGES ON DATABASE auth_db TO bank_ledger;

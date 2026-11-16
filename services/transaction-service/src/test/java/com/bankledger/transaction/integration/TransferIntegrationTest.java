@@ -5,6 +5,7 @@ import com.bankledger.commons.constant.HttpHeaderConstants;
 import com.bankledger.commons.outbox.OutboxEventRepository;
 import com.bankledger.commons.security.JwksPublicKeyProvider;
 import com.bankledger.commons.security.RsaJwtSigner;
+import com.bankledger.commons.security.SecurityConstants;
 import com.bankledger.commons.security.TokenClaims;
 import com.bankledger.transaction.adapters.in.rest.dto.TransferRequest;
 import com.bankledger.transaction.adapters.out.persistence.repository.IdempotencySpringDataRepository;
@@ -106,7 +107,7 @@ class TransferIntegrationTest {
     }
 
     private String generateToken(UUID customerId, UUID accountId) {
-        TokenClaims claims = new TokenClaims(customerId, accountId, "0001", "123456", "ROLE_USER");
+        TokenClaims claims = new TokenClaims(customerId, accountId, "0001", "123456", SecurityConstants.ROLE_USER);
         return rsaJwtSigner.generateToken(claims);
     }
 

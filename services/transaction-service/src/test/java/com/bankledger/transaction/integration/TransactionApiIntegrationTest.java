@@ -5,6 +5,7 @@ import com.bankledger.commons.constant.HttpHeaderConstants;
 import com.bankledger.commons.outbox.OutboxEventRepository;
 import com.bankledger.commons.security.JwksPublicKeyProvider;
 import com.bankledger.commons.security.RsaJwtSigner;
+import com.bankledger.commons.security.SecurityConstants;
 import com.bankledger.commons.security.TokenClaims;
 import com.bankledger.transaction.adapters.in.rest.dto.DepositRequest;
 import com.bankledger.transaction.adapters.in.rest.dto.WithdrawalRequest;
@@ -14,7 +15,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.DynamicPropertyRegistry;
@@ -109,7 +109,7 @@ class TransactionApiIntegrationTest {
     }
 
     private String generateToken(UUID customerId, UUID accountId) {
-        TokenClaims claims = new TokenClaims(customerId, accountId, "0001", "123456", "ROLE_USER");
+        TokenClaims claims = new TokenClaims(customerId, accountId, "0001", "123456", SecurityConstants.ROLE_USER);
         return rsaJwtSigner.generateToken(claims);
     }
 

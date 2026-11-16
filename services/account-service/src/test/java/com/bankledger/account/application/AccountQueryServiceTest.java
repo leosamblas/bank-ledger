@@ -57,9 +57,6 @@ class AccountQueryServiceTest {
                 Email.of("carlos@example.com"),
                 Phone.of("+5511999998888"),
                 LocalDate.of(1990, 1, 1),
-                "$2a$12$passwordHash",
-                0,
-                null,
                 NOW,
                 NOW
         );

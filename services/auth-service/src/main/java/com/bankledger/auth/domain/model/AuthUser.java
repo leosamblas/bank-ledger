@@ -1,10 +1,14 @@
 package com.bankledger.auth.domain.model;
 
+import com.bankledger.commons.security.SecurityConstants;
+import lombok.Getter;
+
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Objects;
 import java.util.UUID;
 
+@Getter
 public class AuthUser {
 
     public static final int MAX_FAILED_ATTEMPTS = 5;
@@ -52,7 +56,7 @@ public class AuthUser {
         this.id = Objects.requireNonNull(id, "id must not be null");
         this.cpf = Objects.requireNonNull(cpf, "cpf must not be null");
         this.passwordHash = Objects.requireNonNull(passwordHash, "passwordHash must not be null");
-        this.role = (role != null && !role.isBlank()) ? role : "ROLE_USER";
+        this.role = (role != null && !role.isBlank()) ? role : SecurityConstants.ROLE_USER;
         this.customerId = Objects.requireNonNull(customerId, "customerId must not be null");
         this.accountId = accountId;
         this.branch = branch;
@@ -130,23 +134,4 @@ public class AuthUser {
         lockedUntil = null;
         updatedAt = now;
     }
-
-    public UUID getId() { return id; }
-    public String getCpf() { return cpf; }
-    public String getPasswordHash() { return passwordHash; }
-    public String getRole() { return role; }
-    public UUID getCustomerId() { return customerId; }
-    public UUID getAccountId() { return accountId; }
-    public String getBranch() { return branch; }
-    public String getAccountNumber() { return accountNumber; }
-    public int getFailedLoginAttempts() { return failedLoginAttempts; }
-    public Instant getLockedUntil() { return lockedUntil; }
-    public String getFullName() { return fullName; }
-    public String getEmail() { return email; }
-    public String getActiveToken() { return activeToken; }
-    public Instant getTokenExpiresAt() { return tokenExpiresAt; }
-    public String getRefreshToken() { return refreshToken; }
-    public Instant getRefreshTokenExpiresAt() { return refreshTokenExpiresAt; }
-    public Instant getCreatedAt() { return createdAt; }
-    public Instant getUpdatedAt() { return updatedAt; }
 }

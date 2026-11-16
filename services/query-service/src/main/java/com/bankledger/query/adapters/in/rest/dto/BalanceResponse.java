@@ -17,30 +17,6 @@ public record BalanceResponse(
         Instant updatedAt
 ) implements Serializable {
 
-    public BalanceResponse(
-            UUID accountId,
-            long availableCents,
-            long blockedCents,
-            long dailyLimitCents,
-            long usedTodayCents,
-            double monthlyVariationPercent,
-            long asOfSequence,
-            Instant updatedAt
-    ) {
-        this(
-                accountId,
-                availableCents,
-                availableCents,
-                blockedCents,
-                dailyLimitCents,
-                usedTodayCents,
-                monthlyVariationPercent,
-                "BRL",
-                asOfSequence,
-                updatedAt
-        );
-    }
-
     public static BalanceResponse of(
             UUID accountId,
             long balance,

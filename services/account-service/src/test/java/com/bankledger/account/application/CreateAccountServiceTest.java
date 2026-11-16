@@ -5,7 +5,6 @@ import com.bankledger.account.application.port.in.CreatedAccountResult;
 import com.bankledger.account.application.port.out.AccountRepositoryPort;
 import com.bankledger.account.application.port.out.CustomerRepositoryPort;
 import com.bankledger.account.application.port.out.OutboxPort;
-import com.bankledger.account.application.port.out.PasswordEncoderPort;
 import com.bankledger.account.application.service.CreateAccountService;
 import com.bankledger.account.domain.event.AccountOpenedEvent;
 import com.bankledger.account.domain.exception.CpfAlreadyExistsException;
@@ -17,6 +16,8 @@ import com.bankledger.account.domain.model.Customer;
 import com.bankledger.account.domain.vo.Cpf;
 import com.bankledger.account.domain.vo.Email;
 import com.bankledger.commons.outbox.OutboxEvent;
+import com.bankledger.commons.security.SecurityConstants;
+import com.sun.net.httpserver.HttpServer;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -24,26 +25,23 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.http.HttpMethod;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.MediaType;
-import org.springframework.test.web.client.MockRestServiceServer;
-import org.springframework.web.client.RestClient;
+import org.springframework.web.reactive.function.client.WebClient;
 import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.json.JsonMapper;
 
+import java.net.InetSocketAddress;
+import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
-import static org.springframework.test.web.client.match.MockRestRequestMatchers.*;
-import static org.springframework.test.web.client.response.MockRestResponseCreators.withServerError;
-import static org.springframework.test.web.client.response.MockRestResponseCreators.withStatus;
 
 @ExtendWith(MockitoExtension.class)
 class CreateAccountServiceTest {
@@ -53,9 +51,6 @@ class CreateAccountServiceTest {
 
     @Mock
     private AccountRepositoryPort accountRepository;
-
-    @Mock
-    private PasswordEncoderPort passwordEncoder;
 
     @Mock
     private OutboxPort outboxPort;
@@ -73,17 +68,16 @@ class CreateAccountServiceTest {
         createAccountService = new CreateAccountService(
                 customerRepository,
                 accountRepository,
-                passwordEncoder,
                 outboxPort,
                 objectMapper,
                 fixedClock,
                 "http://localhost:8086",
-                RestClient.builder()
+                WebClient.builder()
         );
     }
 
     @Test
-    @DisplayName("Should successfully create account, customer, and outbox event atomically")
+    @DisplayName("Should successfully create account, customer, and outbox event atomically without local password hashing")
     void shouldCreateAccountSuccessfullyWithAtomicOutboxEvent() throws Exception {
         CreateAccountCommand command = new CreateAccountCommand(
                 "Carlos Eduardo Silva",
@@ -96,7 +90,6 @@ class CreateAccountServiceTest {
 
         when(customerRepository.existsByCpf(Cpf.of("52998224725"))).thenReturn(false);
         when(customerRepository.existsByEmail(Email.of("carlos.silva@example.com"))).thenReturn(false);
-        when(passwordEncoder.encode("StrongPassword123!")).thenReturn("$2a$12$hashedpassword");
         when(accountRepository.nextAccountNumber()).thenReturn(100000L);
         when(customerRepository.save(any(Customer.class))).thenAnswer(invocation -> invocation.getArgument(0));
         when(accountRepository.save(any(Account.class))).thenAnswer(invocation -> invocation.getArgument(0));
@@ -116,7 +109,7 @@ class CreateAccountServiceTest {
         assertThat(savedCustomer.getFullName()).isEqualTo("Carlos Eduardo Silva");
         assertThat(savedCustomer.getCpf().value()).isEqualTo("52998224725");
         assertThat(savedCustomer.getEmail().value()).isEqualTo("carlos.silva@example.com");
-        assertThat(savedCustomer.getPasswordHash()).isEqualTo("$2a$12$hashedpassword");
+        assertThat(savedCustomer.getPasswordHash()).isEqualTo(Customer.DELEGATED_PASSWORD_HASH);
 
         ArgumentCaptor<Account> accountCaptor = ArgumentCaptor.forClass(Account.class);
         verify(accountRepository).save(accountCaptor.capture());
@@ -148,100 +141,108 @@ class CreateAccountServiceTest {
     }
 
     @Test
-    @DisplayName("Should successfully delegate credentials to auth-service internal API")
-    void shouldDelegateCredentialsToAuthServiceSuccessfully() {
-        RestClient.Builder builder = RestClient.builder();
-        MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+    @DisplayName("Should successfully delegate credentials to auth-service internal API using WebClient")
+    void shouldDelegateCredentialsToAuthServiceSuccessfully() throws Exception {
+        HttpServer server = HttpServer.create(new InetSocketAddress(0), 0);
+        AtomicReference<String> requestBody = new AtomicReference<>();
+        server.createContext(SecurityConstants.INTERNAL_AUTH_CREDENTIALS_PATH, exchange -> {
+            requestBody.set(new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8));
+            exchange.sendResponseHeaders(201, -1);
+        });
+        server.start();
 
-        CreateAccountService serviceWithMockServer = new CreateAccountService(
-                customerRepository,
-                accountRepository,
-                passwordEncoder,
-                outboxPort,
-                objectMapper,
-                fixedClock,
-                "http://localhost:8086",
-                builder
-        );
+        try {
+            int port = server.getAddress().getPort();
+            CreateAccountService serviceWithMockServer = new CreateAccountService(
+                    customerRepository,
+                    accountRepository,
+                    outboxPort,
+                    objectMapper,
+                    fixedClock,
+                    "http://localhost:" + port,
+                    WebClient.builder()
+            );
 
-        CreateAccountCommand command = new CreateAccountCommand(
-                "Carlos Eduardo Silva",
-                "52998224725",
-                LocalDate.of(1990, 1, 1),
-                "carlos.silva@example.com",
-                "+5511999998888",
-                "StrongPassword123!"
-        );
+            CreateAccountCommand command = new CreateAccountCommand(
+                    "Carlos Eduardo Silva",
+                    "52998224725",
+                    LocalDate.of(1990, 1, 1),
+                    "carlos.silva@example.com",
+                    "+5511999998888",
+                    "StrongPassword123!"
+            );
 
-        when(customerRepository.existsByCpf(Cpf.of("52998224725"))).thenReturn(false);
-        when(customerRepository.existsByEmail(Email.of("carlos.silva@example.com"))).thenReturn(false);
-        when(passwordEncoder.encode("StrongPassword123!")).thenReturn("$2a$12$hashedpassword");
-        when(accountRepository.nextAccountNumber()).thenReturn(100000L);
-        when(customerRepository.save(any(Customer.class))).thenAnswer(invocation -> invocation.getArgument(0));
-        when(accountRepository.save(any(Account.class))).thenAnswer(invocation -> invocation.getArgument(0));
+            when(customerRepository.existsByCpf(Cpf.of("52998224725"))).thenReturn(false);
+            when(customerRepository.existsByEmail(Email.of("carlos.silva@example.com"))).thenReturn(false);
+            when(accountRepository.nextAccountNumber()).thenReturn(100000L);
+            when(customerRepository.save(any(Customer.class))).thenAnswer(invocation -> invocation.getArgument(0));
+            when(accountRepository.save(any(Account.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        server.expect(requestTo("http://localhost:8086/internal/v1/auth/credentials"))
-                .andExpect(method(HttpMethod.POST))
-                .andExpect(content().contentType(MediaType.APPLICATION_JSON))
-                .andExpect(jsonPath("$.cpf").value("52998224725"))
-                .andExpect(jsonPath("$.password").value("StrongPassword123!"))
-                .andExpect(jsonPath("$.fullName").value("Carlos Eduardo Silva"))
-                .andExpect(jsonPath("$.email").value("carlos.silva@example.com"))
-                .andExpect(jsonPath("$.branch").value("0001"))
-                .andExpect(jsonPath("$.accountNumber").value("100000"))
-                .andRespond(withStatus(HttpStatus.CREATED));
+            CreatedAccountResult result = serviceWithMockServer.createAccount(command);
 
-        CreatedAccountResult result = serviceWithMockServer.createAccount(command);
-
-        assertThat(result).isNotNull();
-        server.verify();
+            assertThat(result).isNotNull();
+            assertThat(requestBody.get()).isNotNull();
+            assertThat(requestBody.get()).contains("\"cpf\":\"52998224725\"");
+            assertThat(requestBody.get()).contains("\"password\":\"StrongPassword123!\"");
+            assertThat(requestBody.get()).contains("\"fullName\":\"Carlos Eduardo Silva\"");
+            assertThat(requestBody.get()).contains("\"email\":\"carlos.silva@example.com\"");
+            assertThat(requestBody.get()).contains("\"branch\":\"0001\"");
+            assertThat(requestBody.get()).contains("\"accountNumber\":\"100000\"");
+        } finally {
+            server.stop(0);
+        }
     }
 
     @Test
-    @DisplayName("Should proceed with local fallback when auth-service returns error")
-    void shouldFallbackGracefullyWhenAuthServiceFails() {
-        RestClient.Builder builder = RestClient.builder();
-        MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+    @DisplayName("Should proceed with local fallback and retry when auth-service returns 500 error")
+    void shouldFallbackGracefullyWhenAuthServiceFails() throws Exception {
+        HttpServer server = HttpServer.create(new InetSocketAddress(0), 0);
+        AtomicInteger requestCount = new AtomicInteger(0);
+        server.createContext(SecurityConstants.INTERNAL_AUTH_CREDENTIALS_PATH, exchange -> {
+            requestCount.incrementAndGet();
+            exchange.sendResponseHeaders(500, -1);
+        });
+        server.start();
 
-        CreateAccountService serviceWithMockServer = new CreateAccountService(
-                customerRepository,
-                accountRepository,
-                passwordEncoder,
-                outboxPort,
-                objectMapper,
-                fixedClock,
-                "http://localhost:8086",
-                builder
-        );
+        try {
+            int port = server.getAddress().getPort();
+            CreateAccountService serviceWithMockServer = new CreateAccountService(
+                    customerRepository,
+                    accountRepository,
+                    outboxPort,
+                    objectMapper,
+                    fixedClock,
+                    "http://localhost:" + port,
+                    WebClient.builder()
+            );
 
-        CreateAccountCommand command = new CreateAccountCommand(
-                "Carlos Eduardo Silva",
-                "52998224725",
-                LocalDate.of(1990, 1, 1),
-                "carlos.silva@example.com",
-                "+5511999998888",
-                "StrongPassword123!"
-        );
+            CreateAccountCommand command = new CreateAccountCommand(
+                    "Carlos Eduardo Silva",
+                    "52998224725",
+                    LocalDate.of(1990, 1, 1),
+                    "carlos.silva@example.com",
+                    "+5511999998888",
+                    "StrongPassword123!"
+            );
 
-        when(customerRepository.existsByCpf(Cpf.of("52998224725"))).thenReturn(false);
-        when(customerRepository.existsByEmail(Email.of("carlos.silva@example.com"))).thenReturn(false);
-        when(passwordEncoder.encode("StrongPassword123!")).thenReturn("$2a$12$hashedpassword");
-        when(accountRepository.nextAccountNumber()).thenReturn(100000L);
-        when(customerRepository.save(any(Customer.class))).thenAnswer(invocation -> invocation.getArgument(0));
-        when(accountRepository.save(any(Account.class))).thenAnswer(invocation -> invocation.getArgument(0));
+            when(customerRepository.existsByCpf(Cpf.of("52998224725"))).thenReturn(false);
+            when(customerRepository.existsByEmail(Email.of("carlos.silva@example.com"))).thenReturn(false);
+            when(accountRepository.nextAccountNumber()).thenReturn(100000L);
+            when(customerRepository.save(any(Customer.class))).thenAnswer(invocation -> invocation.getArgument(0));
+            when(accountRepository.save(any(Account.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        server.expect(requestTo("http://localhost:8086/internal/v1/auth/credentials"))
-                .andExpect(method(HttpMethod.POST))
-                .andRespond(withServerError());
+            CreatedAccountResult result = serviceWithMockServer.createAccount(command);
 
-        CreatedAccountResult result = serviceWithMockServer.createAccount(command);
-
-        assertThat(result).isNotNull();
-        assertThat(result.status()).isEqualTo(AccountStatus.ACTIVE);
-        verify(customerRepository).save(any(Customer.class));
-        verify(accountRepository).save(any(Account.class));
-        verify(outboxPort).save(any(OutboxEvent.class));
-        server.verify();
+            assertThat(result).isNotNull();
+            assertThat(result.status()).isEqualTo(AccountStatus.ACTIVE);
+            verify(customerRepository).save(any(Customer.class));
+            verify(accountRepository).save(any(Account.class));
+            verify(outboxPort).save(any(OutboxEvent.class));
+            // 1 initial request + 3 retries = 4 requests
+            assertThat(requestCount.get()).isEqualTo(1 + SecurityConstants.DEFAULT_RETRY_ATTEMPTS);
+        } finally {
+            server.stop(0);
+        }
     }
 
     @Test
@@ -305,7 +306,6 @@ class CreateAccountServiceTest {
 
         when(customerRepository.existsByCpf(Cpf.of("52998224725"))).thenReturn(false);
         when(customerRepository.existsByEmail(Email.of("minor@example.com"))).thenReturn(false);
-        when(passwordEncoder.encode(any())).thenReturn("hashed");
 
         assertThatThrownBy(() -> createAccountService.createAccount(command))
                 .isInstanceOf(CustomerUnderageException.class);

@@ -33,6 +33,7 @@ import java.time.Clock;
 public class SecurityConfig {
 
     @Bean
+    @ConditionalOnMissingBean
     public JwksPublicKeyProvider jwksPublicKeyProvider(
             @Value("${app.security.jwks-url:http://localhost:8086/.well-known/jwks.json}") String jwksUrl,
             ObjectMapper objectMapper
@@ -41,6 +42,7 @@ public class SecurityConfig {
     }
 
     @Bean
+    @ConditionalOnMissingBean
     public RsaJwtValidator rsaJwtValidator(
             JwksPublicKeyProvider jwksPublicKeyProvider,
             ObjectMapper objectMapper,
@@ -50,6 +52,7 @@ public class SecurityConfig {
     }
 
     @Bean
+    @ConditionalOnMissingBean
     public JwtAuthenticationTokenFilter jwtAuthenticationTokenFilter(RsaJwtValidator rsaJwtValidator) {
         return new JwtAuthenticationTokenFilter(rsaJwtValidator);
     }
@@ -66,6 +69,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.GET, "/actuator/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/swagger-ui/**", "/swagger-ui.html", "/v3/api-docs/**").permitAll()
+                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .anyRequest().authenticated()
                 )
                 .exceptionHandling(exceptions -> exceptions

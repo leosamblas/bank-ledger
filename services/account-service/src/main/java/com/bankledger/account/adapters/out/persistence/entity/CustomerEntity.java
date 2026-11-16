@@ -35,6 +35,8 @@ import java.util.UUID;
 @ToString(exclude = "passwordHash")
 public class CustomerEntity {
 
+    public static final String DELEGATED_PASSWORD_HASH = "[DELEGATED_TO_AUTH_SERVICE]";
+
     @Id
     @EqualsAndHashCode.Include
     @Column(name = "id", nullable = false)
@@ -83,7 +85,7 @@ public class CustomerEntity {
                 Email.of(email),
                 Phone.of(phone),
                 birthDate,
-                passwordHash,
+                passwordHash != null && !passwordHash.isBlank() ? passwordHash : DELEGATED_PASSWORD_HASH,
                 createdAt,
                 updatedAt
         );
@@ -93,6 +95,10 @@ public class CustomerEntity {
         if (domain == null) {
             return null;
         }
+        String effectivePasswordHash = (domain.passwordHash() != null && !domain.passwordHash().isBlank())
+                ? domain.passwordHash()
+                : DELEGATED_PASSWORD_HASH;
+
         return CustomerEntity.builder()
                 .id(domain.id())
                 .fullName(domain.fullName())
@@ -100,7 +106,7 @@ public class CustomerEntity {
                 .email(domain.email().value())
                 .phone(domain.phone().value())
                 .birthDate(domain.birthDate())
-                .passwordHash(domain.passwordHash())
+                .passwordHash(effectivePasswordHash)
                 .failedLoginAttempts(0)
                 .lockedUntil(null)
                 .createdAt(domain.createdAt())

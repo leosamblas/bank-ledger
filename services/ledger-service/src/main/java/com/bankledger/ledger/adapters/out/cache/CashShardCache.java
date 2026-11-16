@@ -1,6 +1,7 @@
 package com.bankledger.ledger.adapters.out.cache;
 
 import com.bankledger.ledger.application.port.out.CashShardPort;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
@@ -18,15 +19,12 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 @Slf4j
 @Component
+@RequiredArgsConstructor
 public class CashShardCache implements CashShardPort {
 
     private final JdbcTemplate jdbcTemplate;
     private final Map<String, UUID> shardsByCode = new ConcurrentHashMap<>();
     private final Map<Integer, UUID> shardsByIndex = new ConcurrentHashMap<>();
-
-    public CashShardCache(JdbcTemplate jdbcTemplate) {
-        this.jdbcTemplate = jdbcTemplate;
-    }
 
     /**
      * Loads all system cash shards from the database into the in-memory cache.

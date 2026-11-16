@@ -12,8 +12,6 @@ public interface StatementEntryRepository extends JpaRepository<StatementEntryEn
 
     List<StatementEntryEntity> findByAccountIdOrderBySequenceDesc(UUID accountId);
 
-    List<StatementEntryEntity> findByAccountIdOrderByPostedAtDescSequenceDesc(UUID accountId);
-
     List<StatementEntryEntity> findByAccountIdAndPostedAtBetweenOrderBySequenceDesc(
             UUID accountId,
             Instant from,

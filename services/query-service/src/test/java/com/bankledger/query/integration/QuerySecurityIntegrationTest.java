@@ -3,6 +3,7 @@ package com.bankledger.query.integration;
 import com.bankledger.commons.constant.HttpHeaderConstants;
 import com.bankledger.commons.security.JwksPublicKeyProvider;
 import com.bankledger.commons.security.RsaJwtSigner;
+import com.bankledger.commons.security.SecurityConstants;
 import com.bankledger.commons.security.TokenClaims;
 import com.bankledger.query.adapters.out.persistence.AccountBalanceEntity;
 import com.bankledger.query.adapters.out.persistence.AccountBalanceRepository;
@@ -122,10 +123,10 @@ class QuerySecurityIntegrationTest {
             UUID accountB = UUID.randomUUID();
             UUID customerA = UUID.randomUUID();
 
-            String tokenA = createToken(customerA, accountA, "ROLE_USER");
+            String tokenA = createToken(customerA, accountA, SecurityConstants.ROLE_USER);
 
             mockMvc.perform(get("/api/v1/queries/accounts/{accountId}/balance", accountB)
-                            .header(HttpHeaderConstants.AUTHORIZATION, "Bearer " + tokenA)
+                            .header(HttpHeaderConstants.AUTHORIZATION, HttpHeaderConstants.BEARER_PREFIX + tokenA)
                             .accept(MediaType.APPLICATION_JSON, MediaType.APPLICATION_PROBLEM_JSON))
                     .andExpect(status().isForbidden())
                     .andExpect(header().string("Content-Type", equalTo(MediaType.APPLICATION_PROBLEM_JSON_VALUE)))
@@ -141,10 +142,10 @@ class QuerySecurityIntegrationTest {
             UUID accountB = UUID.randomUUID();
             UUID customerA = UUID.randomUUID();
 
-            String tokenA = createToken(customerA, accountA, "ROLE_USER");
+            String tokenA = createToken(customerA, accountA, SecurityConstants.ROLE_USER);
 
             mockMvc.perform(get("/api/v1/queries/accounts/{accountId}/statement", accountB)
-                            .header(HttpHeaderConstants.AUTHORIZATION, "Bearer " + tokenA)
+                            .header(HttpHeaderConstants.AUTHORIZATION, HttpHeaderConstants.BEARER_PREFIX + tokenA)
                             .accept(MediaType.APPLICATION_JSON, MediaType.APPLICATION_PROBLEM_JSON))
                     .andExpect(status().isForbidden())
                     .andExpect(header().string("Content-Type", equalTo(MediaType.APPLICATION_PROBLEM_JSON_VALUE)))
@@ -159,10 +160,10 @@ class QuerySecurityIntegrationTest {
             UUID accountA = UUID.randomUUID();
             UUID customerA = UUID.randomUUID();
 
-            String tokenA = createToken(customerA, accountA, "ROLE_USER");
+            String tokenA = createToken(customerA, accountA, SecurityConstants.ROLE_USER);
 
             mockMvc.perform(get("/api/v1/queries/accounts/{accountId}/balance", accountA)
-                            .header(HttpHeaderConstants.AUTHORIZATION, "Bearer " + tokenA)
+                            .header(HttpHeaderConstants.AUTHORIZATION, HttpHeaderConstants.BEARER_PREFIX + tokenA)
                             .accept(MediaType.APPLICATION_JSON))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.accountId").value(accountA.toString()))
@@ -175,10 +176,10 @@ class QuerySecurityIntegrationTest {
             UUID accountA = UUID.randomUUID();
             UUID customerA = UUID.randomUUID();
 
-            String tokenA = createToken(customerA, accountA, "ROLE_USER");
+            String tokenA = createToken(customerA, accountA, SecurityConstants.ROLE_USER);
 
             mockMvc.perform(get("/api/v1/queries/accounts/{accountId}/statement", accountA)
-                            .header(HttpHeaderConstants.AUTHORIZATION, "Bearer " + tokenA)
+                            .header(HttpHeaderConstants.AUTHORIZATION, HttpHeaderConstants.BEARER_PREFIX + tokenA)
                             .accept(MediaType.APPLICATION_JSON))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.items").isArray());
@@ -191,10 +192,10 @@ class QuerySecurityIntegrationTest {
             UUID adminCustomerId = UUID.randomUUID();
             UUID targetAccountId = UUID.randomUUID();
 
-            String adminToken = createToken(adminCustomerId, adminAccountId, "ROLE_ADMIN");
+            String adminToken = createToken(adminCustomerId, adminAccountId, SecurityConstants.ROLE_ADMIN);
 
             mockMvc.perform(get("/api/v1/queries/accounts/{accountId}/balance", targetAccountId)
-                            .header(HttpHeaderConstants.AUTHORIZATION, "Bearer " + adminToken)
+                            .header(HttpHeaderConstants.AUTHORIZATION, HttpHeaderConstants.BEARER_PREFIX + adminToken)
                             .accept(MediaType.APPLICATION_JSON))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.accountId").value(targetAccountId.toString()));
@@ -207,10 +208,10 @@ class QuerySecurityIntegrationTest {
             UUID adminCustomerId = UUID.randomUUID();
             UUID targetAccountId = UUID.randomUUID();
 
-            String adminToken = createToken(adminCustomerId, adminAccountId, "ROLE_ADMIN");
+            String adminToken = createToken(adminCustomerId, adminAccountId, SecurityConstants.ROLE_ADMIN);
 
             mockMvc.perform(get("/api/v1/queries/accounts/{accountId}/statement", targetAccountId)
-                            .header(HttpHeaderConstants.AUTHORIZATION, "Bearer " + adminToken)
+                            .header(HttpHeaderConstants.AUTHORIZATION, HttpHeaderConstants.BEARER_PREFIX + adminToken)
                             .accept(MediaType.APPLICATION_JSON))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.items").isArray());
@@ -249,13 +250,13 @@ class QuerySecurityIntegrationTest {
 
             // Create token with null accountId
             String tokenWithoutAccount = rsaJwtSigner.generateToken(Map.of(
-                    "sub", customerId.toString(),
-                    "customerId", customerId.toString(),
-                    "role", "ROLE_USER"
+                    SecurityConstants.CLAIM_SUB, customerId.toString(),
+                    SecurityConstants.CLAIM_CUSTOMER_ID, customerId.toString(),
+                    SecurityConstants.CLAIM_ROLE, SecurityConstants.ROLE_USER
             ), Duration.ofHours(1));
 
             mockMvc.perform(get("/api/v1/queries/accounts/{accountId}/balance", targetAccountId)
-                            .header(HttpHeaderConstants.AUTHORIZATION, "Bearer " + tokenWithoutAccount)
+                            .header(HttpHeaderConstants.AUTHORIZATION, HttpHeaderConstants.BEARER_PREFIX + tokenWithoutAccount)
                             .accept(MediaType.APPLICATION_JSON, MediaType.APPLICATION_PROBLEM_JSON))
                     .andExpect(status().isUnauthorized());
         }

@@ -9,10 +9,6 @@ public record LoginResult(
         String refreshToken,
         UserInfo user
 ) {
-    public LoginResult(String token, Long expiresIn, String tokenType, UserInfo user) {
-        this(token, expiresIn, tokenType, null, user);
-    }
-
     public record UserInfo(
             UUID id,
             String fullName,

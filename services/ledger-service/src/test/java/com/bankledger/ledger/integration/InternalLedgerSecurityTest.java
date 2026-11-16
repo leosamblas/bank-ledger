@@ -1,6 +1,6 @@
 package com.bankledger.ledger.integration;
 
-import com.bankledger.ledger.config.SecurityConfig;
+import com.bankledger.commons.security.SecurityConstants;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -22,6 +22,7 @@ import java.util.UUID;
 
 import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -75,27 +76,37 @@ class InternalLedgerSecurityTest {
     }
 
     @Test
-    @DisplayName("GET /internal/v1/ledger/trial-balance without header returns 401 Unauthorized")
+    @DisplayName("GET /internal/v1/ledger/trial-balance without header returns 401 with RFC 7807 ProblemDetail")
     void shouldReturn401WhenRequestingTrialBalanceWithoutHeader() throws Exception {
         mockMvc.perform(get("/internal/v1/ledger/trial-balance")
                         .contentType(MediaType.APPLICATION_JSON))
-                .andExpect(status().isUnauthorized());
+                .andExpect(status().isUnauthorized())
+                .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON_VALUE))
+                .andExpect(jsonPath("$.status").value(401))
+                .andExpect(jsonPath("$.title").value("Unauthorized"))
+                .andExpect(jsonPath("$.detail").value("Unauthorized: missing or invalid internal service key"))
+                .andExpect(jsonPath("$.instance").value("/internal/v1/ledger/trial-balance"));
     }
 
     @Test
-    @DisplayName("GET /internal/v1/ledger/trial-balance with invalid header returns 401 Unauthorized")
+    @DisplayName("GET /internal/v1/ledger/trial-balance with invalid header returns 401 with RFC 7807 ProblemDetail")
     void shouldReturn401WhenRequestingTrialBalanceWithInvalidHeader() throws Exception {
         mockMvc.perform(get("/internal/v1/ledger/trial-balance")
-                        .header(SecurityConfig.INTERNAL_SERVICE_KEY_HEADER, INVALID_SERVICE_KEY)
+                        .header(SecurityConstants.INTERNAL_SERVICE_KEY_HEADER, INVALID_SERVICE_KEY)
                         .contentType(MediaType.APPLICATION_JSON))
-                .andExpect(status().isUnauthorized());
+                .andExpect(status().isUnauthorized())
+                .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON_VALUE))
+                .andExpect(jsonPath("$.status").value(401))
+                .andExpect(jsonPath("$.title").value("Unauthorized"))
+                .andExpect(jsonPath("$.detail").value("Unauthorized: missing or invalid internal service key"))
+                .andExpect(jsonPath("$.instance").value("/internal/v1/ledger/trial-balance"));
     }
 
     @Test
     @DisplayName("GET /internal/v1/ledger/trial-balance with valid X-Internal-Service-Key returns 200 OK")
     void shouldReturn200WhenRequestingTrialBalanceWithValidHeader() throws Exception {
         mockMvc.perform(get("/internal/v1/ledger/trial-balance")
-                        .header(SecurityConfig.INTERNAL_SERVICE_KEY_HEADER, VALID_SERVICE_KEY)
+                        .header(SecurityConstants.INTERNAL_SERVICE_KEY_HEADER, VALID_SERVICE_KEY)
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.debits").isNumber())
@@ -111,10 +122,56 @@ class InternalLedgerSecurityTest {
     }
 
     @Test
-    @DisplayName("GET /internal/v1/ledger/accounts/{id}/balance without header returns 401 Unauthorized")
+    @DisplayName("GET /internal/v1/ledger/accounts/{id}/balance without header returns 401 with RFC 7807 ProblemDetail")
     void shouldReturn401WhenRequestingAccountBalanceWithoutHeader() throws Exception {
         UUID accountId = UUID.randomUUID();
         mockMvc.perform(get("/internal/v1/ledger/accounts/{id}/balance", accountId))
-                .andExpect(status().isUnauthorized());
+                .andExpect(status().isUnauthorized())
+                .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON_VALUE))
+                .andExpect(jsonPath("$.status").value(401))
+                .andExpect(jsonPath("$.title").value("Unauthorized"))
+                .andExpect(jsonPath("$.detail").value("Unauthorized: missing or invalid internal service key"))
+                .andExpect(jsonPath("$.instance").value("/internal/v1/ledger/accounts/" + accountId + "/balance"));
+    }
+
+    @Test
+    @DisplayName("GET /internal/v1/ledger/journals/by-transaction/{id} without header returns 401 with RFC 7807 ProblemDetail")
+    void shouldReturn401WhenRequestingJournalWithoutHeader() throws Exception {
+        UUID txId = UUID.randomUUID();
+        mockMvc.perform(get("/internal/v1/ledger/journals/by-transaction/{transactionId}", txId))
+                .andExpect(status().isUnauthorized())
+                .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON_VALUE))
+                .andExpect(jsonPath("$.status").value(401))
+                .andExpect(jsonPath("$.title").value("Unauthorized"))
+                .andExpect(jsonPath("$.detail").value("Unauthorized: missing or invalid internal service key"))
+                .andExpect(jsonPath("$.instance").value("/internal/v1/ledger/journals/by-transaction/" + txId));
+    }
+
+    @Test
+    @DisplayName("Non-existent/public endpoint without header returns 401 - confirms no public user endpoints")
+    void shouldReturn401ForUnauthenticatedNonExistentEndpoints() throws Exception {
+        mockMvc.perform(get("/api/v1/public/ledger-data"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON_VALUE))
+                .andExpect(jsonPath("$.status").value(401))
+                .andExpect(jsonPath("$.title").value("Unauthorized"));
+    }
+
+    @Test
+    @DisplayName("GET /internal/v1/ledger/accounts/{id}/balance with valid header authenticates and returns 404 when not found")
+    void shouldAuthenticateAccountBalanceWithValidHeader() throws Exception {
+        UUID accountId = UUID.randomUUID();
+        mockMvc.perform(get("/internal/v1/ledger/accounts/{id}/balance", accountId)
+                        .header(SecurityConstants.INTERNAL_SERVICE_KEY_HEADER, VALID_SERVICE_KEY))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    @DisplayName("GET /internal/v1/ledger/journals/by-transaction/{id} with valid header authenticates and returns 404 when not found")
+    void shouldAuthenticateJournalWithValidHeader() throws Exception {
+        UUID txId = UUID.randomUUID();
+        mockMvc.perform(get("/internal/v1/ledger/journals/by-transaction/{transactionId}", txId)
+                        .header(SecurityConstants.INTERNAL_SERVICE_KEY_HEADER, VALID_SERVICE_KEY))
+                .andExpect(status().isNotFound());
     }
 }

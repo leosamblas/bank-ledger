@@ -5,6 +5,7 @@ import com.bankledger.commons.constant.KafkaTopics;
 import com.bankledger.commons.events.v1.account.AccountOpenedPayload;
 import com.bankledger.commons.security.JwksPublicKeyProvider;
 import com.bankledger.commons.security.RsaJwtSigner;
+import com.bankledger.commons.security.SecurityConstants;
 import com.bankledger.commons.security.TokenClaims;
 import com.bankledger.query.adapters.out.persistence.AccountBalanceEntity;
 import com.bankledger.query.adapters.out.persistence.AccountBalanceRepository;
@@ -114,7 +115,7 @@ class QueryServiceIntegrationTest {
     }
 
     private String createToken(UUID customerId, UUID accountId) {
-        TokenClaims claims = new TokenClaims(customerId, accountId, "12345678900", "ROLE_USER", "0001", "12345678");
+        TokenClaims claims = new TokenClaims(customerId, accountId, "12345678900", SecurityConstants.ROLE_USER, "0001", "12345678");
         return rsaJwtSigner.generateToken(claims, Duration.ofHours(1));
     }
 
@@ -126,7 +127,7 @@ class QueryServiceIntegrationTest {
         String token = createToken(customerId, newAccountId);
 
         mockMvc.perform(get("/api/v1/queries/accounts/{id}/balance", newAccountId)
-                        .header(HttpHeaderConstants.AUTHORIZATION, "Bearer " + token)
+                        .header(HttpHeaderConstants.AUTHORIZATION, HttpHeaderConstants.BEARER_PREFIX + token)
                         .accept(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.accountId").value(newAccountId.toString()))
@@ -180,7 +181,7 @@ class QueryServiceIntegrationTest {
         // Consulta via REST endpoint com token válido do proprietário
         String token = createToken(customerId, accountId);
         mockMvc.perform(get("/api/v1/queries/accounts/{id}/balance", accountId)
-                        .header(HttpHeaderConstants.AUTHORIZATION, "Bearer " + token))
+                        .header(HttpHeaderConstants.AUTHORIZATION, HttpHeaderConstants.BEARER_PREFIX + token))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.accountId").value(accountId.toString()))
                 .andExpect(jsonPath("$.availableCents").value(0))
@@ -265,7 +266,7 @@ class QueryServiceIntegrationTest {
         // 4. Valida endpoint REST de saldo com token válido
         String token = createToken(customerId, accountId);
         mockMvc.perform(get("/api/v1/queries/accounts/{id}/balance", accountId)
-                        .header(HttpHeaderConstants.AUTHORIZATION, "Bearer " + token))
+                        .header(HttpHeaderConstants.AUTHORIZATION, HttpHeaderConstants.BEARER_PREFIX + token))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.accountId").value(accountId.toString()))
                 .andExpect(jsonPath("$.availableCents").value(10000))
@@ -274,7 +275,7 @@ class QueryServiceIntegrationTest {
 
         // 5. Valida endpoint REST de extrato com token válido
         mockMvc.perform(get("/api/v1/queries/accounts/{id}/statement", accountId)
-                        .header(HttpHeaderConstants.AUTHORIZATION, "Bearer " + token))
+                        .header(HttpHeaderConstants.AUTHORIZATION, HttpHeaderConstants.BEARER_PREFIX + token))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.items").isArray())
                 .andExpect(jsonPath("$.items.length()").value(1))

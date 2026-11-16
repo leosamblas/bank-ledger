@@ -4,6 +4,7 @@ import com.bankledger.auth.domain.exception.CredentialsAlreadyExistsException;
 import com.bankledger.auth.domain.exception.CustomerLockedException;
 import com.bankledger.auth.domain.exception.DomainException;
 import com.bankledger.auth.domain.exception.InvalidCredentialsException;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ProblemDetail;
@@ -16,6 +17,7 @@ import java.net.URI;
 import java.util.List;
 import java.util.Map;
 
+@Slf4j
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
@@ -23,6 +25,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(WebExchangeBindException.class)
     public ResponseEntity<ProblemDetail> handleValidation(WebExchangeBindException ex) {
+        log.warn("Validation failed: {}", ex.getMessage());
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(
                 HttpStatus.BAD_REQUEST,
                 "Validation failed for argument"
@@ -45,6 +48,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(CredentialsAlreadyExistsException.class)
     public ResponseEntity<ProblemDetail> handleConflict(CredentialsAlreadyExistsException ex) {
+        log.warn("Credentials conflict: {}", ex.getMessage());
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, ex.getMessage());
         problem.setTitle("Conflict");
         problem.setType(DEFAULT_TYPE);
@@ -58,6 +62,7 @@ public class GlobalExceptionHandler {
             CustomerLockedException.class
     })
     public ResponseEntity<ProblemDetail> handleUnauthorized(DomainException ex) {
+        log.warn("Unauthorized domain exception: {}", ex.getMessage());
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.UNAUTHORIZED, ex.getMessage());
         problem.setTitle("Unauthorized");
         problem.setType(DEFAULT_TYPE);

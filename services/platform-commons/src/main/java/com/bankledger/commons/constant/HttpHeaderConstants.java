@@ -10,6 +10,7 @@ public final class HttpHeaderConstants {
     public static final String BEARER_PREFIX = "Bearer ";
     public static final String LOCATION = "Location";
     public static final String CONTENT_TYPE = "Content-Type";
+    public static final String X_INTERNAL_SERVICE_KEY = "X-Internal-Service-Key";
 
     private HttpHeaderConstants() {
         throw new UnsupportedOperationException("Utility class cannot be instantiated");

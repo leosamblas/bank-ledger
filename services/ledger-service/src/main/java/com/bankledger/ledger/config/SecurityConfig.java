@@ -1,5 +1,6 @@
 package com.bankledger.ledger.config;
 
+import com.bankledger.commons.security.SecurityConstants;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -26,6 +27,7 @@ import tools.jackson.databind.json.JsonMapper;
 
 import java.io.IOException;
 import java.net.URI;
+import java.time.Clock;
 import java.util.List;
 
 /**
@@ -36,7 +38,7 @@ import java.util.List;
 @EnableWebSecurity
 public class SecurityConfig {
 
-    public static final String INTERNAL_SERVICE_KEY_HEADER = "X-Internal-Service-Key";
+    public static final String INTERNAL_SERVICE_KEY_HEADER = SecurityConstants.INTERNAL_SERVICE_KEY_HEADER;
     public static final String ROLE_INTERNAL_SERVICE = "ROLE_INTERNAL_SERVICE";
 
     private final String internalServiceKey;
@@ -57,10 +59,10 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/actuator/**").permitAll()
-                        .requestMatchers("/swagger-ui/**", "/swagger-ui.html", "/v3/api-docs/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/actuator/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/swagger-ui/**", "/swagger-ui.html", "/v3/api-docs/**").permitAll()
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                        .requestMatchers("/internal/v1/ledger/**").authenticated()
+                        .requestMatchers(SecurityConstants.INTERNAL_LEDGER_PATH_PATTERN).authenticated()
                         .anyRequest().authenticated()
                 )
                 .exceptionHandling(exceptions -> exceptions
@@ -72,6 +74,18 @@ public class SecurityConfig {
                                     "Unauthorized: missing or invalid internal service key"
                             );
                             problem.setTitle("Unauthorized");
+                            problem.setType(URI.create("about:blank"));
+                            problem.setInstance(URI.create(request.getRequestURI()));
+                            objectMapper.writeValue(response.getOutputStream(), problem);
+                        })
+                        .accessDeniedHandler((request, response, accessDeniedException) -> {
+                            response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+                            response.setContentType(MediaType.APPLICATION_PROBLEM_JSON_VALUE);
+                            ProblemDetail problem = ProblemDetail.forStatusAndDetail(
+                                    HttpStatus.FORBIDDEN,
+                                    "Access denied: insufficient privileges"
+                            );
+                            problem.setTitle("Forbidden");
                             problem.setType(URI.create("about:blank"));
                             problem.setInstance(URI.create(request.getRequestURI()));
                             objectMapper.writeValue(response.getOutputStream(), problem);
@@ -90,6 +104,12 @@ public class SecurityConfig {
         return JsonMapper.builder().build();
     }
 
+    @Bean
+    @ConditionalOnMissingBean
+    public static Clock clock() {
+        return Clock.systemUTC();
+    }
+
     public static class InternalServiceKeyFilter extends OncePerRequestFilter {
 
         private final String expectedKey;
@@ -104,7 +124,7 @@ public class SecurityConfig {
                 HttpServletResponse response,
                 FilterChain filterChain
         ) throws ServletException, IOException {
-            String key = request.getHeader(INTERNAL_SERVICE_KEY_HEADER);
+            String key = request.getHeader(SecurityConstants.INTERNAL_SERVICE_KEY_HEADER);
             if (expectedKey != null && !expectedKey.isBlank() && expectedKey.equals(key)) {
                 var auth = new UsernamePasswordAuthenticationToken(
                         "internal-service",

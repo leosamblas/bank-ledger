@@ -6,7 +6,6 @@ import com.bankledger.account.application.port.in.CreatedAccountResult;
 import com.bankledger.account.application.port.out.AccountRepositoryPort;
 import com.bankledger.account.application.port.out.CustomerRepositoryPort;
 import com.bankledger.account.application.port.out.OutboxPort;
-import com.bankledger.account.application.port.out.PasswordEncoderPort;
 import com.bankledger.account.domain.event.AccountOpenedEvent;
 import com.bankledger.account.domain.exception.CpfAlreadyExistsException;
 import com.bankledger.account.domain.exception.EmailAlreadyExistsException;
@@ -17,21 +16,20 @@ import com.bankledger.account.domain.vo.Cpf;
 import com.bankledger.account.domain.vo.Email;
 import com.bankledger.account.domain.vo.Phone;
 import com.bankledger.commons.outbox.OutboxEvent;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import com.bankledger.commons.security.SecurityConstants;
+import com.bankledger.commons.security.dto.RegisterCredentialsPayload;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
-import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.client.RestClient;
+import org.springframework.web.reactive.function.client.WebClient;
+import reactor.util.retry.Retry;
 import tools.jackson.databind.ObjectMapper;
 
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.LinkedHashMap;
-import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 
@@ -40,41 +38,37 @@ import java.util.UUID;
  * Atomically creates Customer, Account, and records an OutboxEvent.
  * Delegates credential registration to auth-service with timeout and fallback.
  */
+@Slf4j
 @Service
 @Transactional
 public class CreateAccountService implements CreateAccountUseCase {
 
-    private static final Logger log = LoggerFactory.getLogger(CreateAccountService.class);
-
     private final CustomerRepositoryPort customerRepositoryPort;
     private final AccountRepositoryPort accountRepositoryPort;
-    private final PasswordEncoderPort passwordEncoderPort;
     private final OutboxPort outboxPort;
     private final ObjectMapper objectMapper;
     private final Clock clock;
     private final String authServiceUrl;
-    private final RestClient restClient;
+    private final WebClient webClient;
 
     public CreateAccountService(
             CustomerRepositoryPort customerRepositoryPort,
             AccountRepositoryPort accountRepositoryPort,
-            PasswordEncoderPort passwordEncoderPort,
             OutboxPort outboxPort,
             ObjectMapper objectMapper,
             Clock clock,
             @Value("${app.auth-service.url:http://localhost:8086}") String authServiceUrl,
-            RestClient.Builder restClientBuilder
+            WebClient.Builder webClientBuilder
     ) {
         this.customerRepositoryPort = Objects.requireNonNull(customerRepositoryPort, "customerRepositoryPort must not be null");
         this.accountRepositoryPort = Objects.requireNonNull(accountRepositoryPort, "accountRepositoryPort must not be null");
-        this.passwordEncoderPort = Objects.requireNonNull(passwordEncoderPort, "passwordEncoderPort must not be null");
         this.outboxPort = Objects.requireNonNull(outboxPort, "outboxPort must not be null");
         this.objectMapper = Objects.requireNonNull(objectMapper, "objectMapper must not be null");
         this.clock = Objects.requireNonNull(clock, "clock must not be null");
         this.authServiceUrl = (authServiceUrl != null && !authServiceUrl.isBlank()) ? authServiceUrl : "http://localhost:8086";
 
-        RestClient.Builder builder = restClientBuilder != null ? restClientBuilder : RestClient.builder();
-        this.restClient = builder.build();
+        WebClient.Builder builder = webClientBuilder != null ? webClientBuilder : WebClient.builder();
+        this.webClient = builder.build();
     }
 
     @Override
@@ -93,8 +87,6 @@ public class CreateAccountService implements CreateAccountUseCase {
             throw new EmailAlreadyExistsException("Customer already exists with email: " + command.email());
         }
 
-        String encodedPassword = passwordEncoderPort.encode(command.password());
-
         Customer customer = Customer.create(
                 UUID.randomUUID(),
                 command.fullName(),
@@ -102,7 +94,6 @@ public class CreateAccountService implements CreateAccountUseCase {
                 email,
                 Phone.of(command.phone()),
                 command.birthDate(),
-                encodedPassword,
                 now
         );
 
@@ -169,26 +160,30 @@ public class CreateAccountService implements CreateAccountUseCase {
             String fullName,
             String email
     ) {
-        String endpoint = authServiceUrl.replaceAll("/+$", "") + "/internal/v1/auth/credentials";
+        String endpoint = authServiceUrl.replaceAll("/+$", "") + SecurityConstants.INTERNAL_AUTH_CREDENTIALS_PATH;
+        RegisterCredentialsPayload payload = new RegisterCredentialsPayload(
+                customerId,
+                cpf,
+                password,
+                accountId,
+                branch,
+                accountNumber,
+                fullName,
+                email
+        );
+
         try {
-            Map<String, Object> body = new LinkedHashMap<>();
-            body.put("customerId", customerId);
-            body.put("cpf", cpf);
-            body.put("password", password);
-            body.put("accountId", accountId);
-            body.put("branch", branch);
-            body.put("accountNumber", accountNumber);
-            body.put("fullName", fullName);
-            body.put("email", email);
-
-            String json = objectMapper.writeValueAsString(body);
-
-            restClient.post()
+            webClient.post()
                     .uri(endpoint)
                     .contentType(MediaType.APPLICATION_JSON)
-                    .body(json)
+                    .bodyValue(payload)
                     .retrieve()
-                    .toBodilessEntity();
+                    .toBodilessEntity()
+                    .retryWhen(Retry.fixedDelay(
+                            SecurityConstants.DEFAULT_RETRY_ATTEMPTS,
+                            SecurityConstants.DEFAULT_RETRY_DELAY
+                    ))
+                    .block(Duration.ofSeconds(2));
 
             log.info("Credentials registered in auth-service for customerId: {}", customerId);
         } catch (Exception ex) {

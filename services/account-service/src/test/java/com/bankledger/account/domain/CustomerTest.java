@@ -20,7 +20,6 @@ class CustomerTest {
     private static final Cpf VALID_CPF = new Cpf("52998224725");
     private static final Email VALID_EMAIL = new Email("john.doe@example.com");
     private static final Phone VALID_PHONE = new Phone("+5511987654321");
-    private static final String PASSWORD_HASH = "$2a$12$e8YVw8Qe/fD6k1/6iGvK.u";
 
     @Test
     @DisplayName("Should create customer when age is exactly 18 or older")
@@ -36,11 +35,11 @@ class CustomerTest {
                 VALID_EMAIL,
                 VALID_PHONE,
                 today.minusYears(18),
-                PASSWORD_HASH,
                 now
         );
         assertThat(customer18).isNotNull();
         assertThat(customer18.getFullName()).isEqualTo("John Doe");
+        assertThat(customer18.getPasswordHash()).isEqualTo(Customer.DELEGATED_PASSWORD_HASH);
 
         // 35 years old
         Customer customer35 = Customer.create(
@@ -50,10 +49,10 @@ class CustomerTest {
                 VALID_EMAIL,
                 VALID_PHONE,
                 today.minusYears(35),
-                PASSWORD_HASH,
                 now
         );
         assertThat(customer35).isNotNull();
+        assertThat(customer35.getPasswordHash()).isEqualTo(Customer.DELEGATED_PASSWORD_HASH);
     }
 
     @Test
@@ -72,7 +71,6 @@ class CustomerTest {
                 VALID_EMAIL,
                 VALID_PHONE,
                 underageBirthDate,
-                PASSWORD_HASH,
                 now
         )).isInstanceOf(CustomerUnderageException.class);
     }

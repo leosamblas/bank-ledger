@@ -16,6 +16,7 @@ import com.bankledger.auth.domain.model.AuthUser;
 import com.bankledger.commons.security.JwksPublicKeyProvider;
 import com.bankledger.commons.security.RsaJwtSigner;
 import com.bankledger.commons.security.RsaJwtValidator;
+import com.bankledger.commons.security.SecurityConstants;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -82,7 +83,7 @@ class AuthServiceTest {
                 UUID.randomUUID(),
                 "52998224725",
                 "$argon2id$mockedhash",
-                "ROLE_USER",
+                SecurityConstants.ROLE_USER,
                 UUID.randomUUID(),
                 UUID.randomUUID(),
                 "0001",
@@ -332,7 +333,7 @@ class AuthServiceTest {
         IntrospectResult introspectResult = authService.introspect(new IntrospectCommand(result.token()));
         assertThat(introspectResult.active()).isTrue();
         assertThat(introspectResult.sub()).isEqualTo("52998224725");
-        assertThat(introspectResult.role()).isEqualTo("ROLE_USER");
+        assertThat(introspectResult.role()).isEqualTo(SecurityConstants.ROLE_USER);
         assertThat(introspectResult.branch()).isEqualTo("0001");
         assertThat(introspectResult.accountNumber()).isEqualTo("123456");
     }

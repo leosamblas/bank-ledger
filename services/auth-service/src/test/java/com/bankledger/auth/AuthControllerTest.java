@@ -22,6 +22,8 @@ import com.bankledger.auth.domain.exception.CustomerLockedException;
 import com.bankledger.auth.domain.exception.InvalidCredentialsException;
 import com.bankledger.auth.domain.model.AuthUser;
 import com.bankledger.commons.security.RsaJwtSigner;
+import com.bankledger.commons.security.SecurityConstants;
+import com.bankledger.commons.security.dto.RegisterCredentialsPayload;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -93,7 +95,7 @@ class AuthControllerTest {
         LoginRequest request = new LoginRequest("52998224725", "Secret@123");
 
         client.post()
-                .uri("/api/v1/auth/login")
+                .uri(SecurityConstants.AUTH_LOGIN_PATH)
                 .contentType(MediaType.APPLICATION_JSON)
                 .bodyValue(request)
                 .exchange()
@@ -151,7 +153,7 @@ class AuthControllerTest {
         RefreshTokenRequest request = new RefreshTokenRequest("current.refresh.token");
 
         client.post()
-                .uri("/api/v1/auth/refresh")
+                .uri(SecurityConstants.AUTH_REFRESH_PATH)
                 .contentType(MediaType.APPLICATION_JSON)
                 .bodyValue(request)
                 .exchange()
@@ -192,7 +194,7 @@ class AuthControllerTest {
         LoginRequest request = new LoginRequest("52998224725", "Secret@123");
 
         client.post()
-                .uri("/api/v1/auth/login")
+                .uri(SecurityConstants.AUTH_LOGIN_PATH)
                 .contentType(MediaType.APPLICATION_JSON)
                 .bodyValue(request)
                 .exchange()
@@ -221,7 +223,7 @@ class AuthControllerTest {
     @DisplayName("200 OK with valid RFC 7517 JWKS on /.well-known/jwks.json")
     void shouldReturnJwksOnWellKnownEndpoint() {
         client.get()
-                .uri("/.well-known/jwks.json")
+                .uri(SecurityConstants.JWKS_WELL_KNOWN_PATH)
                 .exchange()
                 .expectStatus().isOk()
                 .expectHeader().contentTypeCompatibleWith(MediaType.APPLICATION_JSON)
@@ -270,7 +272,7 @@ class AuthControllerTest {
         IntrospectRequest request = new IntrospectRequest("valid.rs256.jwt");
 
         client.post()
-                .uri("/api/v1/auth/introspect")
+                .uri(SecurityConstants.AUTH_INTROSPECT_PATH)
                 .contentType(MediaType.APPLICATION_JSON)
                 .bodyValue(request)
                 .exchange()
@@ -338,7 +340,56 @@ class AuthControllerTest {
         );
 
         internalClient.post()
-                .uri("/internal/v1/auth/credentials")
+                .uri(SecurityConstants.INTERNAL_AUTH_CREDENTIALS_PATH)
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(request)
+                .exchange()
+                .expectStatus().isCreated()
+                .expectBody()
+                .jsonPath("$.id").isEqualTo(authUser.getId().toString())
+                .jsonPath("$.customerId").isEqualTo(customerId.toString())
+                .jsonPath("$.cpf").isEqualTo("52998224725");
+    }
+
+    @Test
+    @DisplayName("201 Created when registering credentials mapped from RegisterCredentialsPayload")
+    void shouldReturn201WhenRegisteringFromPayload() {
+        UUID customerId = UUID.randomUUID();
+        UUID accountId = UUID.randomUUID();
+        AuthUser authUser = new AuthUser(
+                UUID.randomUUID(),
+                "52998224725",
+                "$argon2id$mockhash",
+                "ROLE_USER",
+                customerId,
+                accountId,
+                "0001",
+                "123456",
+                0,
+                null,
+                "Carlos Silva",
+                "carlos@example.com",
+                Instant.now(),
+                Instant.now()
+        );
+
+        when(registerCredentialsUseCase.registerCredentials(any(RegisterCredentialsCommand.class)))
+                .thenReturn(authUser);
+
+        RegisterCredentialsPayload payload = new RegisterCredentialsPayload(
+                customerId,
+                "52998224725",
+                "Secret@123",
+                accountId,
+                "0001",
+                "123456",
+                "Carlos Silva",
+                "carlos@example.com"
+        );
+        RegisterCredentialsRequest request = RegisterCredentialsRequest.fromPayload(payload);
+
+        internalClient.post()
+                .uri(SecurityConstants.INTERNAL_AUTH_CREDENTIALS_PATH)
                 .contentType(MediaType.APPLICATION_JSON)
                 .bodyValue(request)
                 .exchange()
@@ -367,7 +418,7 @@ class AuthControllerTest {
         );
 
         internalClient.post()
-                .uri("/internal/v1/auth/credentials")
+                .uri(SecurityConstants.INTERNAL_AUTH_CREDENTIALS_PATH)
                 .contentType(MediaType.APPLICATION_JSON)
                 .bodyValue(request)
                 .exchange()

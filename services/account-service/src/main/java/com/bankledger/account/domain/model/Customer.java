@@ -23,6 +23,7 @@ public class Customer implements Serializable {
     private static final long serialVersionUID = 1L;
 
     public static final int MINIMUM_AGE_YEARS = 18;
+    public static final String DELEGATED_PASSWORD_HASH = "[DELEGATED_TO_AUTH_SERVICE]";
 
     private final UUID id;
     private String fullName;
@@ -57,15 +58,11 @@ public class Customer implements Serializable {
         this.email = Objects.requireNonNull(email, "email must not be null");
         this.phone = Objects.requireNonNull(phone, "phone must not be null");
         this.birthDate = Objects.requireNonNull(birthDate, "birthDate must not be null");
-        this.passwordHash = Objects.requireNonNull(passwordHash, "passwordHash must not be null");
+        this.passwordHash = (passwordHash != null && !passwordHash.isBlank()) ? passwordHash : DELEGATED_PASSWORD_HASH;
         this.createdAt = Objects.requireNonNull(createdAt, "createdAt must not be null");
         this.updatedAt = Objects.requireNonNull(updatedAt, "updatedAt must not be null");
     }
 
-    /**
-     * Legacy constructor for backwards-compatibility without login lockout fields.
-     */
-    @Deprecated
     public Customer(
             UUID id,
             String fullName,
@@ -73,18 +70,27 @@ public class Customer implements Serializable {
             Email email,
             Phone phone,
             LocalDate birthDate,
-            String passwordHash,
-            int failedLoginAttempts,
-            Instant lockedUntil,
             Instant createdAt,
             Instant updatedAt
     ) {
-        this(id, fullName, cpf, email, phone, birthDate, passwordHash, createdAt, updatedAt);
+        this(id, fullName, cpf, email, phone, birthDate, DELEGATED_PASSWORD_HASH, createdAt, updatedAt);
     }
 
     /**
      * Factory method to create a new customer enforcing age >= 18.
      */
+    public static Customer create(
+            UUID id,
+            String fullName,
+            Cpf cpf,
+            Email email,
+            Phone phone,
+            LocalDate birthDate,
+            Instant now
+    ) {
+        return create(id, fullName, cpf, email, phone, birthDate, DELEGATED_PASSWORD_HASH, now);
+    }
+
     public static Customer create(
             UUID id,
             String fullName,
@@ -114,33 +120,20 @@ public class Customer implements Serializable {
                 email,
                 phone,
                 birthDate,
-                passwordHash,
+                passwordHash != null && !passwordHash.isBlank() ? passwordHash : DELEGATED_PASSWORD_HASH,
                 now,
                 now
         );
     }
 
     public static Customer create(
-            UUID id,
             String fullName,
             Cpf cpf,
             Email email,
             Phone phone,
-            LocalDate birthDate,
-            String passwordHash
+            LocalDate birthDate
     ) {
-        return create(id, fullName, cpf, email, phone, birthDate, passwordHash, Instant.now());
-    }
-
-    public static Customer create(
-            String fullName,
-            Cpf cpf,
-            Email email,
-            Phone phone,
-            LocalDate birthDate,
-            String passwordHash
-    ) {
-        return create(UUID.randomUUID(), fullName, cpf, email, phone, birthDate, passwordHash, Instant.now());
+        return create(UUID.randomUUID(), fullName, cpf, email, phone, birthDate, DELEGATED_PASSWORD_HASH, Instant.now());
     }
 
     public void updateEmail(Email email, Instant now) {
@@ -150,11 +143,6 @@ public class Customer implements Serializable {
 
     public void updatePhone(Phone phone, Instant now) {
         this.phone = Objects.requireNonNull(phone, "phone must not be null");
-        this.updatedAt = Objects.requireNonNull(now, "now must not be null");
-    }
-
-    public void updatePasswordHash(String passwordHash, Instant now) {
-        this.passwordHash = Objects.requireNonNull(passwordHash, "passwordHash must not be null");
         this.updatedAt = Objects.requireNonNull(now, "now must not be null");
     }
 

@@ -6,16 +6,16 @@ import com.bankledger.auth.adapters.in.rest.dto.LoginRequest;
 import com.bankledger.auth.adapters.in.rest.dto.RefreshTokenRequest;
 import com.bankledger.auth.adapters.in.rest.dto.TokenResponse;
 import com.bankledger.auth.application.port.in.IntrospectCommand;
-import com.bankledger.auth.application.port.in.IntrospectResult;
 import com.bankledger.auth.application.port.in.IntrospectTokenUseCase;
 import com.bankledger.auth.application.port.in.LoginCommand;
-import com.bankledger.auth.application.port.in.LoginResult;
 import com.bankledger.auth.application.port.in.LoginUseCase;
 import com.bankledger.auth.application.port.in.RefreshTokenCommand;
 import com.bankledger.auth.application.port.in.RefreshTokenUseCase;
 import com.bankledger.commons.security.RsaJwtSigner;
+import com.bankledger.commons.security.SecurityConstants;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -27,6 +27,7 @@ import reactor.core.scheduler.Schedulers;
 
 import java.util.Map;
 
+@Slf4j
 @RestController
 @RequiredArgsConstructor
 public class AuthController {
@@ -36,7 +37,7 @@ public class AuthController {
     private final IntrospectTokenUseCase introspectTokenUseCase;
     private final RsaJwtSigner rsaJwtSigner;
 
-    @PostMapping({"/api/v1/auth/login", "/auth/login"})
+    @PostMapping({SecurityConstants.AUTH_LOGIN_PATH, "/auth/login"})
     public Mono<ResponseEntity<TokenResponse>> login(@Valid @RequestBody LoginRequest request) {
         return Mono.fromCallable(() -> loginUseCase.login(new LoginCommand(request.cpf(), request.password())))
                 .subscribeOn(Schedulers.boundedElastic())
@@ -54,7 +55,7 @@ public class AuthController {
                 )));
     }
 
-    @PostMapping({"/api/v1/auth/refresh", "/auth/refresh"})
+    @PostMapping({SecurityConstants.AUTH_REFRESH_PATH, "/auth/refresh"})
     public Mono<ResponseEntity<TokenResponse>> refresh(@Valid @RequestBody RefreshTokenRequest request) {
         return Mono.fromCallable(() -> refreshTokenUseCase.refreshToken(new RefreshTokenCommand(request.refreshToken())))
                 .subscribeOn(Schedulers.boundedElastic())
@@ -72,13 +73,13 @@ public class AuthController {
                 )));
     }
 
-    @GetMapping(value = {"/.well-known/jwks.json", "/api/v1/auth/.well-known/jwks.json"}, produces = MediaType.APPLICATION_JSON_VALUE)
+    @GetMapping(value = {SecurityConstants.JWKS_WELL_KNOWN_PATH, "/api/v1/auth/.well-known/jwks.json"}, produces = MediaType.APPLICATION_JSON_VALUE)
     public Mono<ResponseEntity<Map<String, Object>>> jwks() {
         return Mono.fromCallable(rsaJwtSigner::toJwksMap)
                 .map(ResponseEntity::ok);
     }
 
-    @PostMapping("/api/v1/auth/introspect")
+    @PostMapping(SecurityConstants.AUTH_INTROSPECT_PATH)
     public Mono<ResponseEntity<IntrospectResponse>> introspect(@Valid @RequestBody IntrospectRequest request) {
         return Mono.fromCallable(() -> introspectTokenUseCase.introspect(new IntrospectCommand(request.token())))
                 .subscribeOn(Schedulers.boundedElastic())

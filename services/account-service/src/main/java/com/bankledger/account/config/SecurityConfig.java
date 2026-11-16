@@ -3,6 +3,7 @@ package com.bankledger.account.config;
 import com.bankledger.commons.security.JwksPublicKeyProvider;
 import com.bankledger.commons.security.JwtAuthenticationTokenFilter;
 import com.bankledger.commons.security.RsaJwtValidator;
+import com.bankledger.commons.security.SecurityConstants;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
@@ -16,10 +17,9 @@ import org.springframework.http.ProblemDetail;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.web.reactive.function.client.WebClient;
 import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.json.JsonMapper;
 
@@ -37,7 +37,7 @@ public class SecurityConfig {
     @Bean
     @ConditionalOnMissingBean
     public JwksPublicKeyProvider jwksPublicKeyProvider(
-            @Value("${app.security.jwks-url:http://localhost:8086/.well-known/jwks.json}") String jwksUrl,
+            @Value("${app.security.jwks-url:http://localhost:8086" + SecurityConstants.JWKS_WELL_KNOWN_PATH + "}") String jwksUrl,
             ObjectMapper objectMapper
     ) {
         return new JwksPublicKeyProvider(jwksUrl, objectMapper);
@@ -111,17 +111,7 @@ public class SecurityConfig {
 
     @Bean
     @ConditionalOnMissingBean
-    public PasswordEncoder passwordEncoder() {
-        return new BCryptPasswordEncoder();
-    }
-
-    @Bean
-    @ConditionalOnMissingBean
-    public org.springframework.web.client.RestClient.Builder restClientBuilder() {
-        org.springframework.http.client.SimpleClientHttpRequestFactory requestFactory =
-                new org.springframework.http.client.SimpleClientHttpRequestFactory();
-        requestFactory.setConnectTimeout(java.time.Duration.ofSeconds(2));
-        requestFactory.setReadTimeout(java.time.Duration.ofSeconds(3));
-        return org.springframework.web.client.RestClient.builder().requestFactory(requestFactory);
+    public WebClient.Builder webClientBuilder() {
+        return WebClient.builder();
     }
 }

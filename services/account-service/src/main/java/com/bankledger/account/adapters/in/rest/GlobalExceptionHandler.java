@@ -81,19 +81,6 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     }
 
     @ExceptionHandler({
-            InvalidCredentialsException.class,
-            CustomerLockedException.class
-    })
-    public ResponseEntity<ProblemDetail> handleUnauthorized(DomainException ex) {
-        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.UNAUTHORIZED, ex.getMessage());
-        problem.setTitle("Unauthorized");
-        problem.setType(DEFAULT_TYPE);
-        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                .contentType(MediaType.APPLICATION_PROBLEM_JSON)
-                .body(problem);
-    }
-
-    @ExceptionHandler({
             AccountNotFoundException.class,
             CustomerNotFoundException.class
     })

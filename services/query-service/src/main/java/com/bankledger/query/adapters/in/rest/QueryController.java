@@ -1,6 +1,7 @@
 package com.bankledger.query.adapters.in.rest;
 
 import com.bankledger.commons.security.CommonAuthenticatedUser;
+import com.bankledger.commons.security.SecurityConstants;
 import com.bankledger.query.adapters.in.rest.dto.BalanceResponse;
 import com.bankledger.query.adapters.in.rest.dto.StatementItemResponse;
 import com.bankledger.query.adapters.in.rest.dto.StatementResponse;
@@ -130,7 +131,7 @@ public class QueryController {
     }
 
     private ResponseEntity<?> checkOwnership(UUID accountId, CommonAuthenticatedUser user) {
-        if (user == null || user.getAccountId() == null) {
+        if (user == null) {
             ProblemDetail problem = ProblemDetail.forStatusAndDetail(
                     HttpStatus.UNAUTHORIZED,
                     "Authentication is required to access this resource"
@@ -142,12 +143,30 @@ public class QueryController {
                     .body(problem);
         }
 
-        boolean isOwner = accountId.equals(user.getAccountId());
-        boolean isAdmin = "ROLE_ADMIN".equalsIgnoreCase(user.getRole())
+        boolean isAdmin = SecurityConstants.ROLE_ADMIN.equalsIgnoreCase(user.getRole())
+                || "ADMIN".equalsIgnoreCase(user.getRole())
                 || (user.getAuthorities() != null && user.getAuthorities().stream()
-                        .anyMatch(a -> "ROLE_ADMIN".equalsIgnoreCase(a.getAuthority())));
+                        .anyMatch(a -> SecurityConstants.ROLE_ADMIN.equalsIgnoreCase(a.getAuthority())
+                                || "ADMIN".equalsIgnoreCase(a.getAuthority())));
 
-        if (!isOwner && !isAdmin) {
+        if (isAdmin) {
+            return null;
+        }
+
+        if (user.getAccountId() == null) {
+            ProblemDetail problem = ProblemDetail.forStatusAndDetail(
+                    HttpStatus.UNAUTHORIZED,
+                    "Authentication token missing required accountId claim"
+            );
+            problem.setTitle("Unauthorized");
+            problem.setType(URI.create("about:blank"));
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .contentType(MediaType.APPLICATION_PROBLEM_JSON)
+                    .body(problem);
+        }
+
+        boolean isOwner = accountId.equals(user.getAccountId());
+        if (!isOwner) {
             ProblemDetail problem = ProblemDetail.forStatusAndDetail(
                     HttpStatus.FORBIDDEN,
                     "Access denied: user is not the owner of this account"

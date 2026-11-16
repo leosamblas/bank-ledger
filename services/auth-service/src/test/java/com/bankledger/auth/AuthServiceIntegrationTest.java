@@ -4,6 +4,7 @@ import com.bankledger.auth.adapters.in.rest.dto.IntrospectRequest;
 import com.bankledger.auth.adapters.in.rest.dto.LoginRequest;
 import com.bankledger.auth.adapters.in.rest.dto.RefreshTokenRequest;
 import com.bankledger.auth.adapters.in.rest.dto.RegisterCredentialsRequest;
+import com.bankledger.commons.security.SecurityConstants;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -65,7 +66,7 @@ class AuthServiceIntegrationTest {
         );
 
         client.post()
-                .uri("/internal/v1/auth/credentials")
+                .uri(SecurityConstants.INTERNAL_AUTH_CREDENTIALS_PATH)
                 .contentType(MediaType.APPLICATION_JSON)
                 .bodyValue(registerRequest)
                 .exchange()
@@ -76,7 +77,7 @@ class AuthServiceIntegrationTest {
 
         // 2. Retrieve JWKS
         client.get()
-                .uri("/.well-known/jwks.json")
+                .uri(SecurityConstants.JWKS_WELL_KNOWN_PATH)
                 .exchange()
                 .expectStatus().isOk()
                 .expectBody()
@@ -85,7 +86,7 @@ class AuthServiceIntegrationTest {
         // 3. Login with provisioned credentials
         LoginRequest loginRequest = new LoginRequest(cpf, password);
         byte[] loginBody = client.post()
-                .uri("/api/v1/auth/login")
+                .uri(SecurityConstants.AUTH_LOGIN_PATH)
                 .contentType(MediaType.APPLICATION_JSON)
                 .bodyValue(loginRequest)
                 .exchange()
@@ -109,7 +110,7 @@ class AuthServiceIntegrationTest {
 
         // 4. Token Deduplication & Dynamic Expiration: second login must return SAME active token
         byte[] duplicateLoginBody = client.post()
-                .uri("/api/v1/auth/login")
+                .uri(SecurityConstants.AUTH_LOGIN_PATH)
                 .contentType(MediaType.APPLICATION_JSON)
                 .bodyValue(loginRequest)
                 .exchange()
@@ -129,7 +130,7 @@ class AuthServiceIntegrationTest {
         // 5. Refresh token flow
         RefreshTokenRequest refreshRequest = new RefreshTokenRequest(initialRefreshToken);
         byte[] refreshBody = client.post()
-                .uri("/api/v1/auth/refresh")
+                .uri(SecurityConstants.AUTH_REFRESH_PATH)
                 .contentType(MediaType.APPLICATION_JSON)
                 .bodyValue(refreshRequest)
                 .exchange()
@@ -151,7 +152,7 @@ class AuthServiceIntegrationTest {
         // 6. Introspect rotated token
         IntrospectRequest introspectRequest = new IntrospectRequest(rotatedToken);
         client.post()
-                .uri("/api/v1/auth/introspect")
+                .uri(SecurityConstants.AUTH_INTROSPECT_PATH)
                 .contentType(MediaType.APPLICATION_JSON)
                 .bodyValue(introspectRequest)
                 .exchange()
@@ -165,7 +166,7 @@ class AuthServiceIntegrationTest {
         // 7. Reject wrong password
         LoginRequest wrongLoginRequest = new LoginRequest(cpf, "WrongPassword@000");
         client.post()
-                .uri("/api/v1/auth/login")
+                .uri(SecurityConstants.AUTH_LOGIN_PATH)
                 .contentType(MediaType.APPLICATION_JSON)
                 .bodyValue(wrongLoginRequest)
                 .exchange()

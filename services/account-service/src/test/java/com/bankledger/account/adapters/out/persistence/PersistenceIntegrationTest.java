@@ -87,7 +87,6 @@ class PersistenceIntegrationTest {
                 Email.of(emailStr),
                 Phone.of("+5511988887777"),
                 LocalDate.of(1990, 5, 15),
-                "$2a$12$e80yqTfA2Qd4E9x7o.samplepasswordhash",
                 Instant.now()
         );
     }

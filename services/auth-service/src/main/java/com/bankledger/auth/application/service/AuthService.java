@@ -16,9 +16,12 @@ import com.bankledger.auth.domain.exception.CredentialsAlreadyExistsException;
 import com.bankledger.auth.domain.exception.CustomerLockedException;
 import com.bankledger.auth.domain.exception.InvalidCredentialsException;
 import com.bankledger.auth.domain.model.AuthUser;
+import com.bankledger.commons.constant.HttpHeaderConstants;
 import com.bankledger.commons.security.RsaJwtSigner;
 import com.bankledger.commons.security.RsaJwtValidator;
+import com.bankledger.commons.security.SecurityConstants;
 import com.bankledger.commons.security.TokenClaims;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -32,6 +35,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 
+@Slf4j
 @Service
 public class AuthService implements LoginUseCase, RefreshTokenUseCase, RegisterCredentialsUseCase, IntrospectTokenUseCase {
 
@@ -90,6 +94,7 @@ public class AuthService implements LoginUseCase, RefreshTokenUseCase, RegisterC
         if (sanitizedCpf.length() != 11) {
             // Timing side-channel defense on malformed CPF
             passwordEncoderPort.matches(command.password() != null ? command.password() : "", dummyArgon2Hash);
+            log.warn("Login rejected: CPF is not 11 digits");
             throw new InvalidCredentialsException("Credenciais inválidas");
         }
 
@@ -99,6 +104,7 @@ public class AuthService implements LoginUseCase, RefreshTokenUseCase, RegisterC
         if (maybeUser.isEmpty()) {
             // Timing side-channel defense: simulate Argon2id password hash check to prevent CPF enumeration
             passwordEncoderPort.matches(command.password() != null ? command.password() : "", dummyArgon2Hash);
+            log.warn("Login rejected: user not found for CPF");
             throw new InvalidCredentialsException("Credenciais inválidas");
         }
 
@@ -106,6 +112,7 @@ public class AuthService implements LoginUseCase, RefreshTokenUseCase, RegisterC
 
         if (user.isLocked(now)) {
             long minutesLeft = calculateMinutesLeft(user.getLockedUntil(), now);
+            log.warn("Login rejected: account locked for customerId: {}, minutes left: {}", user.getCustomerId(), minutesLeft);
             throw new CustomerLockedException(
                     "Conta bloqueada temporariamente por excesso de tentativas. Tente novamente em " + minutesLeft + " minutos."
             );
@@ -118,11 +125,14 @@ public class AuthService implements LoginUseCase, RefreshTokenUseCase, RegisterC
 
             if (user.isLocked(now)) {
                 long minutesLeft = calculateMinutesLeft(user.getLockedUntil(), now);
+                log.warn("Account newly locked after 5 failed attempts for customerId: {}", user.getCustomerId());
                 throw new CustomerLockedException(
                         "Conta bloqueada temporariamente por excesso de tentativas. Tente novamente em " + minutesLeft + " minutos."
                 );
             }
 
+            log.warn("Login rejected: invalid password for customerId: {}. Failed attempts: {}",
+                    user.getCustomerId(), user.getFailedLoginAttempts());
             throw new InvalidCredentialsException("Credenciais inválidas");
         }
 
@@ -133,10 +143,11 @@ public class AuthService implements LoginUseCase, RefreshTokenUseCase, RegisterC
             long remainingSeconds = Duration.between(now, user.getTokenExpiresAt()).getSeconds();
             if (remainingSeconds > 0) {
                 authUserRepositoryPort.save(user);
+                log.info("Active token reused for customerId: {} with remaining TTL: {}s", user.getCustomerId(), remainingSeconds);
                 return new LoginResult(
                         user.getActiveToken(),
                         remainingSeconds,
-                        "Bearer",
+                        HttpHeaderConstants.BEARER_PREFIX.trim(),
                         user.getRefreshToken(),
                         new LoginResult.UserInfo(
                                 user.getCustomerId(),
@@ -165,11 +176,12 @@ public class AuthService implements LoginUseCase, RefreshTokenUseCase, RegisterC
 
         user.updateTokens(token, tokenExpiresAt, refreshToken, refreshTokenExpiresAt, now);
         authUserRepositoryPort.save(user);
+        log.info("Fresh tokens generated and issued for customerId: {}", user.getCustomerId());
 
         return new LoginResult(
                 token,
                 accessTokenValiditySeconds,
-                "Bearer",
+                HttpHeaderConstants.BEARER_PREFIX.trim(),
                 refreshToken,
                 new LoginResult.UserInfo(
                         user.getCustomerId(),
@@ -192,18 +204,21 @@ public class AuthService implements LoginUseCase, RefreshTokenUseCase, RegisterC
         Instant now = Instant.now(clock);
         Optional<AuthUser> maybeUser = authUserRepositoryPort.findByRefreshToken(command.refreshToken().trim());
         if (maybeUser.isEmpty()) {
+            log.warn("Refresh token not found or invalid");
             throw new InvalidCredentialsException("Token de atualização inválido ou inexistente");
         }
 
         AuthUser user = maybeUser.get();
         if (user.isLocked(now)) {
             long minutesLeft = calculateMinutesLeft(user.getLockedUntil(), now);
+            log.warn("Refresh rejected: account locked for customerId: {}", user.getCustomerId());
             throw new CustomerLockedException(
                     "Conta bloqueada temporariamente. Tente novamente em " + minutesLeft + " minutos."
             );
         }
 
         if (user.getRefreshTokenExpiresAt() == null || !user.getRefreshTokenExpiresAt().isAfter(now)) {
+            log.warn("Refresh rejected: refresh token expired for customerId: {}", user.getCustomerId());
             throw new InvalidCredentialsException("Token de atualização expirado. Efetue login novamente.");
         }
 
@@ -223,11 +238,12 @@ public class AuthService implements LoginUseCase, RefreshTokenUseCase, RegisterC
 
         user.updateTokens(newAccessToken, tokenExpiresAt, newRefreshToken, refreshTokenExpiresAt, now);
         authUserRepositoryPort.save(user);
+        log.info("Token rotated and refreshed for customerId: {}", user.getCustomerId());
 
         return new LoginResult(
                 newAccessToken,
                 accessTokenValiditySeconds,
-                "Bearer",
+                HttpHeaderConstants.BEARER_PREFIX.trim(),
                 newRefreshToken,
                 new LoginResult.UserInfo(
                         user.getCustomerId(),
@@ -249,6 +265,7 @@ public class AuthService implements LoginUseCase, RefreshTokenUseCase, RegisterC
         }
 
         if (authUserRepositoryPort.existsByCpf(sanitizedCpf)) {
+            log.warn("Registration rejected: CPF already exists");
             throw new CredentialsAlreadyExistsException("Credenciais já cadastradas para o CPF: " + sanitizedCpf);
         }
 
@@ -259,7 +276,7 @@ public class AuthService implements LoginUseCase, RefreshTokenUseCase, RegisterC
                 UUID.randomUUID(),
                 sanitizedCpf,
                 hashedPassword,
-                "ROLE_USER",
+                SecurityConstants.ROLE_USER,
                 command.customerId(),
                 command.accountId(),
                 command.branch(),
@@ -276,7 +293,9 @@ public class AuthService implements LoginUseCase, RefreshTokenUseCase, RegisterC
                 now
         );
 
-        return authUserRepositoryPort.save(user);
+        AuthUser saved = authUserRepositoryPort.save(user);
+        log.info("Credentials registered successfully for customerId: {}", saved.getCustomerId());
+        return saved;
     }
 
     @Override
@@ -301,6 +320,7 @@ public class AuthService implements LoginUseCase, RefreshTokenUseCase, RegisterC
                     null
             );
         } catch (Exception e) {
+            log.debug("Token introspection failed: {}", e.getMessage());
             return IntrospectResult.inactive();
         }
     }

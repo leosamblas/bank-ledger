@@ -5,6 +5,7 @@ import com.bankledger.account.adapters.in.rest.dto.AccountLookupResponse;
 import com.bankledger.account.adapters.in.rest.dto.AccountResponse;
 import com.bankledger.account.application.port.in.*;
 import com.bankledger.commons.security.CommonAuthenticatedUser;
+import com.bankledger.commons.security.SecurityConstants;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -106,7 +107,7 @@ public class AccountController {
         }
 
         boolean isOwner = accountId.equals(principal.accountId());
-        boolean isAdmin = "ROLE_ADMIN".equalsIgnoreCase(principal.role());
+        boolean isAdmin = SecurityConstants.ROLE_ADMIN.equalsIgnoreCase(principal.role());
         if (!isOwner && !isAdmin) {
             ProblemDetail problem = ProblemDetail.forStatusAndDetail(
                     HttpStatus.FORBIDDEN,
@@ -127,20 +128,8 @@ public class AccountController {
         if (user != null) {
             return user;
         }
-        if (authentication != null) {
-            if (authentication.getPrincipal() instanceof CommonAuthenticatedUser authUser) {
-                return authUser;
-            }
-            if (authentication.getPrincipal() instanceof AuthenticatedUser legacyUser) {
-                return new CommonAuthenticatedUser(
-                        legacyUser.customerId(),
-                        legacyUser.accountId(),
-                        null,
-                        legacyUser.role(),
-                        legacyUser.branch(),
-                        legacyUser.accountNumber()
-                );
-            }
+        if (authentication != null && authentication.getPrincipal() instanceof CommonAuthenticatedUser authUser) {
+            return authUser;
         }
         return null;
     }

@@ -11,7 +11,6 @@ import com.bankledger.ledger.domain.model.Journal;
 import com.bankledger.ledger.domain.model.LedgerAccount;
 import com.bankledger.ledger.domain.model.NormalBalance;
 import com.bankledger.ledger.domain.model.TrialBalanceTotals;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;

@@ -1,5 +1,6 @@
 package com.bankledger.auth.config;
 
+import com.bankledger.commons.security.SecurityConstants;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.io.buffer.DataBuffer;
@@ -27,11 +28,11 @@ public class SecurityConfig {
         return http
                 .csrf(ServerHttpSecurity.CsrfSpec::disable)
                 .authorizeExchange(exchanges -> exchanges
-                        .pathMatchers(HttpMethod.POST, "/api/v1/auth/login", "/auth/login").permitAll()
-                        .pathMatchers(HttpMethod.POST, "/api/v1/auth/refresh", "/auth/refresh").permitAll()
-                        .pathMatchers(HttpMethod.GET, "/.well-known/jwks.json", "/api/v1/auth/.well-known/jwks.json").permitAll()
-                        .pathMatchers(HttpMethod.POST, "/api/v1/auth/introspect").permitAll()
-                        .pathMatchers("/internal/v1/auth/**").permitAll()
+                        .pathMatchers(HttpMethod.POST, SecurityConstants.AUTH_LOGIN_PATH, "/auth/login").permitAll()
+                        .pathMatchers(HttpMethod.POST, SecurityConstants.AUTH_REFRESH_PATH, "/auth/refresh").permitAll()
+                        .pathMatchers(HttpMethod.GET, SecurityConstants.JWKS_WELL_KNOWN_PATH, "/api/v1/auth/.well-known/jwks.json").permitAll()
+                        .pathMatchers(HttpMethod.POST, SecurityConstants.AUTH_INTROSPECT_PATH).permitAll()
+                        .pathMatchers(SecurityConstants.INTERNAL_AUTH_CREDENTIALS_PATH, "/internal/v1/auth/**").permitAll()
                         .pathMatchers("/actuator/**").permitAll()
                         .pathMatchers("/swagger-ui/**", "/swagger-ui.html", "/v3/api-docs/**", "/webjars/**").permitAll()
                         .anyExchange().authenticated()

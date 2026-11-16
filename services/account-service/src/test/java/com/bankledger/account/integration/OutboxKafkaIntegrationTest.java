@@ -7,6 +7,7 @@ import com.bankledger.account.application.port.in.CreateAccountCommand;
 import com.bankledger.account.application.port.in.CreateAccountUseCase;
 import com.bankledger.account.application.port.in.CreatedAccountResult;
 import com.bankledger.account.domain.event.AccountOpenedEvent;
+import com.bankledger.commons.constant.KafkaTopics;
 import com.bankledger.commons.outbox.OutboxEvent;
 import com.bankledger.commons.outbox.OutboxEventRepository;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
@@ -33,10 +34,7 @@ import tools.jackson.databind.ObjectMapper;
 
 import java.time.Duration;
 import java.time.LocalDate;
-import java.util.Collections;
-import java.util.List;
-import java.util.Properties;
-import java.util.UUID;
+import java.util.*;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -106,7 +104,7 @@ class OutboxKafkaIntegrationTest {
         consumerProps.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
 
         consumer = new KafkaConsumer<>(consumerProps);
-        consumer.subscribe(Collections.singletonList(AccountOpenedEvent.TOPIC));
+        consumer.subscribe(List.of(AccountOpenedEvent.TOPIC, KafkaTopics.AUTH_CREDENTIALS_REGISTRATION_V1));
     }
 
     @AfterEach
@@ -120,7 +118,7 @@ class OutboxKafkaIntegrationTest {
     }
 
     @Test
-    @DisplayName("Should create account, store pending outbox event, and publish to Kafka topic account.events.v1")
+    @DisplayName("Should create account, store pending outbox events, and publish to Kafka topics account.events.v1 and auth.credentials-registration.v1")
     void shouldCreateAccountStoreOutboxAndPublishToKafka() throws Exception {
         CreateAccountCommand command = new CreateAccountCommand(
                 "Carlos Drummond de Andrade",
@@ -136,29 +134,49 @@ class OutboxKafkaIntegrationTest {
         assertThat(result).isNotNull();
         assertThat(result.accountId()).isNotNull();
 
-        // Step 2: Verify outbox record is initially pending
+        // Step 2: Verify outbox records are initially pending (both AccountOpened and RegisterCredentials)
         List<OutboxEvent> initialEvents = outboxEventRepository.findAll();
-        assertThat(initialEvents).hasSize(1);
+        assertThat(initialEvents).hasSize(2);
 
-        OutboxEvent pendingEvent = initialEvents.getFirst();
-        assertThat(pendingEvent.getTopic()).isEqualTo(AccountOpenedEvent.TOPIC);
-        assertThat(pendingEvent.getMessageKey()).isEqualTo(result.accountId().toString());
-        assertThat(pendingEvent.getEventType()).isEqualTo(AccountOpenedEvent.EVENT_TYPE);
-        assertThat(pendingEvent.getPublishedAt()).isNull();
-        assertThat(pendingEvent.isPublished()).isFalse();
-        assertThat(pendingEvent.getAttempts()).isEqualTo(0);
+        OutboxEvent pendingAccountEvent = initialEvents.stream()
+                .filter(e -> "Account".equals(e.getAggregateType()))
+                .findFirst()
+                .orElseThrow();
+        assertThat(pendingAccountEvent.getTopic()).isEqualTo(AccountOpenedEvent.TOPIC);
+        assertThat(pendingAccountEvent.getMessageKey()).isEqualTo(result.accountId().toString());
+        assertThat(pendingAccountEvent.getEventType()).isEqualTo(AccountOpenedEvent.EVENT_TYPE);
+        assertThat(pendingAccountEvent.getPublishedAt()).isNull();
+        assertThat(pendingAccountEvent.isPublished()).isFalse();
+        assertThat(pendingAccountEvent.getAttempts()).isEqualTo(0);
+
+        OutboxEvent pendingCredentialsEvent = initialEvents.stream()
+                .filter(e -> "AuthCredentials".equals(e.getAggregateType()))
+                .findFirst()
+                .orElseThrow();
+        assertThat(pendingCredentialsEvent.getTopic()).isEqualTo(KafkaTopics.AUTH_CREDENTIALS_REGISTRATION_V1);
+        assertThat(pendingCredentialsEvent.getMessageKey()).isEqualTo(result.customerId().toString());
+        assertThat(pendingCredentialsEvent.getEventType()).isEqualTo("RegisterCredentials");
+        assertThat(pendingCredentialsEvent.getPublishedAt()).isNull();
+        assertThat(pendingCredentialsEvent.isPublished()).isFalse();
+        assertThat(pendingCredentialsEvent.getAttempts()).isEqualTo(0);
 
         // Step 3: Trigger OutboxPoller cycle
         int publishedCount = outboxPollerLifecycle.triggerPolling();
-        assertThat(publishedCount).isEqualTo(1);
+        assertThat(publishedCount).isEqualTo(2);
 
-        // Step 4: Consume record from Kafka topic account.events.v1
-        ConsumerRecord<String, String> receivedRecord = pollRecordForKey(consumer, result.accountId().toString(), Duration.ofSeconds(10));
-        assertThat(receivedRecord).isNotNull();
-        assertThat(receivedRecord.topic()).isEqualTo(AccountOpenedEvent.TOPIC);
-        assertThat(receivedRecord.key()).isEqualTo(result.accountId().toString());
+        // Step 4: Consume records from Kafka topics
+        Map<String, ConsumerRecord<String, String>> recordsByKey = pollRecordsForKeys(
+                consumer,
+                Set.of(result.accountId().toString(), result.customerId().toString()),
+                Duration.ofSeconds(10)
+        );
 
-        JsonNode payloadJson = objectMapper.readTree(receivedRecord.value());
+        ConsumerRecord<String, String> accountRecord = recordsByKey.get(result.accountId().toString());
+        assertThat(accountRecord).isNotNull();
+        assertThat(accountRecord.topic()).isEqualTo(AccountOpenedEvent.TOPIC);
+        assertThat(accountRecord.key()).isEqualTo(result.accountId().toString());
+
+        JsonNode payloadJson = objectMapper.readTree(accountRecord.value());
         assertThat(payloadJson.get("accountId").asString()).isEqualTo(result.accountId().toString());
         assertThat(payloadJson.get("customerId").asString()).isEqualTo(result.customerId().toString());
         assertThat(payloadJson.get("customerCpf").asString()).isEqualTo("52998224725");
@@ -168,11 +186,31 @@ class OutboxKafkaIntegrationTest {
         assertThat(payloadJson.get("checkDigit").asString()).isEqualTo(result.checkDigit());
         assertThat(payloadJson.get("openedAt")).isNotNull();
 
-        // Step 5: Verify outbox record is now published in PostgreSQL
-        OutboxEvent publishedEvent = outboxEventRepository.findById(pendingEvent.getId()).orElseThrow();
-        assertThat(publishedEvent.isPublished()).isTrue();
-        assertThat(publishedEvent.getPublishedAt()).isNotNull();
-        assertThat(publishedEvent.getAttempts()).isEqualTo(0);
+        ConsumerRecord<String, String> credentialsRecord = recordsByKey.get(result.customerId().toString());
+        assertThat(credentialsRecord).isNotNull();
+        assertThat(credentialsRecord.topic()).isEqualTo(KafkaTopics.AUTH_CREDENTIALS_REGISTRATION_V1);
+        assertThat(credentialsRecord.key()).isEqualTo(result.customerId().toString());
+
+        JsonNode credentialsPayloadJson = objectMapper.readTree(credentialsRecord.value());
+        assertThat(credentialsPayloadJson.get("customerId").asString()).isEqualTo(result.customerId().toString());
+        assertThat(credentialsPayloadJson.get("cpf").asString()).isEqualTo("52998224725");
+        assertThat(credentialsPayloadJson.get("password").asString()).isEqualTo("Password@123");
+        assertThat(credentialsPayloadJson.get("accountId").asString()).isEqualTo(result.accountId().toString());
+        assertThat(credentialsPayloadJson.get("branch").asString()).isEqualTo(result.branch());
+        assertThat(credentialsPayloadJson.get("accountNumber").asString()).isEqualTo(result.accountNumber());
+        assertThat(credentialsPayloadJson.get("fullName").asString()).isEqualTo("Carlos Drummond de Andrade");
+        assertThat(credentialsPayloadJson.get("email").asString()).isEqualTo("carlos.drummond@example.com");
+
+        // Step 5: Verify outbox records are now published in PostgreSQL
+        OutboxEvent publishedAccountEvent = outboxEventRepository.findById(pendingAccountEvent.getId()).orElseThrow();
+        assertThat(publishedAccountEvent.isPublished()).isTrue();
+        assertThat(publishedAccountEvent.getPublishedAt()).isNotNull();
+        assertThat(publishedAccountEvent.getAttempts()).isEqualTo(0);
+
+        OutboxEvent publishedCredentialsEvent = outboxEventRepository.findById(pendingCredentialsEvent.getId()).orElseThrow();
+        assertThat(publishedCredentialsEvent.isPublished()).isTrue();
+        assertThat(publishedCredentialsEvent.getPublishedAt()).isNotNull();
+        assertThat(publishedCredentialsEvent.getAttempts()).isEqualTo(0);
     }
 
     @Test
@@ -195,37 +233,51 @@ class OutboxKafkaIntegrationTest {
         CreatedAccountResult result = createAccountUseCase.createAccount(command);
         assertThat(result).isNotNull();
 
-        // Verify that background thread polls and publishes within timeout
+        // Verify that background thread polls and publishes both events within timeout
         Awaitility.await()
                 .atMost(Duration.ofSeconds(10))
                 .until(() -> {
                     List<OutboxEvent> events = outboxEventRepository.findAll();
-                    return !events.isEmpty() && events.getFirst().isPublished();
+                    return events.size() == 2 && events.stream().allMatch(OutboxEvent::isPublished);
                 });
 
-        ConsumerRecord<String, String> receivedRecord = pollRecordForKey(consumer, result.accountId().toString(), Duration.ofSeconds(10));
-        assertThat(receivedRecord).isNotNull();
-        assertThat(receivedRecord.key()).isEqualTo(result.accountId().toString());
+        Map<String, ConsumerRecord<String, String>> recordsByKey = pollRecordsForKeys(
+                consumer,
+                Set.of(result.accountId().toString(), result.customerId().toString()),
+                Duration.ofSeconds(10)
+        );
+
+        ConsumerRecord<String, String> accountRecord = recordsByKey.get(result.accountId().toString());
+        assertThat(accountRecord).isNotNull();
+        assertThat(accountRecord.key()).isEqualTo(result.accountId().toString());
+
+        ConsumerRecord<String, String> credentialsRecord = recordsByKey.get(result.customerId().toString());
+        assertThat(credentialsRecord).isNotNull();
+        assertThat(credentialsRecord.key()).isEqualTo(result.customerId().toString());
 
         // Stop lifecycle and verify status
         outboxPollerLifecycle.stop();
         assertThat(outboxPollerLifecycle.isRunning()).isFalse();
     }
 
-    private ConsumerRecord<String, String> pollRecordForKey(
+    private Map<String, ConsumerRecord<String, String>> pollRecordsForKeys(
             KafkaConsumer<String, String> kafkaConsumer,
-            String targetKey,
+            Set<String> targetKeys,
             Duration timeout
     ) {
+        Map<String, ConsumerRecord<String, String>> found = new HashMap<>();
         long deadline = System.currentTimeMillis() + timeout.toMillis();
-        while (System.currentTimeMillis() < deadline) {
+        while (System.currentTimeMillis() < deadline && found.size() < targetKeys.size()) {
             ConsumerRecords<String, String> records = kafkaConsumer.poll(Duration.ofMillis(200));
             for (ConsumerRecord<String, String> record : records) {
-                if (targetKey.equals(record.key())) {
-                    return record;
+                if (targetKeys.contains(record.key())) {
+                    found.put(record.key(), record);
                 }
             }
         }
-        throw new AssertionError("Timeout waiting for Kafka record with key: " + targetKey);
+        if (found.size() < targetKeys.size()) {
+            throw new AssertionError("Timeout waiting for Kafka records with keys: " + targetKeys + ", found: " + found.keySet());
+        }
+        return found;
     }
 }

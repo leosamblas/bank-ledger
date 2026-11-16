@@ -14,6 +14,11 @@ spring:
     username: ${DB_USER:bankledger}
     password: ${DB_PASSWORD:bankledger}
     driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 30
+      minimum-idle: 10
+      connection-timeout: 30000
+      leak-detection-threshold: 2000
   jpa:
     open-in-view: false
     hibernate:

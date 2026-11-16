@@ -6,6 +6,8 @@ package com.bankledger.commons.constant;
 public final class KafkaTopics {
 
     public static final String ACCOUNT_EVENTS_V1 = "account.events.v1";
+    public static final String AUTH_CREDENTIALS_REGISTRATION_V1 = "auth.credentials-registration.v1";
+    public static final String ACCOUNT_READY_V1 = "account.ready.v1";
     public static final String LEDGER_COMMANDS_V1 = "ledger.commands.v1";
     public static final String LEDGER_JOURNAL_RESULTS_V1 = "ledger.journal-results.v1";
     public static final String LEDGER_ACCOUNT_EVENTS_V1 = "ledger.account-events.v1";

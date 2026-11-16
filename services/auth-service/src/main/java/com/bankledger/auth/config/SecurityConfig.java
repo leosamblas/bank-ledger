@@ -33,6 +33,7 @@ public class SecurityConfig {
                         .pathMatchers(HttpMethod.GET, SecurityConstants.JWKS_WELL_KNOWN_PATH, "/api/v1/auth/.well-known/jwks.json").permitAll()
                         .pathMatchers(HttpMethod.POST, SecurityConstants.AUTH_INTROSPECT_PATH).permitAll()
                         .pathMatchers(SecurityConstants.INTERNAL_AUTH_CREDENTIALS_PATH, "/internal/v1/auth/**").permitAll()
+                        .pathMatchers("/internal/auth/**").permitAll()
                         .pathMatchers("/actuator/**").permitAll()
                         .pathMatchers("/swagger-ui/**", "/swagger-ui.html", "/v3/api-docs/**", "/webjars/**").permitAll()
                         .anyExchange().authenticated()

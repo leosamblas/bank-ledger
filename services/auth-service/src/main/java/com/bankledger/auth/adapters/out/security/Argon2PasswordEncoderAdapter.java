@@ -5,7 +5,9 @@ import org.springframework.security.crypto.argon2.Argon2PasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 
-@Component
+/**
+ * Legacy Argon2PasswordEncoderAdapter retained for backward compatibility.
+ */
 public class Argon2PasswordEncoderAdapter implements PasswordEncoderPort, PasswordEncoder {
 
     private static final int SALT_LENGTH = 16;

@@ -14,10 +14,19 @@ spring:
         dialect: org.hibernate.dialect.H2Dialect
   flyway:
     enabled: false
+  data:
+    redis:
+      host: localhost
+      port: 6379
+  kafka:
+    listener:
+      auto-startup: false
 
 app:
   security:
-    dummy-argon2-hash: "$argon2id$v=19$m=19456,t=3,p=1$A95dCHZGbTCnwE0PsaX0Vw$PpVtTpb8S+tIiPPH7dFQLQqb1quYB17eMUJZI+Mbcz8"
+    internal-service-key: bankledger-internal-secret-ledger-key-2026
+    dummy-hash: "$2a$10$7EqJtq98hPqEX7fNZaFWoO0Z4qD5gR4m8YQ0CqD8.7Uu7W9n7I.wK"
+    dummy-argon2-hash: "$2a$10$7EqJtq98hPqEX7fNZaFWoO0Z4qD5gR4m8YQ0CqD8.7Uu7W9n7I.wK"
     access-token-validity-seconds: 900
     refresh-token-validity-seconds: 604800
 

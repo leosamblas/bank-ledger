@@ -15,9 +15,9 @@ import com.bankledger.account.domain.model.AccountStatus;
 import com.bankledger.account.domain.model.Customer;
 import com.bankledger.account.domain.vo.Cpf;
 import com.bankledger.account.domain.vo.Email;
+import com.bankledger.commons.constant.KafkaTopics;
 import com.bankledger.commons.outbox.OutboxEvent;
-import com.bankledger.commons.security.SecurityConstants;
-import com.sun.net.httpserver.HttpServer;
+import com.bankledger.commons.security.dto.RegisterCredentialsPayload;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -25,18 +25,14 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.web.reactive.function.client.WebClient;
 import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.json.JsonMapper;
 
-import java.net.InetSocketAddress;
-import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicReference;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -70,14 +66,12 @@ class CreateAccountServiceTest {
                 accountRepository,
                 outboxPort,
                 objectMapper,
-                fixedClock,
-                "http://localhost:8086",
-                WebClient.builder()
+                fixedClock
         );
     }
 
     @Test
-    @DisplayName("Should successfully create account, customer, and outbox event atomically without local password hashing")
+    @DisplayName("Should successfully create account, customer, and atomic outbox events for account opened and credentials registration")
     void shouldCreateAccountSuccessfullyWithAtomicOutboxEvent() throws Exception {
         CreateAccountCommand command = new CreateAccountCommand(
                 "Carlos Eduardo Silva",
@@ -121,15 +115,20 @@ class CreateAccountServiceTest {
         assertThat(savedAccount.getStatus()).isEqualTo(AccountStatus.ACTIVE);
 
         ArgumentCaptor<OutboxEvent> outboxCaptor = ArgumentCaptor.forClass(OutboxEvent.class);
-        verify(outboxPort).save(outboxCaptor.capture());
-        OutboxEvent outboxEvent = outboxCaptor.getValue();
-        assertThat(outboxEvent.getAggregateType()).isEqualTo("Account");
-        assertThat(outboxEvent.getAggregateId()).isEqualTo(savedAccount.getId());
-        assertThat(outboxEvent.getEventType()).isEqualTo(AccountOpenedEvent.EVENT_TYPE);
-        assertThat(outboxEvent.getTopic()).isEqualTo(AccountOpenedEvent.TOPIC);
-        assertThat(outboxEvent.getMessageKey()).isEqualTo(savedAccount.getId().toString());
+        verify(outboxPort, times(2)).save(outboxCaptor.capture());
+        List<OutboxEvent> savedEvents = outboxCaptor.getAllValues();
 
-        AccountOpenedEvent payloadEvent = objectMapper.readValue(outboxEvent.getPayload(), AccountOpenedEvent.class);
+        // 1. AccountOpened outbox event
+        OutboxEvent accountOpenedEvent = savedEvents.stream()
+                .filter(e -> "Account".equals(e.getAggregateType()))
+                .findFirst()
+                .orElseThrow();
+        assertThat(accountOpenedEvent.getAggregateId()).isEqualTo(savedAccount.getId());
+        assertThat(accountOpenedEvent.getEventType()).isEqualTo(AccountOpenedEvent.EVENT_TYPE);
+        assertThat(accountOpenedEvent.getTopic()).isEqualTo(AccountOpenedEvent.TOPIC);
+        assertThat(accountOpenedEvent.getMessageKey()).isEqualTo(savedAccount.getId().toString());
+
+        AccountOpenedEvent payloadEvent = objectMapper.readValue(accountOpenedEvent.getPayload(), AccountOpenedEvent.class);
         assertThat(payloadEvent.accountId()).isEqualTo(savedAccount.getId());
         assertThat(payloadEvent.customerId()).isEqualTo(savedCustomer.getId());
         assertThat(payloadEvent.customerCpf()).isEqualTo("52998224725");
@@ -138,111 +137,79 @@ class CreateAccountServiceTest {
         assertThat(payloadEvent.accountNumber()).isEqualTo("100000");
         assertThat(payloadEvent.checkDigit()).isEqualTo("4");
         assertThat(payloadEvent.openedAt()).isEqualTo(NOW);
+
+        // 2. AuthCredentials registration outbox event
+        OutboxEvent credentialsEvent = savedEvents.stream()
+                .filter(e -> "AuthCredentials".equals(e.getAggregateType()))
+                .findFirst()
+                .orElseThrow();
+        assertThat(credentialsEvent.getAggregateId()).isEqualTo(savedCustomer.getId());
+        assertThat(credentialsEvent.getEventType()).isEqualTo("RegisterCredentials");
+        assertThat(credentialsEvent.getTopic()).isEqualTo(KafkaTopics.AUTH_CREDENTIALS_REGISTRATION_V1);
+        assertThat(credentialsEvent.getMessageKey()).isEqualTo(savedCustomer.getId().toString());
+
+        RegisterCredentialsPayload credentialsPayload = objectMapper.readValue(
+                credentialsEvent.getPayload(),
+                RegisterCredentialsPayload.class
+        );
+        assertThat(credentialsPayload.customerId()).isEqualTo(savedCustomer.getId());
+        assertThat(credentialsPayload.cpf()).isEqualTo("52998224725");
+        assertThat(credentialsPayload.password()).isEqualTo("StrongPassword123!");
+        assertThat(credentialsPayload.accountId()).isEqualTo(savedAccount.getId());
+        assertThat(credentialsPayload.branch()).isEqualTo("0001");
+        assertThat(credentialsPayload.accountNumber()).isEqualTo("100000");
+        assertThat(credentialsPayload.fullName()).isEqualTo("Carlos Eduardo Silva");
+        assertThat(credentialsPayload.email()).isEqualTo("carlos.silva@example.com");
     }
 
     @Test
-    @DisplayName("Should successfully delegate credentials to auth-service internal API using WebClient")
-    void shouldDelegateCredentialsToAuthServiceSuccessfully() throws Exception {
-        HttpServer server = HttpServer.create(new InetSocketAddress(0), 0);
-        AtomicReference<String> requestBody = new AtomicReference<>();
-        server.createContext(SecurityConstants.INTERNAL_AUTH_CREDENTIALS_PATH, exchange -> {
-            requestBody.set(new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8));
-            exchange.sendResponseHeaders(201, -1);
-        });
-        server.start();
+    @DisplayName("Should register credentials asynchronously via OutboxEvent with correct payload and topic")
+    void shouldRegisterCredentialsAsynchronouslyViaOutbox() throws Exception {
+        CreateAccountCommand command = new CreateAccountCommand(
+                "Maria Souza",
+                "11144477735",
+                LocalDate.of(1995, 6, 20),
+                "maria.souza@example.com",
+                "+5511977776666",
+                "SecretPassword@2026"
+        );
 
-        try {
-            int port = server.getAddress().getPort();
-            CreateAccountService serviceWithMockServer = new CreateAccountService(
-                    customerRepository,
-                    accountRepository,
-                    outboxPort,
-                    objectMapper,
-                    fixedClock,
-                    "http://localhost:" + port,
-                    WebClient.builder()
-            );
+        when(customerRepository.existsByCpf(Cpf.of("11144477735"))).thenReturn(false);
+        when(customerRepository.existsByEmail(Email.of("maria.souza@example.com"))).thenReturn(false);
+        when(accountRepository.nextAccountNumber()).thenReturn(200000L);
+        when(customerRepository.save(any(Customer.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(accountRepository.save(any(Account.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-            CreateAccountCommand command = new CreateAccountCommand(
-                    "Carlos Eduardo Silva",
-                    "52998224725",
-                    LocalDate.of(1990, 1, 1),
-                    "carlos.silva@example.com",
-                    "+5511999998888",
-                    "StrongPassword123!"
-            );
+        CreatedAccountResult result = createAccountService.createAccount(command);
 
-            when(customerRepository.existsByCpf(Cpf.of("52998224725"))).thenReturn(false);
-            when(customerRepository.existsByEmail(Email.of("carlos.silva@example.com"))).thenReturn(false);
-            when(accountRepository.nextAccountNumber()).thenReturn(100000L);
-            when(customerRepository.save(any(Customer.class))).thenAnswer(invocation -> invocation.getArgument(0));
-            when(accountRepository.save(any(Account.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        assertThat(result).isNotNull();
 
-            CreatedAccountResult result = serviceWithMockServer.createAccount(command);
+        ArgumentCaptor<OutboxEvent> outboxCaptor = ArgumentCaptor.forClass(OutboxEvent.class);
+        verify(outboxPort, times(2)).save(outboxCaptor.capture());
 
-            assertThat(result).isNotNull();
-            assertThat(requestBody.get()).isNotNull();
-            assertThat(requestBody.get()).contains("\"cpf\":\"52998224725\"");
-            assertThat(requestBody.get()).contains("\"password\":\"StrongPassword123!\"");
-            assertThat(requestBody.get()).contains("\"fullName\":\"Carlos Eduardo Silva\"");
-            assertThat(requestBody.get()).contains("\"email\":\"carlos.silva@example.com\"");
-            assertThat(requestBody.get()).contains("\"branch\":\"0001\"");
-            assertThat(requestBody.get()).contains("\"accountNumber\":\"100000\"");
-        } finally {
-            server.stop(0);
-        }
-    }
+        OutboxEvent credentialsEvent = outboxCaptor.getAllValues().stream()
+                .filter(e -> "AuthCredentials".equals(e.getAggregateType()))
+                .findFirst()
+                .orElseThrow();
 
-    @Test
-    @DisplayName("Should proceed with local fallback and retry when auth-service returns 500 error")
-    void shouldFallbackGracefullyWhenAuthServiceFails() throws Exception {
-        HttpServer server = HttpServer.create(new InetSocketAddress(0), 0);
-        AtomicInteger requestCount = new AtomicInteger(0);
-        server.createContext(SecurityConstants.INTERNAL_AUTH_CREDENTIALS_PATH, exchange -> {
-            requestCount.incrementAndGet();
-            exchange.sendResponseHeaders(500, -1);
-        });
-        server.start();
+        assertThat(credentialsEvent.getAggregateType()).isEqualTo("AuthCredentials");
+        assertThat(credentialsEvent.getAggregateId()).isEqualTo(result.customerId());
+        assertThat(credentialsEvent.getEventType()).isEqualTo("RegisterCredentials");
+        assertThat(credentialsEvent.getTopic()).isEqualTo(KafkaTopics.AUTH_CREDENTIALS_REGISTRATION_V1);
+        assertThat(credentialsEvent.getMessageKey()).isEqualTo(result.customerId().toString());
 
-        try {
-            int port = server.getAddress().getPort();
-            CreateAccountService serviceWithMockServer = new CreateAccountService(
-                    customerRepository,
-                    accountRepository,
-                    outboxPort,
-                    objectMapper,
-                    fixedClock,
-                    "http://localhost:" + port,
-                    WebClient.builder()
-            );
-
-            CreateAccountCommand command = new CreateAccountCommand(
-                    "Carlos Eduardo Silva",
-                    "52998224725",
-                    LocalDate.of(1990, 1, 1),
-                    "carlos.silva@example.com",
-                    "+5511999998888",
-                    "StrongPassword123!"
-            );
-
-            when(customerRepository.existsByCpf(Cpf.of("52998224725"))).thenReturn(false);
-            when(customerRepository.existsByEmail(Email.of("carlos.silva@example.com"))).thenReturn(false);
-            when(accountRepository.nextAccountNumber()).thenReturn(100000L);
-            when(customerRepository.save(any(Customer.class))).thenAnswer(invocation -> invocation.getArgument(0));
-            when(accountRepository.save(any(Account.class))).thenAnswer(invocation -> invocation.getArgument(0));
-
-            CreatedAccountResult result = serviceWithMockServer.createAccount(command);
-
-            assertThat(result).isNotNull();
-            assertThat(result.status()).isEqualTo(AccountStatus.ACTIVE);
-            verify(customerRepository).save(any(Customer.class));
-            verify(accountRepository).save(any(Account.class));
-            verify(outboxPort).save(any(OutboxEvent.class));
-            // 1 initial request + 3 retries = 4 requests
-            assertThat(requestCount.get()).isEqualTo(1 + SecurityConstants.DEFAULT_RETRY_ATTEMPTS);
-        } finally {
-            server.stop(0);
-        }
+        RegisterCredentialsPayload payload = objectMapper.readValue(
+                credentialsEvent.getPayload(),
+                RegisterCredentialsPayload.class
+        );
+        assertThat(payload.customerId()).isEqualTo(result.customerId());
+        assertThat(payload.cpf()).isEqualTo("11144477735");
+        assertThat(payload.password()).isEqualTo("SecretPassword@2026");
+        assertThat(payload.accountId()).isEqualTo(result.accountId());
+        assertThat(payload.branch()).isEqualTo("0001");
+        assertThat(payload.accountNumber()).isEqualTo("200000");
+        assertThat(payload.fullName()).isEqualTo("Maria Souza");
+        assertThat(payload.email()).isEqualTo("maria.souza@example.com");
     }
 
     @Test

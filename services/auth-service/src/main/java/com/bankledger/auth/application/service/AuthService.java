@@ -1,5 +1,6 @@
 package com.bankledger.auth.application.service;
 
+import com.bankledger.auth.application.port.in.FindAuthUserUseCase;
 import com.bankledger.auth.application.port.in.IntrospectCommand;
 import com.bankledger.auth.application.port.in.IntrospectResult;
 import com.bankledger.auth.application.port.in.IntrospectTokenUseCase;
@@ -10,18 +11,23 @@ import com.bankledger.auth.application.port.in.RefreshTokenCommand;
 import com.bankledger.auth.application.port.in.RefreshTokenUseCase;
 import com.bankledger.auth.application.port.in.RegisterCredentialsCommand;
 import com.bankledger.auth.application.port.in.RegisterCredentialsUseCase;
+import com.bankledger.auth.application.port.out.AccountLockoutPort;
+import com.bankledger.auth.application.port.out.AccountReadyEventPublisherPort;
 import com.bankledger.auth.application.port.out.AuthUserRepositoryPort;
 import com.bankledger.auth.application.port.out.PasswordEncoderPort;
+import com.bankledger.auth.domain.event.AccountReadyEvent;
 import com.bankledger.auth.domain.exception.CredentialsAlreadyExistsException;
 import com.bankledger.auth.domain.exception.CustomerLockedException;
 import com.bankledger.auth.domain.exception.InvalidCredentialsException;
 import com.bankledger.auth.domain.model.AuthUser;
 import com.bankledger.commons.constant.HttpHeaderConstants;
+import com.bankledger.commons.events.v1.account.AccountReadyPayload;
 import com.bankledger.commons.security.RsaJwtSigner;
 import com.bankledger.commons.security.RsaJwtValidator;
 import com.bankledger.commons.security.SecurityConstants;
 import com.bankledger.commons.security.TokenClaims;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -37,26 +43,31 @@ import java.util.UUID;
 
 @Slf4j
 @Service
-public class AuthService implements LoginUseCase, RefreshTokenUseCase, RegisterCredentialsUseCase, IntrospectTokenUseCase {
+public class AuthService implements LoginUseCase, RefreshTokenUseCase, RegisterCredentialsUseCase, IntrospectTokenUseCase, FindAuthUserUseCase {
 
     private final AuthUserRepositoryPort authUserRepositoryPort;
     private final PasswordEncoderPort passwordEncoderPort;
     private final RsaJwtSigner rsaJwtSigner;
     private final RsaJwtValidator rsaJwtValidator;
     private final Clock clock;
-    private final String dummyArgon2Hash;
+    private final AccountLockoutPort accountLockoutPort;
+    private final AccountReadyEventPublisherPort accountReadyEventPublisherPort;
+    private final String dummyHash;
     private final long accessTokenValiditySeconds;
     private final long refreshTokenValiditySeconds;
     private final SecureRandom secureRandom = new SecureRandom();
 
+    @Autowired
     public AuthService(
             AuthUserRepositoryPort authUserRepositoryPort,
             PasswordEncoderPort passwordEncoderPort,
             RsaJwtSigner rsaJwtSigner,
             RsaJwtValidator rsaJwtValidator,
             Clock clock,
-            @Value("${app.security.dummy-argon2-hash:${APP_SECURITY_DUMMY_ARGON2_HASH:$argon2id$v=19$m=19456,t=3,p=1$A95dCHZGbTCnwE0PsaX0Vw$PpVtTpb8S+tIiPPH7dFQLQqb1quYB17eMUJZI+Mbcz8}}")
-            String dummyArgon2Hash,
+            @Autowired(required = false) AccountLockoutPort accountLockoutPort,
+            @Autowired(required = false) AccountReadyEventPublisherPort accountReadyEventPublisherPort,
+            @Value("${app.security.dummy-hash:${app.security.dummy-argon2-hash:$2a$10$7EqJtq98hPqEX7fNZaFWoO0Z4qD5gR4m8YQ0CqD8.7Uu7W9n7I.wK}}")
+            String dummyHash,
             @Value("${app.security.access-token-validity-seconds:${ACCESS_TOKEN_VALIDITY_SECONDS:900}}")
             long accessTokenValiditySeconds,
             @Value("${app.security.refresh-token-validity-seconds:${REFRESH_TOKEN_VALIDITY_SECONDS:604800}}")
@@ -67,9 +78,25 @@ public class AuthService implements LoginUseCase, RefreshTokenUseCase, RegisterC
         this.rsaJwtSigner = Objects.requireNonNull(rsaJwtSigner, "rsaJwtSigner must not be null");
         this.rsaJwtValidator = Objects.requireNonNull(rsaJwtValidator, "rsaJwtValidator must not be null");
         this.clock = Objects.requireNonNull(clock, "clock must not be null");
-        this.dummyArgon2Hash = dummyArgon2Hash;
+        this.accountLockoutPort = accountLockoutPort;
+        this.accountReadyEventPublisherPort = accountReadyEventPublisherPort;
+        this.dummyHash = dummyHash;
         this.accessTokenValiditySeconds = accessTokenValiditySeconds;
         this.refreshTokenValiditySeconds = refreshTokenValiditySeconds;
+    }
+
+    public AuthService(
+            AuthUserRepositoryPort authUserRepositoryPort,
+            PasswordEncoderPort passwordEncoderPort,
+            RsaJwtSigner rsaJwtSigner,
+            RsaJwtValidator rsaJwtValidator,
+            Clock clock,
+            String dummyHash,
+            long accessTokenValiditySeconds,
+            long refreshTokenValiditySeconds
+    ) {
+        this(authUserRepositoryPort, passwordEncoderPort, rsaJwtSigner, rsaJwtValidator, clock,
+                null, null, dummyHash, accessTokenValiditySeconds, refreshTokenValiditySeconds);
     }
 
     private String sanitizeCpf(String cpf) {
@@ -93,17 +120,25 @@ public class AuthService implements LoginUseCase, RefreshTokenUseCase, RegisterC
         String sanitizedCpf = sanitizeCpf(command.cpf());
         if (sanitizedCpf.length() != 11) {
             // Timing side-channel defense on malformed CPF
-            passwordEncoderPort.matches(command.password() != null ? command.password() : "", dummyArgon2Hash);
+            passwordEncoderPort.matches(command.password() != null ? command.password() : "", dummyHash);
             log.warn("Login rejected: CPF is not 11 digits");
             throw new InvalidCredentialsException("Credenciais inválidas");
+        }
+
+        // Fast account lockout in Redis BEFORE querying database
+        if (accountLockoutPort != null && accountLockoutPort.isLocked(sanitizedCpf)) {
+            log.warn("Login rejected: account fast-locked in Redis for CPF: {}", sanitizedCpf);
+            throw new CustomerLockedException(
+                    "Conta bloqueada temporariamente por excesso de tentativas. Tente novamente em 15 minutos."
+            );
         }
 
         Instant now = Instant.now(clock);
 
         Optional<AuthUser> maybeUser = authUserRepositoryPort.findByCpf(sanitizedCpf);
         if (maybeUser.isEmpty()) {
-            // Timing side-channel defense: simulate Argon2id password hash check to prevent CPF enumeration
-            passwordEncoderPort.matches(command.password() != null ? command.password() : "", dummyArgon2Hash);
+            // Timing side-channel defense: simulate password hash check to prevent CPF enumeration
+            passwordEncoderPort.matches(command.password() != null ? command.password() : "", dummyHash);
             log.warn("Login rejected: user not found for CPF");
             throw new InvalidCredentialsException("Credenciais inválidas");
         }
@@ -123,8 +158,16 @@ public class AuthService implements LoginUseCase, RefreshTokenUseCase, RegisterC
             user.recordFailedLogin(now);
             authUserRepositoryPort.save(user);
 
-            if (user.isLocked(now)) {
+            long redisAttempts = 0;
+            if (accountLockoutPort != null) {
+                redisAttempts = accountLockoutPort.recordFailedAttempt(sanitizedCpf);
+            }
+
+            if (redisAttempts >= 5 || user.isLocked(now)) {
                 long minutesLeft = calculateMinutesLeft(user.getLockedUntil(), now);
+                if (minutesLeft <= 0) {
+                    minutesLeft = 15;
+                }
                 log.warn("Account newly locked after 5 failed attempts for customerId: {}", user.getCustomerId());
                 throw new CustomerLockedException(
                         "Conta bloqueada temporariamente por excesso de tentativas. Tente novamente em " + minutesLeft + " minutos."
@@ -134,6 +177,11 @@ public class AuthService implements LoginUseCase, RefreshTokenUseCase, RegisterC
             log.warn("Login rejected: invalid password for customerId: {}. Failed attempts: {}",
                     user.getCustomerId(), user.getFailedLoginAttempts());
             throw new InvalidCredentialsException("Credenciais inválidas");
+        }
+
+        // Reset failed attempts in Redis on successful login
+        if (accountLockoutPort != null) {
+            accountLockoutPort.resetFailedAttempts(sanitizedCpf);
         }
 
         user.resetFailedLogins(now);
@@ -295,6 +343,21 @@ public class AuthService implements LoginUseCase, RefreshTokenUseCase, RegisterC
 
         AuthUser saved = authUserRepositoryPort.save(user);
         log.info("Credentials registered successfully for customerId: {}", saved.getCustomerId());
+
+        // Publish outbound AccountReadyEvent wrapped in KafkaEventEnvelope to account.ready.v1
+        if (accountReadyEventPublisherPort != null) {
+            AccountReadyPayload payload = new AccountReadyPayload(
+                    saved.getCustomerId(),
+                    saved.getAccountId() != null ? saved.getAccountId() : UUID.randomUUID(),
+                    saved.getEmail() != null ? saved.getEmail() : "user@bank.internal",
+                    saved.getFullName() != null ? saved.getFullName() : "Customer",
+                    saved.getBranch() != null ? saved.getBranch() : "0001",
+                    saved.getAccountNumber() != null ? saved.getAccountNumber() : "000000",
+                    now
+            );
+            accountReadyEventPublisherPort.publish(AccountReadyEvent.of(payload, now));
+        }
+
         return saved;
     }
 
@@ -323,6 +386,25 @@ public class AuthService implements LoginUseCase, RefreshTokenUseCase, RegisterC
             log.debug("Token introspection failed: {}", e.getMessage());
             return IntrospectResult.inactive();
         }
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Optional<AuthUser> findByCustomerId(UUID customerId) {
+        if (customerId == null) {
+            return Optional.empty();
+        }
+        return authUserRepositoryPort.findByCustomerId(customerId);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Optional<AuthUser> findByCpf(String cpf) {
+        String sanitized = sanitizeCpf(cpf);
+        if (sanitized.length() != 11) {
+            return Optional.empty();
+        }
+        return authUserRepositoryPort.findByCpf(sanitized);
     }
 
     private long calculateMinutesLeft(Instant lockedUntil, Instant now) {

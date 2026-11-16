@@ -175,5 +175,39 @@ class AuthServiceIntegrationTest {
                 .expectBody()
                 .jsonPath("$.status").isEqualTo(401)
                 .jsonPath("$.detail").value(detail -> org.assertj.core.api.Assertions.assertThat(detail.toString()).contains("Credenciais inválidas"));
+
+        // 8. Internal user query by customerId (requires X-Internal-Service-Key)
+        client.get()
+                .uri("/internal/auth/users/" + customerId)
+                .header(SecurityConstants.INTERNAL_SERVICE_KEY_HEADER, "bankledger-internal-secret-ledger-key-2026")
+                .exchange()
+                .expectStatus().isOk()
+                .expectBody()
+                .jsonPath("$.customerId").isEqualTo(customerId.toString())
+                .jsonPath("$.cpf").isEqualTo(cpf)
+                .jsonPath("$.fullName").isEqualTo("Maria Souza")
+                .jsonPath("$.email").isEqualTo("maria@example.com")
+                .jsonPath("$.status").isEqualTo("ACTIVE")
+                .jsonPath("$.role").isEqualTo("ROLE_USER")
+                .jsonPath("$.passwordHash").doesNotExist();
+
+        // 9. Internal user query rejected without X-Internal-Service-Key
+        client.get()
+                .uri("/internal/auth/users/" + customerId)
+                .exchange()
+                .expectStatus().isUnauthorized()
+                .expectHeader().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON);
+
+        // 10. Internal user query by CPF
+        client.get()
+                .uri("/internal/auth/users/by-cpf/" + cpf)
+                .header(SecurityConstants.INTERNAL_SERVICE_KEY_HEADER, "bankledger-internal-secret-ledger-key-2026")
+                .exchange()
+                .expectStatus().isOk()
+                .expectBody()
+                .jsonPath("$.customerId").isEqualTo(customerId.toString())
+                .jsonPath("$.cpf").isEqualTo(cpf)
+                .jsonPath("$.status").isEqualTo("ACTIVE")
+                .jsonPath("$.passwordHash").doesNotExist();
     }
 }

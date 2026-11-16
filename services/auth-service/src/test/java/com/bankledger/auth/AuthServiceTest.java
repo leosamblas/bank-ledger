@@ -6,9 +6,12 @@ import com.bankledger.auth.application.port.in.LoginCommand;
 import com.bankledger.auth.application.port.in.LoginResult;
 import com.bankledger.auth.application.port.in.RefreshTokenCommand;
 import com.bankledger.auth.application.port.in.RegisterCredentialsCommand;
+import com.bankledger.auth.application.port.out.AccountLockoutPort;
+import com.bankledger.auth.application.port.out.AccountReadyEventPublisherPort;
 import com.bankledger.auth.application.port.out.AuthUserRepositoryPort;
 import com.bankledger.auth.application.port.out.PasswordEncoderPort;
 import com.bankledger.auth.application.service.AuthService;
+import com.bankledger.auth.domain.event.AccountReadyEvent;
 import com.bankledger.auth.domain.exception.CredentialsAlreadyExistsException;
 import com.bankledger.auth.domain.exception.CustomerLockedException;
 import com.bankledger.auth.domain.exception.InvalidCredentialsException;
@@ -35,7 +38,9 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -50,6 +55,12 @@ class AuthServiceTest {
 
     @Mock
     private PasswordEncoderPort passwordEncoderPort;
+
+    @Mock
+    private AccountLockoutPort accountLockoutPort;
+
+    @Mock
+    private AccountReadyEventPublisherPort accountReadyEventPublisherPort;
 
     private RsaJwtSigner rsaJwtSigner;
     private RsaJwtValidator rsaJwtValidator;
@@ -72,6 +83,8 @@ class AuthServiceTest {
                 rsaJwtSigner,
                 rsaJwtValidator,
                 clock,
+                accountLockoutPort,
+                accountReadyEventPublisherPort,
                 DUMMY_HASH,
                 900L,
                 604800L
@@ -343,5 +356,95 @@ class AuthServiceTest {
     void shouldReturnInactiveForInvalidToken() {
         IntrospectResult result = authService.introspect(new IntrospectCommand("invalid.token.here"));
         assertThat(result.active()).isFalse();
+    }
+
+    @Test
+    @DisplayName("Should reject login immediately when locked in Redis BEFORE querying database")
+    void shouldRejectLoginFastWhenLockedInRedisBeforeQueryingDatabase() {
+        when(accountLockoutPort.isLocked("52998224725")).thenReturn(true);
+
+        assertThatThrownBy(() -> authService.login(new LoginCommand("52998224725", "Secret@123")))
+                .isInstanceOf(CustomerLockedException.class)
+                .hasMessageContaining("Conta bloqueada temporariamente");
+
+        verify(accountLockoutPort).isLocked("52998224725");
+        verify(authUserRepositoryPort, never()).findByCpf(anyString());
+    }
+
+    @Test
+    @DisplayName("Should lock account when Redis reports 5th failed attempt")
+    void shouldLockAccountWhenRedisReportsFifthFailedAttempt() {
+        AuthUser user = buildUser(0, null);
+        when(accountLockoutPort.isLocked("52998224725")).thenReturn(false);
+        when(authUserRepositoryPort.findByCpf("52998224725")).thenReturn(Optional.of(user));
+        when(passwordEncoderPort.matches("WrongPassword", "$argon2id$mockedhash")).thenReturn(false);
+        when(accountLockoutPort.recordFailedAttempt("52998224725")).thenReturn(5L);
+
+        assertThatThrownBy(() -> authService.login(new LoginCommand("52998224725", "WrongPassword")))
+                .isInstanceOf(CustomerLockedException.class)
+                .hasMessageContaining("Conta bloqueada temporariamente");
+
+        verify(accountLockoutPort).recordFailedAttempt("52998224725");
+    }
+
+    @Test
+    @DisplayName("Should reset failed attempts in Redis on successful login")
+    void shouldResetFailedAttemptsInRedisOnSuccessfulLogin() {
+        AuthUser user = buildUser(0, null);
+        when(accountLockoutPort.isLocked("52998224725")).thenReturn(false);
+        when(authUserRepositoryPort.findByCpf("52998224725")).thenReturn(Optional.of(user));
+        when(passwordEncoderPort.matches("Secret@123", "$argon2id$mockedhash")).thenReturn(true);
+        when(authUserRepositoryPort.save(any(AuthUser.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        authService.login(new LoginCommand("52998224725", "Secret@123"));
+
+        verify(accountLockoutPort).resetFailedAttempts("52998224725");
+    }
+
+    @Test
+    @DisplayName("Should publish AccountReadyEvent to Kafka on credentials registration")
+    void shouldPublishAccountReadyEventOnRegistration() {
+        when(authUserRepositoryPort.existsByCpf("52998224725")).thenReturn(false);
+        when(passwordEncoderPort.encode("Secret@123")).thenReturn("$2a$10$encodedpassword");
+        when(authUserRepositoryPort.save(any(AuthUser.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        UUID customerId = UUID.randomUUID();
+        UUID accountId = UUID.randomUUID();
+
+        authService.registerCredentials(new RegisterCredentialsCommand(
+                customerId,
+                "52998224725",
+                "Secret@123",
+                accountId,
+                "0001",
+                "123456",
+                "Carlos Silva",
+                "carlos@example.com"
+        ));
+
+        ArgumentCaptor<AccountReadyEvent> eventCaptor = ArgumentCaptor.forClass(AccountReadyEvent.class);
+        verify(accountReadyEventPublisherPort).publish(eventCaptor.capture());
+
+        AccountReadyEvent event = eventCaptor.getValue();
+        assertThat(event.payload().customerId()).isEqualTo(customerId);
+        assertThat(event.payload().accountId()).isEqualTo(accountId);
+        assertThat(event.payload().email()).isEqualTo("carlos@example.com");
+        assertThat(event.payload().fullName()).isEqualTo("Carlos Silva");
+    }
+
+    @Test
+    @DisplayName("Should find user by customerId and CPF")
+    void shouldFindUserByCustomerIdAndCpf() {
+        UUID customerId = UUID.randomUUID();
+        AuthUser user = buildUser(0, null);
+
+        when(authUserRepositoryPort.findByCustomerId(customerId)).thenReturn(Optional.of(user));
+        when(authUserRepositoryPort.findByCpf("52998224725")).thenReturn(Optional.of(user));
+
+        Optional<AuthUser> byCustomer = authService.findByCustomerId(customerId);
+        Optional<AuthUser> byCpf = authService.findByCpf("529.982.247-25");
+
+        assertThat(byCustomer).isPresent();
+        assertThat(byCpf).isPresent();
     }
 }

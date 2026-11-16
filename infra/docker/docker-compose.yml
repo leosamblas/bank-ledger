@@ -26,6 +26,20 @@ services:
     networks:
       - bank-ledger-network
 
+  redis:
+    image: redis:7-alpine
+    container_name: bank-ledger-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - bank-ledger-network
+
   kafka:
     image: confluentinc/cp-kafka:8.4.0
     container_name: bank-ledger-kafka
@@ -80,6 +94,8 @@ services:
       kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists --topic ledger.account-events.v1 --partitions 3 --replication-factor 1
       kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists --topic ledger.entries.v1 --partitions 3 --replication-factor 1
       kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists --topic transaction.events.v1 --partitions 3 --replication-factor 1
+      kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists --topic auth.credentials-registration.v1 --partitions 3 --replication-factor 1
+      kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists --topic account.ready.v1 --partitions 3 --replication-factor 1
       echo 'All topics created successfully.'
       "
     networks:
@@ -143,6 +159,8 @@ services:
       SPRING_DATASOURCE_PASSWORD: bank_ledger_secret
       SERVER_PORT: 8086
       OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-lgtm:4318
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
     deploy:
       resources:
         limits:
@@ -301,6 +319,31 @@ services:
       timeout: 5s
       retries: 5
       start_period: 20s
+    networks:
+      - bank-ledger-network
+
+  notification-service:
+    build:
+      context: ../../
+      dockerfile: infra/docker/services/Dockerfile
+      args:
+        SERVICE_NAME: notification-service
+    container_name: bank-ledger-notification-service
+    restart: unless-stopped
+    ports:
+      - "8087:8087"
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      SERVER_PORT: 8087
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      SMTP_HOST: smtp.gmail.com
+      SMTP_PORT: 587
+      SMTP_USERNAME: ${SMTP_USERNAME:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      MAIL_ENABLED: ${MAIL_ENABLED:-true}
+    depends_on:
+      kafka:
+        condition: service_healthy
     networks:
       - bank-ledger-network
 

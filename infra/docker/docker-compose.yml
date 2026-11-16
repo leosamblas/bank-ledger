@@ -354,7 +354,7 @@ services:
       SMTP_PORT: 587
       SMTP_USERNAME: ${SMTP_USERNAME:-}
       SMTP_PASSWORD: ${SMTP_PASSWORD:-}
-      MAIL_ENABLED: ${MAIL_ENABLED:-true}
+      MAIL_ENABLED: ${MAIL_ENABLED:-false}
     deploy:
       resources:
         limits:

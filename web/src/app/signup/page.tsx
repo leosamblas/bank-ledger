@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState } from 'react';
-import Link from 'next/link';
 import { Header } from '@/components/ui/Header';
 import { Stepper } from '@/components/ui/Stepper';
 import { Footer } from '@/components/ui/Footer';
@@ -18,21 +17,6 @@ export default function AbrirConta() {
     <main className="w-full min-h-screen flex flex-col justify-between bg-surface">
       <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 sm:pt-8 pb-8 flex-1 flex flex-col">
         <Header currentPage="signup" />
-
-        {/* Breadcrumb Trail */}
-        <nav aria-label="Navegação estrutural" className="flex items-center gap-2 text-body-sm text-on-surface-variant my-4">
-          <Link
-            href="/"
-            className="hover:text-on-surface inline-flex items-center gap-1.5 transition-colors font-medium text-secondary hover:text-on-surface group no-underline"
-          >
-            <span className="material-symbols-outlined text-[17px] text-secondary group-hover:text-on-surface transition-colors shrink-0">
-              home
-            </span>
-            <span className="group-hover:underline">Início</span>
-          </Link>
-          <span className="material-symbols-outlined text-[14px] text-surface-container-highest">chevron_right</span>
-          <span className="text-on-surface font-semibold">Abertura de Conta Digital</span>
-        </nav>
 
         <Stepper currentStep={currentStep} onStepClick={setCurrentStep} />
 

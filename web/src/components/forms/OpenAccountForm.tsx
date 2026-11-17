@@ -221,25 +221,15 @@ export function OpenAccountForm({ onNameChange, currentStep, onStepChange }: Pro
           </div>
         </div>
 
-        <div className="space-y-3 pt-2">
+        <div className="pt-2">
           <Link
             href="/login"
-            className="w-full h-12 px-6 bg-[#0e1c2f] text-white hover:bg-[#1a2d47] font-headline-sm text-headline-sm rounded-full transition-all duration-200 flex items-center justify-center gap-2 shadow-md hover:shadow-xl hover:shadow-black/15 font-bold group no-underline"
+            className="w-full h-12 px-6 bg-primary-container text-on-primary hover:bg-primary-container/90 font-headline-sm text-headline-sm rounded-full transition-all duration-200 flex items-center justify-center gap-2 shadow-md hover:shadow-xl hover:shadow-black/15 font-bold group no-underline"
           >
             <span>Fazer Login na Conta</span>
             <span className="material-symbols-outlined text-xl no-underline group-hover:translate-x-1 transition-transform shrink-0">
               arrow_forward
             </span>
-          </Link>
-
-          <Link
-            href="/"
-            className="w-full h-11 px-6 bg-surface-container-low hover:bg-surface-container border border-surface-container hover:border-outline-variant/60 text-on-surface font-body-md text-body-md rounded-full transition-all duration-200 flex items-center justify-center gap-2 group no-underline shadow-2xs hover:shadow-xs"
-          >
-            <span className="material-symbols-outlined text-lg group-hover:-translate-x-1 transition-transform text-secondary no-underline shrink-0">
-              arrow_back
-            </span>
-            <span className="group-hover:underline">Voltar para a página inicial</span>
           </Link>
         </div>
       </div>
@@ -323,7 +313,7 @@ export function OpenAccountForm({ onNameChange, currentStep, onStepChange }: Pro
               type="button"
               onClick={() => setStep(2)}
               disabled={!nameValid || !isValidCpf(cpf) || ageValid !== true}
-              className="w-full h-12 px-6 bg-[#0e1c2f] text-white hover:bg-[#1a2d47] font-headline-sm text-headline-sm rounded-full transition-all duration-200 flex items-center justify-center gap-2 shadow-md hover:shadow-xl hover:shadow-black/15 active:scale-[0.99] cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed group font-bold"
+              className="w-full h-12 px-6 bg-primary-container text-on-primary hover:bg-primary-container/90 font-headline-sm text-headline-sm rounded-full transition-all duration-200 flex items-center justify-center gap-2 shadow-md hover:shadow-xl hover:shadow-black/15 active:scale-[0.99] cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed group font-bold"
             >
               <span>Continuar para Contato</span>
               <span className="material-symbols-outlined text-xl no-underline group-hover:translate-x-1 transition-transform shrink-0">
@@ -400,7 +390,7 @@ export function OpenAccountForm({ onNameChange, currentStep, onStepChange }: Pro
               type="button"
               onClick={() => setStep(3)}
               disabled={!email.trim() || phone.length < 14}
-              className="w-full sm:flex-1 h-12 px-6 bg-[#0e1c2f] text-white hover:bg-[#1a2d47] font-headline-sm text-headline-sm rounded-full transition-all duration-200 flex items-center justify-center gap-2 shadow-md hover:shadow-xl hover:shadow-black/15 active:scale-[0.99] cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed group font-bold"
+              className="w-full sm:flex-1 h-12 px-6 bg-primary-container text-on-primary hover:bg-primary-container/90 font-headline-sm text-headline-sm rounded-full transition-all duration-200 flex items-center justify-center gap-2 shadow-md hover:shadow-xl hover:shadow-black/15 active:scale-[0.99] cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed group font-bold"
             >
               <span>Continuar para Segurança</span>
               <span className="material-symbols-outlined text-xl no-underline group-hover:translate-x-1 transition-transform shrink-0">
@@ -569,7 +559,7 @@ export function OpenAccountForm({ onNameChange, currentStep, onStepChange }: Pro
             </button>
 
             <button
-              className="w-full sm:flex-1 h-12 px-6 bg-[#0e1c2f] text-white hover:bg-[#1a2d47] font-headline-sm text-headline-sm rounded-full transition-all duration-200 flex items-center justify-center gap-2 shadow-md hover:shadow-xl hover:shadow-black/15 active:scale-[0.99] cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed group font-bold"
+              className="w-full sm:flex-1 h-12 px-6 bg-primary-container text-on-primary hover:bg-primary-container/90 font-headline-sm text-headline-sm rounded-full transition-all duration-200 flex items-center justify-center gap-2 shadow-md hover:shadow-xl hover:shadow-black/15 active:scale-[0.99] cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed group font-bold"
               disabled={isSubmitting || !password || !confirmPassword || password !== confirmPassword || !acceptedTerms}
               type="submit"
             >
@@ -590,28 +580,6 @@ export function OpenAccountForm({ onNameChange, currentStep, onStepChange }: Pro
           </div>
         </div>
       )}
-
-      <div className="flex items-center justify-center gap-3 text-center font-body-sm text-body-sm text-on-surface-variant pt-2 flex-wrap">
-        <p>
-          Já possui uma conta?{" "}
-          <Link
-            className="font-semibold text-on-surface hover:text-secondary transition-colors underline-offset-2 hover:underline ml-1"
-            href="/login"
-          >
-            Faça login
-          </Link>
-        </p>
-        <span className="hidden sm:inline text-surface-container-highest">•</span>
-        <Link
-          className="font-semibold text-on-surface-variant hover:text-on-surface transition-colors inline-flex items-center gap-1.5 group no-underline"
-          href="/"
-        >
-          <span className="material-symbols-outlined text-[16px] group-hover:-translate-x-1 transition-transform text-secondary no-underline shrink-0">
-            arrow_back
-          </span>
-          <span className="group-hover:underline">Voltar para a página inicial</span>
-        </Link>
-      </div>
     </form>
   );
 }

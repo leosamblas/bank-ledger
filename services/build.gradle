@@ -8,6 +8,19 @@ allprojects {
 }
 
 subprojects {
+    ext {
+        testcontainersVersion = project.findProperty('testcontainersVersion') ?: '1.20.4'
+    }
+    ext['testcontainers.version'] = testcontainersVersion
+
+    plugins.withId('io.spring.dependency-management') {
+        dependencyManagement {
+            imports {
+                mavenBom "org.testcontainers:testcontainers-bom:${testcontainersVersion}"
+            }
+        }
+    }
+
     tasks.withType(Test).configureEach {
         systemProperty 'reactor.schedulers.defaultBoundedElasticOnVirtualThreads', 'true'
     }

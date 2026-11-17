@@ -27,7 +27,6 @@ repositories {
 dependencyManagement {
     imports {
         mavenBom org.springframework.boot.gradle.plugin.SpringBootPlugin.BOM_COORDINATES
-        mavenBom 'org.testcontainers:testcontainers-bom:1.20.4'
     }
 }
 

@@ -11,9 +11,11 @@ CREATE TABLE IF NOT EXISTS outbox_event (
   created_at     timestamptz  NOT NULL DEFAULT now(),
   published_at   timestamptz,
   attempts       int          NOT NULL DEFAULT 0,
+  locked_until   timestamptz,
   CONSTRAINT pk_outbox_event PRIMARY KEY (id)
 );
 CREATE INDEX IF NOT EXISTS ix_outbox_pending ON outbox_event (created_at) WHERE published_at IS NULL;
+CREATE INDEX IF NOT EXISTS ix_outbox_locked_until ON outbox_event (locked_until) WHERE published_at IS NULL;
 
 CREATE TABLE IF NOT EXISTS inbox_event (
   event_id     uuid         NOT NULL,

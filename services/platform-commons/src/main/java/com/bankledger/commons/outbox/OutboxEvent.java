@@ -67,6 +67,9 @@ public class OutboxEvent {
     @Column(name = "attempts", nullable = false)
     private int attempts = 0;
 
+    @Column(name = "locked_until")
+    private Instant lockedUntil;
+
     /**
      * Factory method to create a pending outbox event with full parameters.
      */
@@ -92,7 +95,8 @@ public class OutboxEvent {
                 headers != null ? headers : DEFAULT_HEADERS,
                 Instant.now(),
                 null,
-                0
+                0,
+                null
         );
     }
 
@@ -120,12 +124,20 @@ public class OutboxEvent {
     }
 
     /**
-     * Marks this event as published.
+     * Marks this event as published and clears any active lock.
      *
      * @param when the instant when the event was published, or current instant if null
      */
     public void markPublished(Instant when) {
         this.publishedAt = when != null ? when : Instant.now();
+        this.lockedUntil = null;
+    }
+
+    /**
+     * Releases any active claim lock on this event so it can be retried.
+     */
+    public void releaseLock() {
+        this.lockedUntil = null;
     }
 
     /**

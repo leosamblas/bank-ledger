@@ -167,6 +167,78 @@ class OutboxIntegrationTest {
     }
 
     @Test
+    @DisplayName("concurrent pollers running pollAndPublish simultaneously do not publish duplicate events")
+    void concurrentPollersDoNotPublishDuplicateEvents() throws Exception {
+        // Arrange: insert 20 events
+        List<OutboxEvent> events = new ArrayList<>();
+        for (int i = 0; i < 20; i++) {
+            UUID aggId = UUID.randomUUID();
+            events.add(OutboxEvent.pending("Account", aggId, "Event" + i, "account.events", "k" + i, "{\"seq\":" + i + "}"));
+        }
+        repository.saveAll(events);
+
+        List<UUID> poller1Published = new CopyOnWriteArrayList<>();
+        List<UUID> poller2Published = new CopyOnWriteArrayList<>();
+
+        // Publisher for Poller 1 that pauses briefly to simulate Kafka latency while holding claimed rows
+        OutboxPublisher slowPublisher1 = e -> {
+            poller1Published.add(e.getId());
+            Thread.sleep(100);
+        };
+
+        // Publisher for Poller 2 that also pauses briefly
+        OutboxPublisher slowPublisher2 = e -> {
+            poller2Published.add(e.getId());
+            Thread.sleep(100);
+        };
+
+        try (
+                OutboxPoller poller1 = new OutboxPoller(repository, slowPublisher1, transactionManager, 10, 200, 5);
+                OutboxPoller poller2 = new OutboxPoller(repository, slowPublisher2, transactionManager, 10, 200, 5)
+        ) {
+            CountDownLatch startLatch = new CountDownLatch(1);
+
+            Thread t1 = Thread.ofVirtual().name("poller-instance-1").start(() -> {
+                try {
+                    startLatch.await();
+                    poller1.pollAndPublish();
+                } catch (Exception e) {
+                    throw new RuntimeException(e);
+                }
+            });
+
+            Thread t2 = Thread.ofVirtual().name("poller-instance-2").start(() -> {
+                try {
+                    startLatch.await();
+                    // Slight 20ms offset so Poller 1 commits its claim transaction first,
+                    // but Poller 2 executes while Poller 1 is still publishing to slowPublisher1!
+                    Thread.sleep(20);
+                    poller2.pollAndPublish();
+                } catch (Exception e) {
+                    throw new RuntimeException(e);
+                }
+            });
+
+            // Start both pollers concurrently
+            startLatch.countDown();
+
+            t1.join(Duration.ofSeconds(15));
+            t2.join(Duration.ofSeconds(15));
+        }
+
+        // Assert: Both pollers published 10 events each, with ZERO overlap
+        assertThat(poller1Published).hasSize(10);
+        assertThat(poller2Published).hasSize(10);
+        assertThat(Collections.disjoint(poller1Published, poller2Published))
+                .as("Poller 1 and Poller 2 must have zero overlapping published events")
+                .isTrue();
+
+        List<OutboxEvent> allInDb = repository.findAll();
+        assertThat(allInDb).hasSize(20);
+        assertThat(allInDb).allMatch(OutboxEvent::isPublished);
+    }
+
+    @Test
     @DisplayName("publisher failure increments attempts counter and leaves publishedAt as null")
     void failureIncrementsAttemptsWithoutSettingPublishedAt() {
         // Arrange

@@ -8,6 +8,8 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 
@@ -21,6 +23,7 @@ public class OutboxPoller implements AutoCloseable {
     public static final int DEFAULT_BATCH_SIZE = 50;
     public static final long DEFAULT_POLLING_INTERVAL_MS = 200;
     public static final int DEFAULT_MAX_ATTEMPTS = 5;
+    public static final Duration DEFAULT_CLAIM_TIMEOUT = Duration.ofSeconds(30);
 
     private final OutboxEventRepository repository;
     private final OutboxPublisher publisher;
@@ -35,6 +38,9 @@ public class OutboxPoller implements AutoCloseable {
     @Getter
     private final int maxAttempts;
 
+    @Getter
+    private final Duration claimTimeout;
+
     private volatile boolean running = false;
 
     @Getter
@@ -46,7 +52,7 @@ public class OutboxPoller implements AutoCloseable {
             PlatformTransactionManager transactionManager
     ) {
         this(repository, publisher, new TransactionTemplate(transactionManager),
-                DEFAULT_BATCH_SIZE, DEFAULT_POLLING_INTERVAL_MS, DEFAULT_MAX_ATTEMPTS);
+                DEFAULT_BATCH_SIZE, DEFAULT_POLLING_INTERVAL_MS, DEFAULT_MAX_ATTEMPTS, DEFAULT_CLAIM_TIMEOUT);
     }
 
     public OutboxPoller(
@@ -58,7 +64,7 @@ public class OutboxPoller implements AutoCloseable {
             int maxAttempts
     ) {
         this(repository, publisher, new TransactionTemplate(transactionManager),
-                batchSize, pollingIntervalMs, maxAttempts);
+                batchSize, pollingIntervalMs, maxAttempts, DEFAULT_CLAIM_TIMEOUT);
     }
 
     public OutboxPoller(
@@ -67,7 +73,7 @@ public class OutboxPoller implements AutoCloseable {
             TransactionOperations transactionOperations
     ) {
         this(repository, publisher, transactionOperations,
-                DEFAULT_BATCH_SIZE, DEFAULT_POLLING_INTERVAL_MS, DEFAULT_MAX_ATTEMPTS);
+                DEFAULT_BATCH_SIZE, DEFAULT_POLLING_INTERVAL_MS, DEFAULT_MAX_ATTEMPTS, DEFAULT_CLAIM_TIMEOUT);
     }
 
     public OutboxPoller(
@@ -78,12 +84,27 @@ public class OutboxPoller implements AutoCloseable {
             long pollingIntervalMs,
             int maxAttempts
     ) {
+        this(repository, publisher, transactionOperations,
+                batchSize, pollingIntervalMs, maxAttempts, DEFAULT_CLAIM_TIMEOUT);
+    }
+
+    public OutboxPoller(
+            OutboxEventRepository repository,
+            OutboxPublisher publisher,
+            TransactionOperations transactionOperations,
+            int batchSize,
+            long pollingIntervalMs,
+            int maxAttempts,
+            Duration claimTimeout
+    ) {
         this.repository = Objects.requireNonNull(repository, "repository must not be null");
         this.publisher = Objects.requireNonNull(publisher, "publisher must not be null");
         this.transactionOperations = Objects.requireNonNull(transactionOperations, "transactionOperations must not be null");
         this.batchSize = batchSize > 0 ? batchSize : DEFAULT_BATCH_SIZE;
         this.pollingIntervalMs = pollingIntervalMs >= 0 ? pollingIntervalMs : DEFAULT_POLLING_INTERVAL_MS;
         this.maxAttempts = maxAttempts > 0 ? maxAttempts : DEFAULT_MAX_ATTEMPTS;
+        this.claimTimeout = claimTimeout != null && !claimTimeout.isNegative() && !claimTimeout.isZero()
+                ? claimTimeout : DEFAULT_CLAIM_TIMEOUT;
     }
 
     /**
@@ -144,33 +165,52 @@ public class OutboxPoller implements AutoCloseable {
 
     /**
      * Executes a polling and publishing cycle:
-     * 1. Locks up to {@code batchSize} pending records in a short-lived transaction.
+     * 1. Claims up to {@code batchSize} pending records with lease timestamp in a short-lived transaction (~2ms).
      * 2. Publishes each event to Kafka outside of any database transaction (preventing connection leaks).
-     * 3. Persists updated event states (published timestamp or incremented attempts) in a short-lived transaction.
+     * 3. Persists updated event states (published timestamp or released lock for retry) in a short-lived transaction.
      *
      * @return the number of events successfully published in this cycle
      */
     public int pollAndPublish() {
-        List<OutboxEvent> events = transactionOperations.execute(status -> repository.lockPendingEvents(batchSize));
+        Instant now = Instant.now();
+        Instant lockExpiration = now.plus(claimTimeout);
+
+        List<OutboxEvent> events = transactionOperations.execute(status -> {
+            List<OutboxEvent> pending = repository.lockPendingEvents(batchSize, now, maxAttempts);
+            if (pending == null || pending.isEmpty()) {
+                return Collections.emptyList();
+            }
+            List<OutboxEvent> claimable = new ArrayList<>();
+            for (OutboxEvent event : pending) {
+                if (event.getAttempts() >= maxAttempts) {
+                    log.warn("OutboxEvent {} has reached max attempts ({}), skipping publication",
+                            event.getId(), maxAttempts);
+                    continue;
+                }
+                event.setLockedUntil(lockExpiration);
+                claimable.add(event);
+            }
+            if (claimable.isEmpty()) {
+                return Collections.emptyList();
+            }
+            return repository.saveAll(claimable);
+        });
+
         if (events == null || events.isEmpty()) {
             return 0;
         }
 
         int count = 0;
         for (OutboxEvent event : events) {
-            if (event.getAttempts() >= maxAttempts) {
-                log.warn("OutboxEvent {} has reached max attempts ({}), skipping publication",
-                        event.getId(), maxAttempts);
-                continue;
-            }
             try {
                 publisher.publish(event);
                 event.markPublished(Instant.now());
                 count++;
             } catch (Exception ex) {
-                log.error("Failed to publish OutboxEvent {}, incrementing attempts: {}",
+                log.error("Failed to publish OutboxEvent {}, releasing claim for retry: {}",
                         event.getId(), ex.getMessage(), ex);
                 event.markFailed();
+                event.releaseLock();
             }
         }
 

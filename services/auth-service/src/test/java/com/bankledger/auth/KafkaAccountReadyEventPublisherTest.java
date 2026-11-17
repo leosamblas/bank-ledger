@@ -18,6 +18,7 @@ import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.json.JsonMapper;
 
 import java.time.Instant;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
@@ -39,7 +40,7 @@ class KafkaAccountReadyEventPublisherTest {
 
     @BeforeEach
     void setUp() {
-        publisher = new KafkaAccountReadyEventPublisher(kafkaTemplate, objectMapper);
+        publisher = new KafkaAccountReadyEventPublisher(Optional.of(kafkaTemplate), objectMapper);
     }
 
     @Test
@@ -94,7 +95,7 @@ class KafkaAccountReadyEventPublisherTest {
     @Test
     @DisplayName("Should skip publishing gracefully when KafkaTemplate is null")
     void shouldSkipWhenKafkaTemplateIsNull() {
-        KafkaAccountReadyEventPublisher nullPublisher = new KafkaAccountReadyEventPublisher(null, objectMapper);
+        KafkaAccountReadyEventPublisher nullPublisher = new KafkaAccountReadyEventPublisher(Optional.empty(), objectMapper);
         AccountReadyPayload payload = new AccountReadyPayload(
                 UUID.randomUUID(),
                 UUID.randomUUID(),

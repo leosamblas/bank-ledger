@@ -7,13 +7,13 @@ import com.bankledger.auth.adapters.in.rest.dto.RegisterCredentialsRequest;
 import com.bankledger.auth.application.port.in.FindAuthUserUseCase;
 import com.bankledger.auth.application.port.in.RegisterCredentialsCommand;
 import com.bankledger.auth.application.port.in.RegisterCredentialsUseCase;
+import com.bankledger.auth.config.AuthSecurityProperties;
 import com.bankledger.auth.config.RateLimitingWebFilter;
 import com.bankledger.commons.security.SecurityConstants;
 import com.bankledger.commons.security.dto.RegisterCredentialsPayload;
 import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.ReactiveStringRedisTemplate;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -30,45 +30,29 @@ import reactor.core.scheduler.Schedulers;
 
 import java.time.Clock;
 import java.time.Instant;
-import java.util.Objects;
+import java.util.Optional;
 import java.util.UUID;
 
 @Slf4j
 @RestController
+@RequiredArgsConstructor
 public class InternalAuthController {
 
     public static final String DEFAULT_INTERNAL_SERVICE_KEY = "bankledger-internal-secret-ledger-key-2026";
 
     private final RegisterCredentialsUseCase registerCredentialsUseCase;
-    private final FindAuthUserUseCase findAuthUserUseCase;
-    private final ReactiveStringRedisTemplate redisTemplate;
+    private final Optional<FindAuthUserUseCase> findAuthUserUseCase;
+    private final Optional<ReactiveStringRedisTemplate> redisTemplate;
     private final Clock clock;
-    private final String internalServiceKey;
+    private final AuthSecurityProperties properties;
 
     public record CredentialResponse(UUID id, UUID customerId, String cpf) {}
 
-    public InternalAuthController(RegisterCredentialsUseCase registerCredentialsUseCase) {
-        this(registerCredentialsUseCase, null, null, Clock.systemUTC(), DEFAULT_INTERNAL_SERVICE_KEY);
-    }
-
-    @Autowired
-    public InternalAuthController(
-            RegisterCredentialsUseCase registerCredentialsUseCase,
-            @Autowired(required = false) FindAuthUserUseCase findAuthUserUseCase,
-            @Autowired(required = false) ReactiveStringRedisTemplate redisTemplate,
-            Clock clock,
-            @Value("${app.security.internal-service-key:" + DEFAULT_INTERNAL_SERVICE_KEY + "}")
-            String internalServiceKey
-    ) {
-        this.registerCredentialsUseCase = Objects.requireNonNull(registerCredentialsUseCase, "registerCredentialsUseCase must not be null");
-        this.findAuthUserUseCase = findAuthUserUseCase;
-        this.redisTemplate = redisTemplate;
-        this.clock = clock != null ? clock : Clock.systemUTC();
-        this.internalServiceKey = internalServiceKey;
-    }
-
     private void validateInternalServiceKey(String headerKey) {
-        if (headerKey == null || !headerKey.equals(internalServiceKey)) {
+        String expectedKey = (properties != null && properties.getInternalServiceKey() != null)
+                ? properties.getInternalServiceKey()
+                : DEFAULT_INTERNAL_SERVICE_KEY;
+        if (headerKey == null || !headerKey.equals(expectedKey)) {
             log.warn("Unauthorized internal request: invalid or missing X-Internal-Service-Key");
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid or missing " + SecurityConstants.INTERNAL_SERVICE_KEY_HEADER + " header");
         }
@@ -91,11 +75,11 @@ public class InternalAuthController {
     ) {
         validateInternalServiceKey(serviceKey);
 
-        if (findAuthUserUseCase == null) {
+        if (findAuthUserUseCase.isEmpty()) {
             return Mono.just(ResponseEntity.status(HttpStatus.NOT_FOUND).build());
         }
 
-        return Mono.fromCallable(() -> findAuthUserUseCase.findByCustomerId(customerId))
+        return Mono.fromCallable(() -> findAuthUserUseCase.get().findByCustomerId(customerId))
                 .subscribeOn(Schedulers.boundedElastic())
                 .map(maybeUser -> maybeUser
                         .map(user -> ResponseEntity.ok(AuthUserSummaryResponse.fromDomain(user, Instant.now(clock))))
@@ -109,11 +93,11 @@ public class InternalAuthController {
     ) {
         validateInternalServiceKey(serviceKey);
 
-        if (findAuthUserUseCase == null) {
+        if (findAuthUserUseCase.isEmpty()) {
             return Mono.just(ResponseEntity.status(HttpStatus.NOT_FOUND).build());
         }
 
-        return Mono.fromCallable(() -> findAuthUserUseCase.findByCpf(cpf))
+        return Mono.fromCallable(() -> findAuthUserUseCase.get().findByCpf(cpf))
                 .subscribeOn(Schedulers.boundedElastic())
                 .map(maybeUser -> maybeUser
                         .map(user -> ResponseEntity.ok(AuthUserSummaryResponse.fromDomain(user, Instant.now(clock))))
@@ -132,11 +116,11 @@ public class InternalAuthController {
 
     private Mono<ResponseEntity<RateLimitConfigResponse>> applyRateLimitUpdate(RateLimitConfigRequest request) {
         log.info("Updating rate limit TPS configuration to: {}", request.tps());
-        if (redisTemplate == null) {
+        if (redisTemplate.isEmpty()) {
             return Mono.just(ResponseEntity.ok(new RateLimitConfigResponse(request.tps())));
         }
 
-        return redisTemplate.opsForValue()
+        return redisTemplate.get().opsForValue()
                 .set(RateLimitingWebFilter.RATELIMIT_CONFIG_KEY, String.valueOf(request.tps()))
                 .map(success -> ResponseEntity.ok(new RateLimitConfigResponse(request.tps())))
                 .onErrorResume(e -> {
@@ -147,11 +131,11 @@ public class InternalAuthController {
 
     @GetMapping("/internal/auth/ratelimit")
     public Mono<ResponseEntity<RateLimitConfigResponse>> getRateLimit() {
-        if (redisTemplate == null) {
+        if (redisTemplate.isEmpty()) {
             return Mono.just(ResponseEntity.ok(new RateLimitConfigResponse(RateLimitingWebFilter.DEFAULT_TPS)));
         }
 
-        return redisTemplate.opsForValue()
+        return redisTemplate.get().opsForValue()
                 .get(RateLimitingWebFilter.RATELIMIT_CONFIG_KEY)
                 .map(val -> {
                     try {

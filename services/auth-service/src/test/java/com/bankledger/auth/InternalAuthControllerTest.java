@@ -5,6 +5,7 @@ import com.bankledger.auth.adapters.in.rest.InternalAuthController;
 import com.bankledger.auth.adapters.in.rest.dto.RateLimitConfigRequest;
 import com.bankledger.auth.application.port.in.FindAuthUserUseCase;
 import com.bankledger.auth.application.port.in.RegisterCredentialsUseCase;
+import com.bankledger.auth.config.AuthSecurityProperties;
 import com.bankledger.auth.config.RateLimitingWebFilter;
 import com.bankledger.auth.domain.model.AuthUser;
 import com.bankledger.commons.security.SecurityConstants;
@@ -53,12 +54,14 @@ class InternalAuthControllerTest {
     @BeforeEach
     void setUp() {
         Clock clock = Clock.fixed(T0, ZoneOffset.UTC);
+        AuthSecurityProperties properties = new AuthSecurityProperties();
+        properties.setInternalServiceKey(SERVICE_KEY);
         InternalAuthController controller = new InternalAuthController(
                 registerCredentialsUseCase,
-                findAuthUserUseCase,
-                redisTemplate,
+                Optional.ofNullable(findAuthUserUseCase),
+                Optional.ofNullable(redisTemplate),
                 clock,
-                SERVICE_KEY
+                properties
         );
 
         client = WebTestClient.bindToController(controller)

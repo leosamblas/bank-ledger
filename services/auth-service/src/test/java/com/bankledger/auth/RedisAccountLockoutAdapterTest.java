@@ -12,6 +12,7 @@ import org.springframework.data.redis.core.ReactiveValueOperations;
 import reactor.core.publisher.Mono;
 
 import java.time.Duration;
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -32,7 +33,7 @@ class RedisAccountLockoutAdapterTest {
 
     @BeforeEach
     void setUp() {
-        adapter = new RedisAccountLockoutAdapter(redisTemplate);
+        adapter = new RedisAccountLockoutAdapter(Optional.of(redisTemplate));
     }
 
     @Test
@@ -113,7 +114,7 @@ class RedisAccountLockoutAdapterTest {
     @Test
     @DisplayName("Graceful fallback when redisTemplate is null")
     void shouldHandleNullRedisTemplateGracefully() {
-        RedisAccountLockoutAdapter nullAdapter = new RedisAccountLockoutAdapter(null);
+        RedisAccountLockoutAdapter nullAdapter = new RedisAccountLockoutAdapter(Optional.empty());
 
         assertThat(nullAdapter.isLocked("52998224725")).isFalse();
         assertThat(nullAdapter.recordFailedAttempt("52998224725")).isEqualTo(0);

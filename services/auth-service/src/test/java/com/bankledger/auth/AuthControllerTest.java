@@ -7,6 +7,7 @@ import com.bankledger.auth.adapters.in.rest.dto.IntrospectRequest;
 import com.bankledger.auth.adapters.in.rest.dto.LoginRequest;
 import com.bankledger.auth.adapters.in.rest.dto.RefreshTokenRequest;
 import com.bankledger.auth.adapters.in.rest.dto.RegisterCredentialsRequest;
+import com.bankledger.auth.config.AuthSecurityProperties;
 import com.bankledger.auth.application.port.in.IntrospectCommand;
 import com.bankledger.auth.application.port.in.IntrospectResult;
 import com.bankledger.auth.application.port.in.IntrospectTokenUseCase;
@@ -34,7 +35,9 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.reactive.server.WebTestClient;
 import tools.jackson.databind.json.JsonMapper;
 
+import java.time.Clock;
 import java.time.Instant;
+import java.util.Optional;
 import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
@@ -67,7 +70,13 @@ class AuthControllerTest {
         rsaJwtSigner = new RsaJwtSigner(objectMapper);
 
         AuthController authController = new AuthController(loginUseCase, refreshTokenUseCase, introspectTokenUseCase, rsaJwtSigner);
-        InternalAuthController internalAuthController = new InternalAuthController(registerCredentialsUseCase);
+        InternalAuthController internalAuthController = new InternalAuthController(
+                registerCredentialsUseCase,
+                Optional.empty(),
+                Optional.empty(),
+                Clock.systemUTC(),
+                new AuthSecurityProperties()
+        );
         GlobalExceptionHandler globalExceptionHandler = new GlobalExceptionHandler();
 
         client = WebTestClient.bindToController(authController)

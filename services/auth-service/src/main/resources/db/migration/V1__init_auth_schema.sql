@@ -1,5 +1,5 @@
 -- Authentication and Credentials Schema
--- Manages customer credentials, BCrypt hashes, lockout state, active tokens, and refresh tokens
+-- Manages customer credentials, Argon2id hashes, lockout state, active tokens, and refresh tokens
 
 CREATE TABLE IF NOT EXISTS auth_credentials (
     id UUID PRIMARY KEY,

@@ -49,7 +49,7 @@ import static org.mockito.Mockito.when;
 class AuthServiceTest {
 
     private static final Instant T0 = Instant.parse("2026-11-16T12:00:00Z");
-    private static final String DUMMY_HASH = "$argon2id$v=19$m=19456,t=3,p=1$mockdummyhash";
+    private static final String DUMMY_HASH = "$2a$10$7EqJtq98hPqEX7fNZaFWoO0Z4qD5gR4m8YQ0CqD8.7Uu7W9n7I.wK";
 
     @Mock
     private AuthUserRepositoryPort authUserRepositoryPort;
@@ -99,7 +99,7 @@ class AuthServiceTest {
         return new AuthUser(
                 UUID.randomUUID(),
                 "52998224725",
-                "$argon2id$mockedhash",
+                "$2a$10$mockedhash",
                 SecurityConstants.ROLE_USER,
                 UUID.randomUUID(),
                 UUID.randomUUID(),
@@ -123,7 +123,7 @@ class AuthServiceTest {
     void shouldLoginSuccessfully() {
         AuthUser user = buildUser(0, null);
         when(authUserRepositoryPort.findByCpf("52998224725")).thenReturn(Optional.of(user));
-        when(passwordEncoderPort.matches("Secret@123", "$argon2id$mockedhash")).thenReturn(true);
+        when(passwordEncoderPort.matches("Secret@123", "$2a$10$mockedhash")).thenReturn(true);
         when(authUserRepositoryPort.save(any(AuthUser.class))).thenAnswer(inv -> inv.getArgument(0));
 
         LoginResult result = authService.login(new LoginCommand("52998224725", "Secret@123"));
@@ -152,7 +152,7 @@ class AuthServiceTest {
         user.updateTokens(existingToken, tokenExpiresAt, existingRefreshToken, refreshExpiresAt, T0);
 
         when(authUserRepositoryPort.findByCpf("52998224725")).thenReturn(Optional.of(user));
-        when(passwordEncoderPort.matches("Secret@123", "$argon2id$mockedhash")).thenReturn(true);
+        when(passwordEncoderPort.matches("Secret@123", "$2a$10$mockedhash")).thenReturn(true);
         when(authUserRepositoryPort.save(any(AuthUser.class))).thenAnswer(inv -> inv.getArgument(0));
 
         LoginResult result = authService.login(new LoginCommand("52998224725", "Secret@123"));
@@ -208,7 +208,7 @@ class AuthServiceTest {
     void shouldSanitizeFormattedCpfDuringLogin() {
         AuthUser user = buildUser(0, null);
         when(authUserRepositoryPort.findByCpf("52998224725")).thenReturn(Optional.of(user));
-        when(passwordEncoderPort.matches("Secret@123", "$argon2id$mockedhash")).thenReturn(true);
+        when(passwordEncoderPort.matches("Secret@123", "$2a$10$mockedhash")).thenReturn(true);
         when(authUserRepositoryPort.save(any(AuthUser.class))).thenAnswer(inv -> inv.getArgument(0));
 
         LoginResult result = authService.login(new LoginCommand("529.982.247-25", "Secret@123"));
@@ -243,7 +243,7 @@ class AuthServiceTest {
     void shouldIncrementFailedAttemptsOnWrongPassword() {
         AuthUser user = buildUser(0, null);
         when(authUserRepositoryPort.findByCpf("52998224725")).thenReturn(Optional.of(user));
-        when(passwordEncoderPort.matches("WrongPass", "$argon2id$mockedhash")).thenReturn(false);
+        when(passwordEncoderPort.matches("WrongPass", "$2a$10$mockedhash")).thenReturn(false);
 
         assertThatThrownBy(() -> authService.login(new LoginCommand("52998224725", "WrongPass")))
                 .isInstanceOf(InvalidCredentialsException.class);
@@ -258,7 +258,7 @@ class AuthServiceTest {
     void shouldLockCustomerOnFifthFailure() {
         AuthUser user = buildUser(4, null);
         when(authUserRepositoryPort.findByCpf("52998224725")).thenReturn(Optional.of(user));
-        when(passwordEncoderPort.matches("WrongPass", "$argon2id$mockedhash")).thenReturn(false);
+        when(passwordEncoderPort.matches("WrongPass", "$2a$10$mockedhash")).thenReturn(false);
 
         assertThatThrownBy(() -> authService.login(new LoginCommand("52998224725", "WrongPass")))
                 .isInstanceOf(CustomerLockedException.class);
@@ -283,7 +283,7 @@ class AuthServiceTest {
     @DisplayName("Should register new credentials with sanitized CPF and encoded password")
     void shouldRegisterCredentialsWithSanitizedCpf() {
         when(authUserRepositoryPort.existsByCpf("52998224725")).thenReturn(false);
-        when(passwordEncoderPort.encode("Secret@123")).thenReturn("$argon2id$encodedhash");
+        when(passwordEncoderPort.encode("Secret@123")).thenReturn("$2a$10$encodedhash");
         when(authUserRepositoryPort.save(any(AuthUser.class))).thenAnswer(inv -> inv.getArgument(0));
 
         UUID customerId = UUID.randomUUID();
@@ -300,7 +300,7 @@ class AuthServiceTest {
         ));
 
         assertThat(saved.getCpf()).isEqualTo("52998224725");
-        assertThat(saved.getPasswordHash()).isEqualTo("$argon2id$encodedhash");
+        assertThat(saved.getPasswordHash()).isEqualTo("$2a$10$encodedhash");
         assertThat(saved.getCustomerId()).isEqualTo(customerId);
         assertThat(saved.getAccountId()).isEqualTo(accountId);
     }
@@ -342,7 +342,7 @@ class AuthServiceTest {
     void shouldIntrospectValidToken() {
         AuthUser user = buildUser(0, null);
         when(authUserRepositoryPort.findByCpf("52998224725")).thenReturn(Optional.of(user));
-        when(passwordEncoderPort.matches("Secret@123", "$argon2id$mockedhash")).thenReturn(true);
+        when(passwordEncoderPort.matches("Secret@123", "$2a$10$mockedhash")).thenReturn(true);
         when(authUserRepositoryPort.save(any(AuthUser.class))).thenAnswer(inv -> inv.getArgument(0));
 
         LoginResult result = authService.login(new LoginCommand("52998224725", "Secret@123"));
@@ -381,7 +381,7 @@ class AuthServiceTest {
         AuthUser user = buildUser(0, null);
         when(accountLockoutPort.isLocked("52998224725")).thenReturn(false);
         when(authUserRepositoryPort.findByCpf("52998224725")).thenReturn(Optional.of(user));
-        when(passwordEncoderPort.matches("WrongPassword", "$argon2id$mockedhash")).thenReturn(false);
+        when(passwordEncoderPort.matches("WrongPassword", "$2a$10$mockedhash")).thenReturn(false);
         when(accountLockoutPort.recordFailedAttempt("52998224725")).thenReturn(5L);
 
         assertThatThrownBy(() -> authService.login(new LoginCommand("52998224725", "WrongPassword")))
@@ -397,7 +397,7 @@ class AuthServiceTest {
         AuthUser user = buildUser(0, null);
         when(accountLockoutPort.isLocked("52998224725")).thenReturn(false);
         when(authUserRepositoryPort.findByCpf("52998224725")).thenReturn(Optional.of(user));
-        when(passwordEncoderPort.matches("Secret@123", "$argon2id$mockedhash")).thenReturn(true);
+        when(passwordEncoderPort.matches("Secret@123", "$2a$10$mockedhash")).thenReturn(true);
         when(authUserRepositoryPort.save(any(AuthUser.class))).thenAnswer(inv -> inv.getArgument(0));
 
         authService.login(new LoginCommand("52998224725", "Secret@123"));

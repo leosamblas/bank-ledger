@@ -92,7 +92,7 @@ flowchart TD
 - **Responsabilidades:**
   - Emissão de tokens JWT assimétricos (RS256, 2048-bit) com Key ID (`kid`) e endpoint público de chaves `GET /api/v1/auth/jwks.json` (RFC 7517).
   - Rotação de *Refresh Tokens* opacos e reutilização inteligente de tokens ativos com TTL dinâmico.
-  - Criptografia de senhas rápida e resiliente via **BCrypt(10)** (com compatibilidade de leitura retroativa para `$argon2id$`).
+  - Criptografia de senhas rápida e resiliente exclusivamente via **BCrypt(10)**.
   - **Lock de Contas no Redis:** Chaves `auth:failed_attempts:{cpf}` e `auth:lock:{cpf}` (TTL 15 min). A validação de bloqueio ocorre no Redis **antes** de tocar no banco de dados, protegendo o PostgreSQL e o CPU contra ataques de força bruta.
   - **Rate Limiting Dinâmico a 20 TPS:** `RateLimitingWebFilter` reativo no Redis. Endpoint `PUT /internal/auth/ratelimit` com payload `{"tps": 20}` para reconfiguração dinâmica em testes locais.
   - **Endpoint Reativo de Alto Tráfego:** `GET /internal/auth/users/{customerId}` e `by-cpf/{cpf}` protegido por `X-Internal-Service-Key`, retornando `AuthUserSummaryResponse` sanitizado (zero senhas, zero contadores).
@@ -227,7 +227,7 @@ bank-ledger/
 │   │       │       ├── in/kafka/      # RegisterCredentialsKafkaConsumer (consumo assíncrono de auth.credentials-registration.v1)
 │   │       │       ├── out/persistence/# AuthUserEntity, AuthUserRepository, AuthUserPersistenceAdapter
 │   │       │       ├── out/redis/     # RedisAccountLockoutAdapter (lock de brute-force e rate-limiting no Redis)
-│   │       │       ├── out/security/  # BCryptPasswordEncoderAdapter (BCrypt 10), Argon2PasswordEncoderAdapter
+│   │       │       ├── out/security/  # BCryptPasswordEncoderAdapter (BCrypt 10)
 │   │       │       └── out/kafka/     # KafkaAccountReadyEventPublisher (publica account.ready.v1 via KafkaTemplate)
 │   │       └── resources/
 │   │           ├── application.yml

@@ -2,14 +2,13 @@ package com.bankledger.auth.adapters.out.security;
 
 import com.bankledger.auth.application.port.out.PasswordEncoderPort;
 import org.springframework.context.annotation.Primary;
-import org.springframework.security.crypto.argon2.Argon2PasswordEncoder;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 
 /**
- * Primary password encoder adapter using BCrypt with strength 10 for high-performance
- * hashing under concurrency, with backward compatibility fallback for Argon2id hashes.
+ * Primary password encoder adapter using standard BCrypt with strength 10 for
+ * secure, high-performance hashing under concurrency.
  */
 @Component
 @Primary
@@ -18,15 +17,13 @@ public class BCryptPasswordEncoderAdapter implements PasswordEncoderPort, Passwo
     public static final int BCRYPT_STRENGTH = 10;
 
     private final BCryptPasswordEncoder bcryptDelegate;
-    private final PasswordEncoder legacyArgon2Delegate;
 
     public BCryptPasswordEncoderAdapter() {
-        this(new BCryptPasswordEncoder(BCRYPT_STRENGTH), new Argon2PasswordEncoder(16, 32, 1, 19456, 3));
+        this(new BCryptPasswordEncoder(BCRYPT_STRENGTH));
     }
 
-    public BCryptPasswordEncoderAdapter(BCryptPasswordEncoder bcryptDelegate, PasswordEncoder legacyArgon2Delegate) {
-        this.bcryptDelegate = bcryptDelegate;
-        this.legacyArgon2Delegate = legacyArgon2Delegate;
+    public BCryptPasswordEncoderAdapter(BCryptPasswordEncoder bcryptDelegate) {
+        this.bcryptDelegate = bcryptDelegate != null ? bcryptDelegate : new BCryptPasswordEncoder(BCRYPT_STRENGTH);
     }
 
     @Override
@@ -39,9 +36,6 @@ public class BCryptPasswordEncoderAdapter implements PasswordEncoderPort, Passwo
         if (encodedPassword == null) {
             return false;
         }
-        if (encodedPassword.startsWith("$argon2")) {
-            return legacyArgon2Delegate.matches(rawPassword, encodedPassword);
-        }
         return bcryptDelegate.matches(rawPassword, encodedPassword);
     }
 
@@ -49,9 +43,6 @@ public class BCryptPasswordEncoderAdapter implements PasswordEncoderPort, Passwo
     public boolean upgradeEncoding(String encodedPassword) {
         if (encodedPassword == null) {
             return false;
-        }
-        if (encodedPassword.startsWith("$argon2")) {
-            return true;
         }
         return bcryptDelegate.upgradeEncoding(encodedPassword);
     }

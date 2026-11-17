@@ -303,7 +303,7 @@ class AuthControllerTest {
         AuthUser authUser = new AuthUser(
                 UUID.randomUUID(),
                 "52998224725",
-                "$argon2id$mockhash",
+                "$2a$10$mockedbcryptpasswordhash",
                 "ROLE_USER",
                 customerId,
                 accountId,
@@ -351,7 +351,7 @@ class AuthControllerTest {
         AuthUser authUser = new AuthUser(
                 UUID.randomUUID(),
                 "52998224725",
-                "$argon2id$mockhash",
+                "$2a$10$mockedbcryptpasswordhash",
                 "ROLE_USER",
                 customerId,
                 accountId,

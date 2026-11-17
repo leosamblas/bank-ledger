@@ -3,7 +3,6 @@ package com.bankledger.auth;
 import com.bankledger.auth.adapters.out.security.BCryptPasswordEncoderAdapter;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.springframework.security.crypto.argon2.Argon2PasswordEncoder;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -42,14 +41,12 @@ class BCryptPasswordEncoderAdapterTest {
     }
 
     @Test
-    @DisplayName("Should match legacy Argon2id encoded hash for backward compatibility")
-    void shouldMatchLegacyArgon2idHash() {
-        Argon2PasswordEncoder argon2 = new Argon2PasswordEncoder(16, 32, 1, 19456, 3);
-        String rawPassword = "LegacyPassword@2026";
-        String legacyHash = argon2.encode(rawPassword);
+    @DisplayName("Should return false when encoded password is null")
+    void shouldReturnFalseWhenEncodedPasswordIsNull() {
+        boolean matches = adapter.matches("AnyPassword", null);
+        assertThat(matches).isFalse();
 
-        assertThat(legacyHash).startsWith("$argon2id$");
-        assertThat(adapter.matches(rawPassword, legacyHash)).isTrue();
-        assertThat(adapter.matches("WrongPassword", legacyHash)).isFalse();
+        boolean upgrade = adapter.upgradeEncoding(null);
+        assertThat(upgrade).isFalse();
     }
 }

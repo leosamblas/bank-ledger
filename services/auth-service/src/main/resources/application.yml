@@ -57,7 +57,6 @@ app:
   security:
     internal-service-key: ${INTERNAL_SERVICE_KEY:bankledger-internal-secret-ledger-key-2026}
     dummy-hash: ${APP_SECURITY_DUMMY_HASH:$2a$10$7EqJtq98hPqEX7fNZaFWoO0Z4qD5gR4m8YQ0CqD8.7Uu7W9n7I.wK}
-    dummy-argon2-hash: ${APP_SECURITY_DUMMY_ARGON2_HASH:$2a$10$7EqJtq98hPqEX7fNZaFWoO0Z4qD5gR4m8YQ0CqD8.7Uu7W9n7I.wK}
     access-token-validity-seconds: ${ACCESS_TOKEN_VALIDITY_SECONDS:900}
     refresh-token-validity-seconds: ${REFRESH_TOKEN_VALIDITY_SECONDS:604800}
 

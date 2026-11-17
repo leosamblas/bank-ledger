@@ -26,7 +26,6 @@ app:
   security:
     internal-service-key: bankledger-internal-secret-ledger-key-2026
     dummy-hash: "$2a$10$7EqJtq98hPqEX7fNZaFWoO0Z4qD5gR4m8YQ0CqD8.7Uu7W9n7I.wK"
-    dummy-argon2-hash: "$2a$10$7EqJtq98hPqEX7fNZaFWoO0Z4qD5gR4m8YQ0CqD8.7Uu7W9n7I.wK"
     access-token-validity-seconds: 900
     refresh-token-validity-seconds: 604800
 

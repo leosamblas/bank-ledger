@@ -105,40 +105,16 @@ export default function LoginPage() {
         {/* Standardized Header */}
         <Header currentPage="login" />
 
-        {/* Breadcrumb Trail */}
-        <nav aria-label="Navegação estrutural" className="flex items-center gap-2 text-body-sm text-on-surface-variant my-4">
-          <Link
-            href="/"
-            className="hover:text-on-surface inline-flex items-center gap-1.5 transition-colors font-medium text-secondary hover:text-on-surface group no-underline"
-          >
-            <span className="material-symbols-outlined text-[17px] text-secondary group-hover:text-on-surface transition-colors shrink-0">
-              home
-            </span>
-            <span className="group-hover:underline">Início</span>
-          </Link>
-          <span className="material-symbols-outlined text-[14px] text-surface-container-highest">chevron_right</span>
-          <span className="text-on-surface font-semibold">Acesso à Conta (Login)</span>
-        </nav>
-
         {/* Main Content: 2-Column Authentication Card */}
         <div className="w-full my-auto flex flex-col lg:flex-row items-stretch bg-surface-container-lowest rounded-2xl shadow-xl border border-surface-container overflow-hidden">
             {/* Left Column: Credential Verification Access */}
-            <div className="w-full lg:w-1/2 p-space-lg md:p-space-xl flex flex-col justify-between">
+            <div className="w-full lg:w-1/2 p-space-lg md:p-space-xl flex flex-col justify-center">
               <div>
-                {/* Header Security Pill */}
-                <div className="flex items-center justify-between mb-space-md">
+                {/* Header Badge */}
+                <div className="mb-space-md">
                   <span className="font-label-caps text-label-caps uppercase text-secondary tracking-wider font-semibold">
                     Autenticação Segura
                   </span>
-                  <div className="flex items-center gap-1.5 px-3 py-1 bg-surface-container-low text-on-surface-variant rounded-full text-label-caps font-label-caps uppercase border border-surface-container">
-                    <span
-                      className="material-symbols-outlined text-[15px] text-emerald-600"
-                      style={{ fontVariationSettings: "'FILL' 1" }}
-                    >
-                      verified_user
-                    </span>
-                    <span className="font-semibold">Ambiente Seguro 256-bit</span>
-                  </div>
                 </div>
 
                 {/* Title & Subtitle */}
@@ -295,7 +271,7 @@ export default function LoginPage() {
                 type="submit"
                 disabled={isLoading || lockoutSeconds > 0}
                 id="submitButton"
-                className="w-full h-12 bg-[#0e1c2f] text-white font-headline-sm text-headline-sm rounded-full flex items-center justify-center gap-2 hover:bg-[#1a2d47] active:scale-[0.99] transition-all duration-200 shadow-md hover:shadow-xl hover:shadow-black/15 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed font-semibold group"
+                className="w-full h-12 bg-primary-container text-on-primary hover:bg-primary-container/90 font-headline-sm text-headline-sm rounded-full flex items-center justify-center gap-2 active:scale-[0.99] transition-all duration-200 shadow-md hover:shadow-xl hover:shadow-black/15 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed font-semibold group"
               >
                 {isLoading ? (
                   <>
@@ -319,34 +295,6 @@ export default function LoginPage() {
                 )}
               </button>
             </form>
-          </div>
-
-          {/* Registration & Return to Landing Page Links */}
-          <div className="pt-space-md mt-space-md text-center border-t border-surface-container/60 space-y-3">
-            <p className="font-body-md text-body-md text-on-surface-variant">
-              Ainda não é cliente?{' '}
-              <Link
-                href="/signup"
-                className="font-headline-sm text-body-md text-[#0e1c2f] hover:text-secondary transition-colors ml-1.5 inline-flex items-center gap-1.5 font-bold group no-underline"
-              >
-                <span className="group-hover:underline">Abra sua conta gratuita</span>
-                <span className="material-symbols-outlined text-[16px] no-underline group-hover:translate-x-1 transition-transform shrink-0">
-                  arrow_forward
-                </span>
-              </Link>
-            </p>
-
-            <div className="flex items-center justify-center gap-2 pt-1">
-              <Link
-                href="/"
-                className="inline-flex items-center gap-2 text-body-sm text-on-surface-variant hover:text-on-surface font-medium transition-colors group no-underline"
-              >
-                <span className="material-symbols-outlined text-[16px] text-secondary no-underline group-hover:-translate-x-1 transition-transform shrink-0">
-                  arrow_back
-                </span>
-                <span className="group-hover:underline">Voltar para a página inicial</span>
-              </Link>
-            </div>
           </div>
         </div>
 

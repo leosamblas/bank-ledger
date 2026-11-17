@@ -56,7 +56,7 @@ bankledger:
       batch-size: ${OUTBOX_POLLER_BATCH_SIZE:50}
       interval-ms: ${OUTBOX_POLLER_INTERVAL_MS:200}
       max-attempts: ${OUTBOX_POLLER_MAX_ATTEMPTS:5}
-      publish-timeout-ms: ${OUTBOX_POLLER_PUBLISH_TIMEOUT_MS:5000}
+      publish-timeout-ms: ${OUTBOX_POLLER_PUBLISH_TIMEOUT_MS:15000}
 
 management:
   opentelemetry:

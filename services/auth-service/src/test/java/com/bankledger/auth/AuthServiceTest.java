@@ -11,6 +11,7 @@ import com.bankledger.auth.application.port.out.AccountReadyEventPublisherPort;
 import com.bankledger.auth.application.port.out.AuthUserRepositoryPort;
 import com.bankledger.auth.application.port.out.PasswordEncoderPort;
 import com.bankledger.auth.application.service.AuthService;
+import com.bankledger.auth.config.AuthSecurityProperties;
 import com.bankledger.auth.domain.event.AccountReadyEvent;
 import com.bankledger.auth.domain.exception.CredentialsAlreadyExistsException;
 import com.bankledger.auth.domain.exception.CustomerLockedException;
@@ -77,17 +78,20 @@ class AuthServiceTest {
         keyProvider.putKey(rsaJwtSigner.getKeyId(), rsaJwtSigner.getPublicKey());
         rsaJwtValidator = new RsaJwtValidator(keyProvider, mapper, clock);
 
+        AuthSecurityProperties properties = new AuthSecurityProperties();
+        properties.setDummyHash(DUMMY_HASH);
+        properties.setAccessTokenValiditySeconds(900L);
+        properties.setRefreshTokenValiditySeconds(604800L);
+
         authService = new AuthService(
                 authUserRepositoryPort,
                 passwordEncoderPort,
                 rsaJwtSigner,
                 rsaJwtValidator,
                 clock,
-                accountLockoutPort,
-                accountReadyEventPublisherPort,
-                DUMMY_HASH,
-                900L,
-                604800L
+                Optional.ofNullable(accountLockoutPort),
+                Optional.ofNullable(accountReadyEventPublisherPort),
+                properties
         );
     }
 

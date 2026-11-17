@@ -26,9 +26,9 @@ import com.bankledger.commons.security.RsaJwtSigner;
 import com.bankledger.commons.security.RsaJwtValidator;
 import com.bankledger.commons.security.SecurityConstants;
 import com.bankledger.commons.security.TokenClaims;
+import com.bankledger.auth.config.AuthSecurityProperties;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -43,6 +43,7 @@ import java.util.UUID;
 
 @Slf4j
 @Service
+@RequiredArgsConstructor
 public class AuthService implements LoginUseCase, RefreshTokenUseCase, RegisterCredentialsUseCase, IntrospectTokenUseCase, FindAuthUserUseCase {
 
     private final AuthUserRepositoryPort authUserRepositoryPort;
@@ -50,54 +51,10 @@ public class AuthService implements LoginUseCase, RefreshTokenUseCase, RegisterC
     private final RsaJwtSigner rsaJwtSigner;
     private final RsaJwtValidator rsaJwtValidator;
     private final Clock clock;
-    private final AccountLockoutPort accountLockoutPort;
-    private final AccountReadyEventPublisherPort accountReadyEventPublisherPort;
-    private final String dummyHash;
-    private final long accessTokenValiditySeconds;
-    private final long refreshTokenValiditySeconds;
+    private final Optional<AccountLockoutPort> accountLockoutPort;
+    private final Optional<AccountReadyEventPublisherPort> accountReadyEventPublisherPort;
+    private final AuthSecurityProperties properties;
     private final SecureRandom secureRandom = new SecureRandom();
-
-    @Autowired
-    public AuthService(
-            AuthUserRepositoryPort authUserRepositoryPort,
-            PasswordEncoderPort passwordEncoderPort,
-            RsaJwtSigner rsaJwtSigner,
-            RsaJwtValidator rsaJwtValidator,
-            Clock clock,
-            @Autowired(required = false) AccountLockoutPort accountLockoutPort,
-            @Autowired(required = false) AccountReadyEventPublisherPort accountReadyEventPublisherPort,
-            @Value("${app.security.dummy-hash:${app.security.dummy-argon2-hash:$2a$10$7EqJtq98hPqEX7fNZaFWoO0Z4qD5gR4m8YQ0CqD8.7Uu7W9n7I.wK}}")
-            String dummyHash,
-            @Value("${app.security.access-token-validity-seconds:${ACCESS_TOKEN_VALIDITY_SECONDS:900}}")
-            long accessTokenValiditySeconds,
-            @Value("${app.security.refresh-token-validity-seconds:${REFRESH_TOKEN_VALIDITY_SECONDS:604800}}")
-            long refreshTokenValiditySeconds
-    ) {
-        this.authUserRepositoryPort = Objects.requireNonNull(authUserRepositoryPort, "authUserRepositoryPort must not be null");
-        this.passwordEncoderPort = Objects.requireNonNull(passwordEncoderPort, "passwordEncoderPort must not be null");
-        this.rsaJwtSigner = Objects.requireNonNull(rsaJwtSigner, "rsaJwtSigner must not be null");
-        this.rsaJwtValidator = Objects.requireNonNull(rsaJwtValidator, "rsaJwtValidator must not be null");
-        this.clock = Objects.requireNonNull(clock, "clock must not be null");
-        this.accountLockoutPort = accountLockoutPort;
-        this.accountReadyEventPublisherPort = accountReadyEventPublisherPort;
-        this.dummyHash = dummyHash;
-        this.accessTokenValiditySeconds = accessTokenValiditySeconds;
-        this.refreshTokenValiditySeconds = refreshTokenValiditySeconds;
-    }
-
-    public AuthService(
-            AuthUserRepositoryPort authUserRepositoryPort,
-            PasswordEncoderPort passwordEncoderPort,
-            RsaJwtSigner rsaJwtSigner,
-            RsaJwtValidator rsaJwtValidator,
-            Clock clock,
-            String dummyHash,
-            long accessTokenValiditySeconds,
-            long refreshTokenValiditySeconds
-    ) {
-        this(authUserRepositoryPort, passwordEncoderPort, rsaJwtSigner, rsaJwtValidator, clock,
-                null, null, dummyHash, accessTokenValiditySeconds, refreshTokenValiditySeconds);
-    }
 
     private String sanitizeCpf(String cpf) {
         if (cpf == null) {
@@ -120,13 +77,13 @@ public class AuthService implements LoginUseCase, RefreshTokenUseCase, RegisterC
         String sanitizedCpf = sanitizeCpf(command.cpf());
         if (sanitizedCpf.length() != 11) {
             // Timing side-channel defense on malformed CPF
-            passwordEncoderPort.matches(command.password() != null ? command.password() : "", dummyHash);
+            passwordEncoderPort.matches(command.password() != null ? command.password() : "", properties.getEffectiveDummyHash());
             log.warn("Login rejected: CPF is not 11 digits");
             throw new InvalidCredentialsException("Credenciais inválidas");
         }
 
         // Fast account lockout in Redis BEFORE querying database
-        if (accountLockoutPort != null && accountLockoutPort.isLocked(sanitizedCpf)) {
+        if (accountLockoutPort.isPresent() && accountLockoutPort.get().isLocked(sanitizedCpf)) {
             log.warn("Login rejected: account fast-locked in Redis for CPF: {}", sanitizedCpf);
             throw new CustomerLockedException(
                     "Conta bloqueada temporariamente por excesso de tentativas. Tente novamente em 15 minutos."
@@ -138,7 +95,7 @@ public class AuthService implements LoginUseCase, RefreshTokenUseCase, RegisterC
         Optional<AuthUser> maybeUser = authUserRepositoryPort.findByCpf(sanitizedCpf);
         if (maybeUser.isEmpty()) {
             // Timing side-channel defense: simulate password hash check to prevent CPF enumeration
-            passwordEncoderPort.matches(command.password() != null ? command.password() : "", dummyHash);
+            passwordEncoderPort.matches(command.password() != null ? command.password() : "", properties.getEffectiveDummyHash());
             log.warn("Login rejected: user not found for CPF");
             throw new InvalidCredentialsException("Credenciais inválidas");
         }
@@ -158,10 +115,9 @@ public class AuthService implements LoginUseCase, RefreshTokenUseCase, RegisterC
             user.recordFailedLogin(now);
             authUserRepositoryPort.save(user);
 
-            long redisAttempts = 0;
-            if (accountLockoutPort != null) {
-                redisAttempts = accountLockoutPort.recordFailedAttempt(sanitizedCpf);
-            }
+            long redisAttempts = accountLockoutPort
+                    .map(port -> port.recordFailedAttempt(sanitizedCpf))
+                    .orElse(0L);
 
             if (redisAttempts >= 5 || user.isLocked(now)) {
                 long minutesLeft = calculateMinutesLeft(user.getLockedUntil(), now);
@@ -180,9 +136,7 @@ public class AuthService implements LoginUseCase, RefreshTokenUseCase, RegisterC
         }
 
         // Reset failed attempts in Redis on successful login
-        if (accountLockoutPort != null) {
-            accountLockoutPort.resetFailedAttempts(sanitizedCpf);
-        }
+        accountLockoutPort.ifPresent(port -> port.resetFailedAttempts(sanitizedCpf));
 
         user.resetFailedLogins(now);
 
@@ -219,8 +173,8 @@ public class AuthService implements LoginUseCase, RefreshTokenUseCase, RegisterC
 
         String token = rsaJwtSigner.generateToken(claims);
         String refreshToken = generateSecureToken();
-        Instant tokenExpiresAt = now.plusSeconds(accessTokenValiditySeconds);
-        Instant refreshTokenExpiresAt = now.plusSeconds(refreshTokenValiditySeconds);
+        Instant tokenExpiresAt = now.plusSeconds(properties.getAccessTokenValiditySeconds());
+        Instant refreshTokenExpiresAt = now.plusSeconds(properties.getRefreshTokenValiditySeconds());
 
         user.updateTokens(token, tokenExpiresAt, refreshToken, refreshTokenExpiresAt, now);
         authUserRepositoryPort.save(user);
@@ -228,7 +182,7 @@ public class AuthService implements LoginUseCase, RefreshTokenUseCase, RegisterC
 
         return new LoginResult(
                 token,
-                accessTokenValiditySeconds,
+                properties.getAccessTokenValiditySeconds(),
                 HttpHeaderConstants.BEARER_PREFIX.trim(),
                 refreshToken,
                 new LoginResult.UserInfo(
@@ -281,8 +235,8 @@ public class AuthService implements LoginUseCase, RefreshTokenUseCase, RegisterC
 
         String newAccessToken = rsaJwtSigner.generateToken(claims);
         String newRefreshToken = generateSecureToken();
-        Instant tokenExpiresAt = now.plusSeconds(accessTokenValiditySeconds);
-        Instant refreshTokenExpiresAt = now.plusSeconds(refreshTokenValiditySeconds);
+        Instant tokenExpiresAt = now.plusSeconds(properties.getAccessTokenValiditySeconds());
+        Instant refreshTokenExpiresAt = now.plusSeconds(properties.getRefreshTokenValiditySeconds());
 
         user.updateTokens(newAccessToken, tokenExpiresAt, newRefreshToken, refreshTokenExpiresAt, now);
         authUserRepositoryPort.save(user);
@@ -290,7 +244,7 @@ public class AuthService implements LoginUseCase, RefreshTokenUseCase, RegisterC
 
         return new LoginResult(
                 newAccessToken,
-                accessTokenValiditySeconds,
+                properties.getAccessTokenValiditySeconds(),
                 HttpHeaderConstants.BEARER_PREFIX.trim(),
                 newRefreshToken,
                 new LoginResult.UserInfo(
@@ -345,7 +299,7 @@ public class AuthService implements LoginUseCase, RefreshTokenUseCase, RegisterC
         log.info("Credentials registered successfully for customerId: {}", saved.getCustomerId());
 
         // Publish outbound AccountReadyEvent wrapped in KafkaEventEnvelope to account.ready.v1
-        if (accountReadyEventPublisherPort != null) {
+        accountReadyEventPublisherPort.ifPresent(port -> {
             AccountReadyPayload payload = new AccountReadyPayload(
                     saved.getCustomerId(),
                     saved.getAccountId() != null ? saved.getAccountId() : UUID.randomUUID(),
@@ -355,8 +309,8 @@ public class AuthService implements LoginUseCase, RefreshTokenUseCase, RegisterC
                     saved.getAccountNumber() != null ? saved.getAccountNumber() : "000000",
                     now
             );
-            accountReadyEventPublisherPort.publish(AccountReadyEvent.of(payload, now));
-        }
+            port.publish(AccountReadyEvent.of(payload, now));
+        });
 
         return saved;
     }

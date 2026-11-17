@@ -116,7 +116,6 @@ services:
       kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists --topic transaction.events.v1 --partitions 3 --replication-factor 1
       kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists --topic auth.credentials-registration.v1 --partitions 3 --replication-factor 1
       kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists --topic account.ready.v1 --partitions 3 --replication-factor 1
-      kafka-topics --bootstrap-server kafka:29092 --alter --topic account.ready.v1 --partitions 3 || true
       echo 'All topics created/verified successfully with 3 partitions.'
       "
     networks:

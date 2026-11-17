@@ -1,6 +1,7 @@
 import React from 'react';
 import { BankingHeader } from '@/components/banking/BankingHeader';
 import { BankingFooter } from '@/components/banking/BankingFooter';
+import { BottomNav } from '@/components/banking/BottomNav';
 import { AuthGuard } from '@/components/banking/AuthGuard';
 
 export const metadata = {
@@ -16,10 +17,11 @@ export default function DashboardLayout({
   return (
     <div className="min-h-screen flex flex-col justify-between bg-background text-on-surface antialiased">
       <BankingHeader />
-      <main className="w-full pt-24 md:pt-28 pb-12 flex-1">
+      <main className="w-full pt-24 md:pt-28 pb-24 md:pb-12 flex-1">
         <AuthGuard>{children}</AuthGuard>
       </main>
       <BankingFooter />
+      <BottomNav />
     </div>
   );
 }

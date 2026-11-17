@@ -1,7 +1,7 @@
 # Bank Ledger — Arquitetura Consolidada do Sistema
 
 > **Documento Consolidado de Referência Técnica & Contexto para IA e Engenheiros**  
-> *Versão:* 2.0 (Atualizado pós-otimizações reativas, autenticação assíncrona, Redis e microsserviço de notificações)  
+> *Versão:* 3.0 (Atualizado pós-lease-based outbox, escalabilidade horizontal com réplicas e SMTP condicional)  
 > *Data de Consolidação:* Novembro de 2026
 
 ---
@@ -33,59 +33,332 @@ O **Bank Ledger** é uma plataforma de **Core Bancário** (Ledger) desenhada par
 | **Mensageria** | Apache Kafka (KRaft mode) | **8.4.0** | Barramento de eventos assíncronos duráveis com 3 partições |
 | **API Gateway** | Nginx | **1.27** | Ponto único de entrada na porta 8080 com CORS configurado |
 | **Observabilidade** | OpenTelemetry + Grafana LGTM | All-in-One | Loki (Logs), Tempo (Traces), Mimir (Métricas), Grafana na porta 3001 |
+| **Testes de Integração** | Testcontainers (PostgreSQL & Kafka) | **1.20.4** | Versão padronizada e centralizada em todos os módulos para testes de integração |
 | **Frontend Web** | Next.js (App Router / TypeScript) | **16.4.3** | Interface web de Web Banking (Tailwind CSS v4) na porta 3000 |
 
 ---
 
 ## 3. Topologia e Mapa dos Microsserviços
 
-O ecossistema é composto por 6 microsserviços autônomos, 1 biblioteca comum compartilhada e 1 frontend web:
+O ecossistema é composto por 6 microsserviços autônomos, 1 biblioteca comum compartilhada e 1 frontend web, orquestrados com separação estrita de domínios, banco de dados dedicado por serviço (*Database-per-Service*) e barramento assíncrono de eventos distribuídos via Apache Kafka (KRaft).
+
+---
+
+### 3.1 Visão Geral e Topologia de Infraestrutura (C4 Nível 2)
+
+O diagrama abaixo ilustra a topologia física e lógica dos nós, a fronteira de borda gerenciada pelo API Gateway Nginx, o isolamento dos bancos de dados e a malha de telemetria unificada:
 
 ```mermaid
-flowchart TD
-    Client["📱 Frontend Next.js 16 (Porta 3000)"]
-    Gateway["🚪 API Gateway Nginx (Porta 8080)"]
-
-    subgraph "Serviços de Borda & Identidade"
-        Auth["🔐 auth-service (Porta 8086) - Spring WebFlux"]
-        Account["👤 account-service (Porta 8081) - Spring MVC / VThreads"]
-        Transaction["💸 transaction-service (Porta 8082) - Spring MVC / VThreads"]
-        Query["📊 query-service (Porta 8083) - Spring MVC / VThreads"]
-        Notification["📧 notification-service (Porta 8087) - Spring WebFlux"]
+flowchart TB
+    subgraph CLIENTS["👤 Camada de Clientes & Apresentação"]
+        Browser["🖥️ Navegador Web / Mobile Client"]
+        Web["📱 Frontend Next.js 16 (App Router)\nPorta: 3000 | Tailwind CSS v4"]
     end
 
-    subgraph "Core Bancário Interno"
-        Ledger["🏦 ledger-service (Porta 8084 - Sem rota pública Nginx)"]
+    subgraph GATEWAY_TIER["🚪 Camada de Borda & Roteamento Unificado"]
+        Nginx["🌐 API Gateway Nginx 1.27\nPorta Externa: 8080\nReverse Proxy · CORS · RateLimit Routing"]
     end
 
-    subgraph "Infraestrutura Distribuída"
-        Kafka["📨 Apache Kafka (KRaft :9092)"]
-        Postgres["🐘 PostgreSQL 18 (:5432 - Bancos Isolados)"]
-        Redis["⚡ Redis 7 (:6379 - Lock & RateLimit)"]
+    subgraph EDGE_SERVICES["🛡️ Microsserviços de Borda & Domínio (Públicos via Gateway)"]
+        direction TB
+        Auth["🔐 auth-service\nPorta: 8086\nSpring WebFlux · RS256 JWKS · Netty"]
+        Account["👤 account-service\nPorta: 8081 (Primário) + Réplicas Dinâmicas\nSpring MVC · Virtual Threads · Outbox"]
+        Transaction["💸 transaction-service\nPorta: 8082\nSpring MVC · Virtual Threads · Idempotência Tier 1/2"]
+        Query["📊 query-service\nPorta: 8083\nSpring MVC · Virtual Threads · Projeções CQRS"]
+        Notification["📧 notification-service\nPorta: 8087\nSpring WebFlux · Consumo Kafka · SMTP Reativo"]
     end
 
-    Client --> Gateway
-    Gateway -- "/api/v1/auth" --> Auth
-    Gateway -- "/api/v1/accounts" --> Account
-    Gateway -- "/api/v1/transactions" --> Transaction
-    Gateway -- "/api/v1/queries" --> Query
+    subgraph CORE_SERVICES["🏦 Core Bancário Interno (Privado e Não Exposto ao Gateway)"]
+        Ledger["🏛️ ledger-service\nPorta Interna: 8084\nPartidas Dobradas · 16 Shards SYS-CASH · Anti-Deadlock"]
+    end
 
-    Account -- "Outbox: account.events.v1" --> Kafka
-    Account -- "Outbox: auth.credentials-registration.v1" --> Kafka
-    Auth -- "Consome credentials-registration" --> Kafka
-    Auth -- "Publica: account.ready.v1" --> Kafka
-    Notification -- "Consome: account.ready.v1" --> Kafka
-    Transaction -- "Outbox: ledger.commands.v1" --> Kafka
-    Ledger -- "Consome commands" --> Kafka
-    Ledger -- "Publica: ledger.journal-results.v1" --> Kafka
-    Ledger -- "Publica: ledger.entries.v1" --> Kafka
-    Transaction -- "Consome journal-results" --> Kafka
-    Query -- "Consome account.events e ledger.entries" --> Kafka
+    subgraph DATA_INFRA["💾 Armazenamento e Estado Distribuído"]
+        direction LR
+        Postgres["🐘 PostgreSQL 18 (Alpine)\nPorta: 5432 (max_connections=300)\nauth_db · account_db · transaction_db · query_db · ledger_db"]
+        Redis["⚡ Redis 7 (Alpine)\nPorta: 6379\nLock Idempotência (Tier 1) · Rate Limit · Lock Brute-Force"]
+    end
 
-    Auth -.-> Redis
+    subgraph EVENT_BUS["📨 Barramento de Mensageria Distribuído"]
+        Kafka["📬 Apache Kafka (KRaft Mode)\nPorta Interna: 9092 | Porta Externa: 29092\n6 Tópicos Padronizados com 3 Partições"]
+    end
+
+    subgraph OBSERVABILITY["📊 Observabilidade & Telemetria Centralizada"]
+        OTEL["📈 Grafana LGTM (All-in-One)\nPorta UI: 3001 | OTLP: 4317 / 4318\nLoki (Logs) · Tempo (Traces) · Mimir (Métricas)"]
+    end
+
+    %% Fluxos de Usuário e Borda
+    Browser -->|"HTTP / HTTPS"| Web
+    Web -->|"REST API Requests"| Nginx
+    Browser -.->|"Direct API Calls"| Nginx
+
+    %% Roteamento do Gateway
+    Nginx -->|"/api/v1/auth"| Auth
+    Nginx -->|"/api/v1/accounts"| Account
+    Nginx -->|"/api/v1/transactions"| Transaction
+    Nginx -->|"/api/v1/queries"| Query
+
+    %% Persistência Dedicada
+    Auth -->|"R/W Conexão JDBC"| Postgres
+    Account -->|"R/W Conexão JDBC"| Postgres
+    Transaction -->|"R/W Conexão JDBC"| Postgres
+    Query -->|"R/W Conexão JDBC"| Postgres
+    Ledger -->|"R/W Conexão JDBC"| Postgres
+
+    %% Acessos ao Redis
+    Auth -->|"Lock & Rate Limit (Lettuce)"| Redis
+    Transaction -->|"Idempotency Tier 1 NX EX 60"| Redis
+
+    %% Publicações no Kafka
+    Account -->|"Outbox Poller (Lease Claim)"| Kafka
+    Transaction -->|"Outbox Poller (Lease Claim)"| Kafka
+    Ledger -->|"Outbox Poller (Lease Claim)"| Kafka
+    Auth -->|"Direct KafkaTemplate"| Kafka
+
+    %% Ingestões de Eventos Kafka
+    Kafka -.->|"Consumo credentials-registration"| Auth
+    Kafka -.->|"Consumo commands & account-events"| Ledger
+    Kafka -.->|"Consumo journal-results"| Transaction
+    Kafka -.->|"Consumo account.events & entries"| Query
+    Kafka -.->|"Consumo account.ready"| Notification
+
+    %% Telemetria OpenTelemetry
+    Auth -.->|"OTLP Exporter"| OTEL
+    Account -.->|"OTLP Exporter"| OTEL
+    Transaction -.->|"OTLP Exporter"| OTEL
+    Ledger -.->|"OTLP Exporter"| OTEL
+    Query -.->|"OTLP Exporter"| OTEL
+    Notification -.->|"OTLP Exporter"| OTEL
+
+    %% Estilos e Cores Profissionais
+    classDef client fill:#3b82f6,stroke:#1d4ed8,color:#ffffff,stroke-width:1.5px;
+    classDef gateway fill:#0f172a,stroke:#334155,color:#f8fafc,stroke-width:2px;
+    classDef edgeService fill:#0d9488,stroke:#115e59,color:#ffffff,stroke-width:1.5px;
+    classDef coreService fill:#4338ca,stroke:#3730a3,color:#ffffff,stroke-width:2px;
+    classDef dataInfra fill:#b45309,stroke:#78350f,color:#ffffff,stroke-width:1.5px;
+    classDef eventBus fill:#d97706,stroke:#92400e,color:#ffffff,stroke-width:2px;
+    classDef obs fill:#6d28d9,stroke:#4c1d95,color:#ffffff,stroke-width:1.5px;
+
+    class Browser,Web client;
+    class Nginx gateway;
+    class Auth,Account,Transaction,Query,Notification edgeService;
+    class Ledger coreService;
+    class Postgres,Redis dataInfra;
+    class Kafka eventBus;
+    class OTEL obs;
 ```
 
-### Detalhamento por Microsserviço:
+---
+
+### 3.2 Topologia de Mensageria e Barramento Kafka (Event-Driven Architecture)
+
+O diagrama a seguir detalha a matriz de integração assíncrona orientada a eventos. Todos os tópicos são padronizados com **3 partições** e consumidos com **concorrência balanceada (`concurrency = "3"`)** e **`AckMode.MANUAL_IMMEDIATE`**, garantindo vazão paralela e ordenação estrita por chave de entidade (*Partition Key*):
+
+```mermaid
+flowchart LR
+    subgraph PRODUCERS["📤 Produtores de Eventos"]
+        direction TB
+        P_ACC["👤 account-service\n(Transactional Outbox)"]
+        P_TX["💸 transaction-service\n(Transactional Outbox)"]
+        P_LED["🏛️ ledger-service\n(Transactional Outbox)"]
+        P_AUTH["🔐 auth-service\n(KafkaTemplate Assíncrono)"]
+    end
+
+    subgraph TOPICS["📬 Barramento Kafka — Tópicos Padronizados (3 Partições Cada)"]
+        direction TB
+        T_ACC["📦 account.events.v1\nChave: customerId / accountId\nPartições: [P0, P1, P2]"]
+        T_CRED["📦 auth.credentials-registration.v1\nChave: customerId\nPartições: [P0, P1, P2]"]
+        T_CMD["📦 ledger.commands.v1\nChave: transactionId\nPartições: [P0, P1, P2]"]
+        T_RES["📦 ledger.journal-results.v1\nChave: transactionId\nPartições: [P0, P1, P2]"]
+        T_ENT["📦 ledger.entries.v1\nChave: accountId\nPartições: [P0, P1, P2]"]
+        T_RDY["📦 account.ready.v1\nChave: customerId\nPartições: [P0, P1, P2]"]
+    end
+
+    subgraph CONSUMERS["📥 Consumidores de Eventos (AckMode.MANUAL_IMMEDIATE)"]
+        direction TB
+        C_AUTH["🔐 auth-service\nConsumerGroup: auth-service-group\nProcessa credenciais com BCrypt"]
+        C_LED["🏛️ ledger-service\nConsumerGroup: ledger-service-group\nProvisiona contas e liquida lançamentos"]
+        C_TX["💸 transaction-service\nConsumerGroup: transaction-service-group\nAtualiza status de liquidação"]
+        C_QRY["📊 query-service\nConsumerGroup: query-service-group\nAtualiza projeções de extrato e saldo"]
+        C_NOT["📧 notification-service\nConsumerGroup: notification-service-group\nEnvia e-mail de boas-vindas SMTP"]
+    end
+
+    %% Produção via Outbox / Direta
+    P_ACC -->|"Publica AccountOpenedPayload"| T_ACC
+    P_ACC -->|"Publica RegisterCredentialsPayload"| T_CRED
+    P_TX -->|"Publica PostJournalCommandPayload"| T_CMD
+    P_LED -->|"Publica JournalResultPayload"| T_RES
+    P_LED -->|"Publica EntryPostedPayload"| T_ENT
+    P_AUTH -->|"Publica AccountReadyPayload"| T_RDY
+
+    %% Consumo por Tópico
+    T_CRED -->|"Partições [0..2]"| C_AUTH
+    T_ACC -->|"Partições [0..2]"| C_LED
+    T_ACC -->|"Partições [0..2]"| C_QRY
+    T_CMD -->|"Partições [0..2]"| C_LED
+    T_RES -->|"Partições [0..2]"| C_TX
+    T_ENT -->|"Partições [0..2]"| C_QRY
+    T_RDY -->|"Partições [0..2]"| C_NOT
+
+    %% Estilos dos Nós de Mensageria
+    classDef prodBox fill:#047857,stroke:#065f46,color:#ffffff,stroke-width:1.5px;
+    classDef topicBox fill:#b45309,stroke:#78350f,color:#ffffff,stroke-width:2px;
+    classDef consBox fill:#1d4ed8,stroke:#1e40af,color:#ffffff,stroke-width:1.5px;
+
+    class P_ACC,P_TX,P_LED,P_AUTH prodBox;
+    class T_ACC,T_CRED,T_CMD,T_RES,T_ENT,T_RDY topicBox;
+    class C_AUTH,C_LED,C_TX,C_QRY,C_NOT consBox;
+```
+
+---
+
+### 3.3 Diagrama de Sequência: Saga Coreografada de Abertura de Conta
+
+A abertura de conta adota o princípio de **latência ultra-baixa na borda (< 10ms)** com desacoplamento total da criação de credenciais, provisionamento contábil e disparo de e-mails:
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Cliente as 👤 Cliente / Frontend
+    participant GW as 🌐 Nginx Gateway (:8080)
+    participant ACC as 👤 account-service (:8081)
+    participant DB_ACC as 🐘 PostgreSQL (account_db)
+    participant OP as ⚙️ OutboxPoller (Virtual Thread)
+    participant KAFKA as 📬 Kafka Cluster (:9092)
+    participant AUTH as 🔐 auth-service (:8086)
+    participant LEDGER as 🏛️ ledger-service (:8084)
+    participant QUERY as 📊 query-service (:8083)
+    participant NOTIF as 📧 notification-service (:8087)
+
+    Cliente->>GW: POST /api/v1/accounts (CPF, Nome, Email, Senha)
+    GW->>ACC: Proxy reverso HTTP
+
+    Note over ACC,DB_ACC: Transação Local Atômica (< 10ms)
+    ACC->>DB_ACC: INSERT Customer & INSERT Account
+    ACC->>DB_ACC: INSERT OutboxEvent (account.events.v1)
+    ACC->>DB_ACC: INSERT OutboxEvent (auth.credentials-registration.v1)
+    ACC-->>GW: HTTP 201 Created (Conta Criada com Sucesso)
+    GW-->>Cliente: HTTP 201 Created (accountId, branch, accountNumber)
+
+    Note over OP,DB_ACC: Ciclo Assíncrono do OutboxPoller
+    OP->>DB_ACC: FASE 1: Claim Atômico (FOR UPDATE SKIP LOCKED + SET locked_until)
+    OP->>KAFKA: FASE 2: Publica account.events.v1 (Fora de Transação DB)
+    OP->>KAFKA: FASE 2: Publica auth.credentials-registration.v1 (Fora de Transação DB)
+    OP->>DB_ACC: FASE 3: Persistência (SET published_at = NOW(), CLEAR locked_until)
+
+    par Consumo Assíncrono em Paralelo (3 Partições)
+        KAFKA->>AUTH: Consome auth.credentials-registration.v1
+        AUTH->>AUTH: Hash seguro da senha via BCrypt(10)
+        AUTH->>AUTH: Persiste usuário em auth_db
+        AUTH->>KAFKA: Publica account.ready.v1 via KafkaTemplate
+        KAFKA->>NOTIF: Consome account.ready.v1
+        NOTIF->>NOTIF: Dispara E-mail de Boas-Vindas via SMTP (boundedElastic)
+    and
+        KAFKA->>LEDGER: Consome account.events.v1
+        LEDGER->>LEDGER: Provisiona conta contábil de cliente no ledger_db
+    and
+        KAFKA->>QUERY: Consome account.events.v1
+        QUERY->>QUERY: Inicializa projeção desnormalizada de saldo (R$ 0,00) em query_db
+    end
+```
+
+---
+
+### 3.4 Diagrama de Sequência: Movimentação Financeira e Partidas Dobradas
+
+Garantia de consistência estrita, idempotência de dois níveis, prevenção de deadlocks e alocação dinâmica em shards contábeis:
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Cliente as 👤 Cliente / Web Banking
+    participant GW as 🌐 Nginx Gateway (:8080)
+    participant TX as 💸 transaction-service (:8082)
+    participant REDIS as ⚡ Redis 7 (:6379)
+    participant DB_TX as 🐘 PostgreSQL (transaction_db)
+    participant OP_TX as ⚙️ OutboxPoller (Virtual Thread)
+    participant KAFKA as 📬 Kafka Cluster (:9092)
+    participant LEDGER as 🏛️ ledger-service (:8084)
+    participant DB_LED as 🐘 PostgreSQL (ledger_db)
+    participant QUERY as 📊 query-service (:8083)
+
+    Cliente->>GW: POST /api/v1/transactions/transfers (Header: Idempotency-Key)
+    GW->>TX: Proxy reverso HTTP
+
+    %% Idempotência Tier 1
+    TX->>REDIS: Tier 1: SET lock:idempotency:{key} NX EX 60
+    alt Chave já bloqueada no Redis
+        REDIS-->>TX: Lock não adquirido (Conflito concorrente)
+        TX-->>Cliente: HTTP 409 Conflict (Requisição duplicada em andamento)
+    end
+
+    %% Idempotência Tier 2 & Persistência Local
+    Note over TX,DB_TX: Transação Local Atômica (< 10ms)
+    TX->>DB_TX: Tier 2: Consulta / Salva IdempotencyRecord (Hash SHA-256)
+    TX->>DB_TX: INSERT FinancialTransaction (Status: PENDING)
+    TX->>DB_TX: INSERT OutboxEvent (ledger.commands.v1)
+    TX-->>GW: HTTP 202 Accepted (Header Location: /transactions/{id})
+    GW-->>Cliente: HTTP 202 Accepted
+
+    %% Outbox Poller
+    OP_TX->>DB_TX: Claim Atômico com locked_until
+    OP_TX->>KAFKA: Publica PostJournalCommandPayload em ledger.commands.v1
+    OP_TX->>DB_TX: Libera claim e marca published_at
+
+    %% Execução no Core Contábil
+    KAFKA->>LEDGER: Consome ledger.commands.v1 (Manual Acknowledgment)
+    Note over LEDGER,DB_LED: Motor de Partidas Dobradas (Transação Contábil)
+    LEDGER->>DB_LED: Lock Pessimista Anti-Deadlock: SELECT FOR UPDATE ordenado por min/max UUID
+    LEDGER->>DB_LED: Aloca Shard de Caixa SYS-CASH-XX (hash da transação % 16)
+    LEDGER->>DB_LED: Validação matemática: Débitos == Créditos e Saldo >= 0
+    LEDGER->>DB_LED: INSERT Journal & INSERT Entries (Pernas Débito e Crédito)
+    LEDGER->>DB_LED: Grava OutboxEvents (journal-results.v1 e entries.v1)
+    LEDGER->>KAFKA: Confirma Acknowledgment manual
+
+    par Atualização de Status e Projeções
+        KAFKA->>TX: Consome ledger.journal-results.v1
+        TX->>DB_TX: Atualiza FinancialTransaction para COMPLETED / FAILED
+    and
+        KAFKA->>QUERY: Consome ledger.entries.v1
+        QUERY->>QUERY: Atualiza atomicamente saldo e insere statement_entry em query_db
+    end
+```
+
+---
+
+### 3.5 Ciclo de Vida do Transactional Outbox com Lease-Based Claiming Multi-Instância
+
+Para viabilizar a **execução horizontal com múltiplas réplicas** do mesmo microsserviço (ex: instâncias primárias e secundárias do `account-service`), o `OutboxPoller` utiliza um protocolo de **3 Fases com Lease Atômico (`locked_until`)**:
+
+```mermaid
+stateDiagram-v2
+    [*] --> PENDING: Evento inserido na transação de negócio\n(published_at = NULL, locked_until = NULL, attempts = 0)
+
+    PENDING --> CLAIMED: FASE 1 — Claim Atômico (~2ms)\nSELECT FOR UPDATE SKIP LOCKED\nSET locked_until = NOW() + 30s\n(Apenas UMA instância obtém o lease)
+
+    state CLAIMED {
+        [*] --> PUBLISHING: Desconecta do Banco de Dados
+        PUBLISHING --> KAFKA_SUCCESS: FASE 2 — Kafka Template\nEnvio síncrono com ack\n(Zero retenção de conexões JDBC)
+        PUBLISHING --> KAFKA_FAILURE: Exceção / Broker Timeout\n(Exceção de rede ou broker indisponível)
+    }
+
+    KAFKA_SUCCESS --> PERSISTED_SUCCESS: FASE 3 — Persistência de Sucesso (~2ms)\nSET published_at = NOW()\nSET locked_until = NULL
+
+    KAFKA_FAILURE --> PERSISTED_RETRY: FASE 3 — Persistência de Falha (~2ms)\nattempts = attempts + 1\nSET locked_until = NULL (releaseLock)
+
+    PERSISTED_RETRY --> PENDING: Disponível para novo ciclo de poller\n(Se attempts < maxAttempts)
+
+    CLAIMED --> RECOVERED_BY_PEER: Pod / Instância sofre Crash ou OOM\n(Lease expira após 30s: locked_until < NOW())
+    RECOVERED_BY_PEER --> PENDING: Outra instância resgata o evento com segurança
+
+    PERSISTED_RETRY --> DEAD_LETTER: attempts >= maxAttempts (Limite de 5 tentativas)\nLog estruturado em WARN e suspensão de retry
+
+    PERSISTED_SUCCESS --> [*]: Evento publicado e liquidado com sucesso
+    DEAD_LETTER --> [*]: Isolado para investigação operacional
+```
+
+---
+
+### 3.6 Detalhamento por Microsserviço
 
 #### 1. `auth-service` (Porta 8086)
 - **Tipo:** Reativo (Spring WebFlux + Netty).
@@ -104,6 +377,7 @@ flowchart TD
   - Gestão de clientes (`Customer`), documentos (CPF com validação Módulo 11 estrita) e contas (`Account`).
   - **Abertura de Conta 100% Assíncrona:** O método `createAccount` persiste `Customer`, `Account` e dois registros de Outbox atômicos em **< 10ms**, devolvendo a conexão JDBC ao pool imediatamente. Zero chamadas síncronas HTTP bloqueando o banco.
   - Publica `AccountOpened` em `account.events.v1` e credenciais em `auth.credentials-registration.v1` via Outbox Poller.
+  - **Escalabilidade Horizontal Multi-Instância:** Suporta execução de múltiplas instâncias simultâneas (1 primária na porta fixa 8081 + N réplicas em portas dinâmicas sob o alias de rede Docker `account-service`). A concorrência entre os pollers de cada instância é protegida pelo mecanismo de lease atômico (`locked_until`), garantindo que apenas uma instância reivindique e publique cada evento no Kafka, sem mensagens duplicadas.
 
 #### 3. `transaction-service` (Porta 8082)
 - **Tipo:** Spring Boot MVC com Virtual Threads ativas.
@@ -136,14 +410,16 @@ flowchart TD
   - Consumo assíncrono do tópico `account.ready.v1` através de listener Kafka fortemente tipado (sem `JsonNode`).
   - **Design sem Banco de Dados:** Exclusão explícita de autoconfigurações JPA e DataSource (`DataSourceAutoConfiguration`, `DataSourceTransactionManagerAutoConfiguration`, `HibernateJpaAutoConfiguration`).
   - **Telemetria OpenTelemetry (OTLP):** Exporta métricas, traces e logs para o coletor `otel-lgtm:4318`.
+  - **Bean Condicional de SMTP (`MailConfiguration`):** O `JavaMailSender` só é instanciado quando `app.mail.enabled=true` via `@ConditionalOnProperty`. O `EmailNotificationService` injeta `Optional<JavaMailSender>`, prevenindo alertas de falha no health indicator do Actuator quando o serviço de e-mail estiver desabilitado.
   - Envio de e-mails de boas-vindas via Google SMTP (`smtp.gmail.com:587`, TLS) isolando o I/O bloqueante do `JavaMailSender` no `Schedulers.boundedElastic()`.
-  - **Feature Flag de Carga:** `app.mail.enabled: ${MAIL_ENABLED:true}`. Quando desativada, registra o log estruturado do envio sem disparar chamadas SMTP, permitindo testes de carga com 500+ threads com zero dependência externa.
+  - **Feature Flag de Carga:** `app.mail.enabled: ${MAIL_ENABLED:false}` (default desativado no Docker Compose para testes locais e de carga). Quando desativada, registra o log estruturado do envio sem disparar chamadas SMTP, permitindo testes de carga com 500+ threads com zero dependência externa.
 
 #### 7. `platform-commons`
 - **Biblioteca compartilhada interna (`services/platform-commons`)**:
   - `KafkaEventEnvelope<T>`: Envelope CloudEvents 1.0 reutilizável para serialização/deserialização Jackson 3 tipada.
   - `SecurityConstants` & `HttpHeaderConstants`: Centralização de cabeçalhos (`X-Internal-Service-Key`, `Idempotency-Key`, `Authorization`), constantes de retry reativo (3 tentativas, 50ms) e endpoints protegidos.
   - `InboxHandler`: Controle de idempotência de consumo no banco de dados local para garantir semântica *exactly-once*.
+  - `OutboxEvent` & `OutboxPoller`: Mecanismo transacional de Outbox com lease atômico distribuído (`locked_until`). Ciclo em 3 fases (Claim atômico via `FOR UPDATE SKIP LOCKED` -> Envio Kafka fora de transação DB -> Persistência de estado com liberação de lock). Suporte a fallback de auto-resgate (expiração de lease de 30s) e contagem de tentativas (`maxAttempts: 5`).
   - Records canônicos de domínio e DTOs de eventos (`AccountOpenedPayload`, `AccountReadyPayload`, `PostJournalCommandPayload`, `JournalPostedPayload`, `JournalRejectedPayload`, `EntryPostedPayload`, `RegisterCredentialsPayload`).
 
 ---
@@ -384,8 +660,12 @@ Qualquer IA, desenvolvedor ou agente autônomo que continuar o desenvolvimento d
   - Como o Bank Ledger possui 5 microsserviços com `maximum-pool-size: 30`, a soma teórica de conexões simultâneas chega a 150 (mais conexões de migração Flyway e monitoramento).
   - Sob cargas de estresse (ex: 50.000 requisições simultâneas), um limite de 100 conexões causa esgotamento (*FATAL: sorry, too many clients already*).
   - O PostgreSQL no `docker-compose.yml` é configurado explicitamente com `-c max_connections=300` e parâmetros otimizados de buffer/WAL (`shared_buffers=256MB`, `effective_cache_size=768MB`, `work_mem=16MB`, `maintenance_work_mem=64MB`).
-- **Desacoplamento de I/O de Rede no Transactional Outbox:**
-  - O poller do Transactional Outbox (`OutboxPoller`) executa a leitura/lock em uma transação ultrarrápida (< 2ms), realiza o envio dos eventos para o Kafka **fora de qualquer transação de banco** (sem reter conexões JDBC do HikariCP) e persiste os estados atualizados em outra transação curta (< 2ms). Isso previne alertas falsos de leak detection e elimina o travamento de conexões durante eventuais latências de rede do broker.
+- **Desacoplamento de I/O de Rede e Protocolo em 3 Fases com Lease Atômico no Outbox:**
+  - O Transactional Outbox (`OutboxPoller`) opera em um ciclo estrito de **3 fases** desacopladas para garantir zero duplicação entre réplicas e proteção total do pool HikariCP:
+    1. **Fase 1 — Claim Atômico com Lease (Transação DB ultrarrápida < 2ms):** Executa `SELECT * FROM outbox_event WHERE published_at IS NULL AND (locked_until IS NULL OR locked_until < :now) AND attempts < :maxAttempts ORDER BY created_at ASC LIMIT :batchSize FOR UPDATE SKIP LOCKED`. Na mesma transação, atualiza `locked_until = now + 30s` e commita. O `FOR UPDATE SKIP LOCKED` distribui os lotes sem contenção, enquanto o timestamp `locked_until` atua como **lease distribuído**, impedindo que qualquer outra instância processe os mesmos registros enquanto o claim estiver vigente.
+    2. **Fase 2 — Publicação Kafka (Sem retenção de transação DB):** O envio dos eventos ao cluster Kafka é realizado **fora de qualquer transação de banco de dados**. Isso previne travamentos no pool HikariCP e elimina alertas de *connection leak detection* durante eventuais oscilações ou latências de rede do broker.
+    3. **Fase 3 — Persistência e Liberação de Lease (Transação DB ultrarrápida < 2ms):** Se a publicação for bem-sucedida, invoca `markPublished()` (grava `published_at = NOW()` e limpa `locked_until`). Em caso de falha de publicação (ex: timeout do Kafka), invoca `markFailed()` (`attempts++`) e `releaseLock()` (limpa `locked_until`), permitindo retry imediato.
+  - **Mecanismo de Auto-Resgate em Falhas Graves:** Caso um container ou pod sofra *Crash*, *OOMKilled* ou travamento fatal durante a Fase 2, o lease expira automaticamente após 30 segundos (`locked_until < NOW()`). Instâncias irmãs ou a própria instância recuperada resgatam os eventos pendentes sem necessidade de intervenção manual ou scripts de reconciliação.
 - **Proibição de I/O Externo em Transações:** **É terminantemente proibido realizar chamadas HTTP de rede ou esperas longas dentro de métodos anotados com `@Transactional`**. Transações devem durar menos de 10ms. Comunicação entre serviços deve ser assíncrona via Outbox no Kafka.
 
 ### 5.4 Autenticação e Segurança
@@ -477,6 +757,9 @@ Todo e qualquer tópico adicionado ao ecossistema Bank Ledger deve atender obrig
 ```bash
 # Subir toda a stack completa (Infraestrutura + 6 Microsserviços + Gateway + Web Banking):
 docker compose -f infra/docker/docker-compose.yml up --build -d
+
+# Escalar horizontalmente o account-service com N réplicas (balanceadas via Nginx):
+docker compose -f infra/docker/docker-compose.yml up -d --scale account-service-replica=2
 
 # Ou subir apenas a infraestrutura base (Postgres, Kafka KRaft, Redis 7, Nginx Gateway, Kafka UI e LGTM):
 docker compose -f infra/docker/docker-compose.yml up -d postgres kafka kafka-init redis nginx kafka-ui otel-lgtm

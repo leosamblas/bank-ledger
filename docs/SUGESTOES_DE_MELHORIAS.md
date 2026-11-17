@@ -28,10 +28,14 @@ Este documento reúne recomendações de engenharia e oportunidades de evoluçã
   - Ao consumir o evento `EntryPosted` do Kafka, o `query-service` atualiza atomicamente o banco e atualiza/invalida a chave `balance:{accountId}` no Redis.
   - *Vantagens:* Latência de leitura de saldos cai para **< 1ms**, desonerando o PostgreSQL mesmo sob milhões de acessos simultâneos de visualização de saldo no aplicativo mobile/web.
 
-### 1.4 Formalização do Lease Timeout no Outbox Poller Multi-Instância
-- **Cenário Atual:** O `OutboxPoller` utiliza `FOR UPDATE SKIP LOCKED` com batch simples.
-- **Proposta de Melhoria:** Implementar o padrão completo de 2 Fases (Claim / Lease de Curta Duração) detalhado na arquitetura (adicionando colunas `status = 'PROCESSING'` e `lease_expires_at = NOW() + INTERVAL '30s'`).
-  - *Vantagens:* Protege contra pods Kubernetes que morrem ou sofrem OOM no meio da publicação, permitindo que réplicas irmãs resgatem eventos com lease expirado sem duplicidade.
+### 1.4 ~~Formalização do Lease Timeout no Outbox Poller Multi-Instância~~ ✅ Implementado
+- **Status:** ✅ **Concluído e Implementado no Core** (Commit `d00bb7d`)
+- **Implementação Realizada:**
+  - Adicionada coluna `locked_until` (TIMESTAMP) e índice na tabela `outbox_event` via migração Flyway V2 em `account-service`, `ledger-service` e `transaction-service`.
+  - Refatorado o `OutboxPoller` para operar em 3 fases: **Claim Atômico** (com `FOR UPDATE SKIP LOCKED` e lease de 30s) $\rightarrow$ **Publicação Kafka** (fora de transação DB) $\rightarrow$ **Persistência de Estado** (`markPublished()` para sucesso ou `releaseLock()` / `markFailed()` para retry).
+  - Query refatorada com filtros de concorrência: `WHERE published_at IS NULL AND (locked_until IS NULL OR locked_until < :now) AND attempts < :maxAttempts`.
+  - Adicionado teste de integração multi-thread `concurrentPollersDoNotPublishDuplicateEvents` em `platform-commons`.
+  - Garantia de suporte à escalabilidade horizontal (múltiplas instâncias/réplicas do mesmo serviço) com zero duplicação de mensagens no Kafka.
 
 ---
 
@@ -107,6 +111,7 @@ Este documento reúne recomendações de engenharia e oportunidades de evoluçã
 
 | Iniciativa | Impacto | Esforço | Prioridade Recomendada |
 | :--- | :---: | :---: | :---: |
+| ~~**Lease Timeout no Outbox Poller Multi-Instância**~~ | Alto | Médio | ✅ **Concluído (Commit `d00bb7d`)** |
 | **Server-Sent Events (SSE) no Frontend/Query** | Alto | Baixo | 🟢 **Curto Prazo (P1)** |
 | **Cache de Saldo no Redis (`query-service`)** | Alto | Baixo | 🟢 **Curto Prazo (P1)** |
 | **DLQ com Reprocessamento no Spring Kafka** | Alto | Médio | 🟡 **Médio Prazo (P2)** |

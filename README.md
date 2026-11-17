@@ -12,7 +12,7 @@ O sistema utiliza padrões modernos para garantir alta disponibilidade e escalab
 * **Arquitetura Hexagonal (Ports & Adapters)**: Desacoplamento da regra de negócio (domínio) de frameworks, bancos de dados e mensageria.
 * **Injeção de Dependências com Lombok (@RequiredArgsConstructor)**: Padrão arquitetural obrigatório para todos os microsserviços. É terminantemente proibido o uso de `@Autowired` em construtores ou sobre atributos (`field injection`). Dependências são declaradas como `private final` e propriedades externas são encapsuladas via classes dedicadas com `@ConfigurationProperties`.
 * **CQRS (Command Query Responsibility Segregation)**: Separação lógica entre rotinas de gravação de transações e projeções desnormalizadas de extrato e saldo no PostgreSQL.
-* **Consistência Eventual Segura**: Utilização do padrão *Transactional Outbox* para publicação assíncrona confiável de eventos em tópicos do Kafka (KRaft).
+* **Consistência Eventual Segura**: Padrão *Transactional Outbox* com **lease-based claiming** (`locked_until`) em 3 fases (Claim $\rightarrow$ Kafka Publish desacoplado $\rightarrow$ Persistência de estado) para publicação assíncrona confiável em tópicos do Kafka (KRaft), eliminando retenção desnecessária de conexões JDBC e garantindo zero duplicação mesmo sob concorrência de múltiplas réplicas/instâncias do mesmo microsserviço.
 * **Padrão de Particionamento Kafka (3 Partições)**: Requisito básico onde todos os tópicos possuem 3 partições (`--partitions 3`), dimensionados em perfeita harmonia com os listeners consumidores (`concurrency = "3"`), garantindo paralelismo balanceado e ordenação sequencial por entidade via partition key (`customerId`, `accountId`, `transactionId`).
 * **Tolerância e Resiliência**: Particionamento de tabelas por data (`pg_partman`), particionamento das contas de caixa (*shards* do Banco Central) para evitar concorrência/lock, e suporte a alta idempotência na ingestão de eventos.
 * **Real-Time Updates**: Utilização de *Server-Sent Events (SSE)* no Frontend em substituição ao polling, evitando gargalos de I/O em fluxos de atualização contínua.
@@ -59,10 +59,14 @@ docker compose -f infra/docker/docker-compose.yml up --build -d
 
 ### Opção 1: Subir Todo o Ambiente via Docker Compose (Recomendado para Demonstração)
 
-Sobe toda a infraestrutura e constrói a imagem do `account-service` em containers:
+Sobe toda a infraestrutura e os microsserviços em containers:
 
 ```bash
+# Subir toda a stack completa:
 docker compose -f infra/docker/docker-compose.yml up --build -d
+
+# (Opcional) Escalar o account-service horizontalmente com N réplicas dinâmicas:
+docker compose -f infra/docker/docker-compose.yml up -d --scale account-service-replica=2
 ```
 
 Para verificar o status dos containers e logs:
@@ -82,9 +86,9 @@ docker compose -f infra/docker/docker-compose.yml down
 
 Ideal para desenvolvimento ativo no terminal ou na IDE (VS Code / IntelliJ):
 
-1. **Subir apenas a infraestrutura base (Postgres, Kafka KRaft, Nginx Gateway e Kafka UI):**
+1. **Subir apenas a infraestrutura base (Postgres, Kafka KRaft, Redis 7, Nginx Gateway e Kafka UI):**
    ```bash
-   docker compose -f infra/docker/docker-compose.yml up -d postgres kafka kafka-init nginx kafka-ui
+   docker compose -f infra/docker/docker-compose.yml up -d postgres kafka kafka-init redis nginx kafka-ui
    ```
 
 2. **Executar as suítes de testes:**

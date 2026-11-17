@@ -6,6 +6,7 @@ import { useBanking } from '@/hooks/useBanking';
 import { formatCentsToBrl } from '@/utils/currency';
 import { formatRelativeTime } from '@/utils/date';
 import { PrivacyToggle, useBalancePrivacy, maskFinancialValue } from '@/components/banking/PrivacyToggle';
+import { BalanceCardSkeleton } from '@/components/ui/Skeleton';
 
 export default function DashboardPage() {
   const { account, balance, statement, refresh, isLoading } = useBanking();
@@ -103,110 +104,114 @@ export default function DashboardPage() {
         {/* COLUNA PRINCIPAL (65% / 8 Cols Desktop) */}
         <div className="lg:col-span-8 flex flex-col gap-6 w-full">
           {/* Card de Saldo Principal Amplo, Legível e Elegante */}
-          <div className="w-full bg-surface-container-lowest rounded-2xl shadow-sm border border-surface-container p-6 md:p-8 flex flex-col gap-6 relative overflow-hidden">
-            {/* Marca d'água sutil institucional */}
-            <div className="absolute -right-6 -bottom-6 opacity-[0.03] pointer-events-none select-none text-primary">
-              <span className="material-symbols-outlined text-[220px]">account_balance</span>
-            </div>
+          {isLoading && !account.id ? (
+            <BalanceCardSkeleton />
+          ) : (
+            <div className="w-full bg-surface-container-lowest rounded-2xl shadow-sm border border-surface-container p-6 md:p-8 flex flex-col gap-6 relative overflow-hidden">
+              {/* Marca d'água sutil institucional */}
+              <div className="absolute -right-6 -bottom-6 opacity-[0.03] pointer-events-none select-none text-primary">
+                <span className="material-symbols-outlined text-[220px]">account_balance</span>
+              </div>
 
-            {/* Header do Card de Saldo */}
-            <div className="flex flex-col gap-2 z-10">
-              <div className="flex items-center justify-between flex-wrap gap-2">
-                <div className="flex items-center gap-2">
-                  <span className="font-label-caps text-label-caps text-on-surface-variant uppercase font-semibold tracking-wider">
-                    Saldo Disponível em Conta
+              {/* Header do Card de Saldo */}
+              <div className="flex flex-col gap-2 z-10">
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <div className="flex items-center gap-2">
+                    <span className="font-label-caps text-label-caps text-on-surface-variant uppercase font-semibold tracking-wider">
+                      Saldo Disponível em Conta
+                    </span>
+                    <PrivacyToggle isPrivate={isPrivate} onToggle={togglePrivacy} />
+                  </div>
+                  <span className="font-body-sm text-[12px] px-2.5 py-1 rounded-md bg-surface-container-low text-on-surface-variant flex items-center gap-1 border border-surface-container">
+                    <span className="material-symbols-outlined text-[15px] text-emerald-600">check_circle</span>
+                    Saldo em tempo real
                   </span>
-                  <PrivacyToggle isPrivate={isPrivate} onToggle={togglePrivacy} />
                 </div>
-                <span className="font-body-sm text-[12px] px-2.5 py-1 rounded-md bg-surface-container-low text-on-surface-variant flex items-center gap-1 border border-surface-container">
-                  <span className="material-symbols-outlined text-[15px] text-emerald-600">check_circle</span>
-                  Saldo em tempo real
-                </span>
-              </div>
-              <div className="flex items-baseline gap-3 flex-wrap">
-                <span className="font-display-hero text-display-hero text-on-surface font-bold tracking-tight">
-                  {maskFinancialValue(formatCentsToBrl(balance.availableCents), isPrivate)}
-                </span>
-                <span className="font-code-sm text-[13px] text-emerald-800 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 rounded-md font-semibold flex items-center gap-1">
-                  <span className="material-symbols-outlined text-[16px]">trending_up</span> +{balance.monthlyVariationPercent}% no mês
-                </span>
-              </div>
-            </div>
-
-            {/* Sub-métricas Horizontais em Grid Limpo */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1 z-10">
-              {/* Sub-métrica 1: Saldo Bloqueado */}
-              <div className="bg-surface-container-low p-4 rounded-xl border border-surface-container flex flex-col justify-between gap-1">
-                <span className="font-label-caps text-[11px] text-on-surface-variant uppercase font-semibold">
-                  Saldo Bloqueado (Garantia/Judicial)
-                </span>
-                <span className="font-code-lg text-code-lg text-on-surface font-bold">
-                  {maskFinancialValue(formatCentsToBrl(balance.blockedCents), isPrivate)}
-                </span>
-                <span className="font-body-sm text-[12px] text-on-surface-variant">
-                  0 centavos sob custódia
-                </span>
+                <div className="flex items-baseline gap-3 flex-wrap">
+                  <span className="font-display-hero text-display-hero text-on-surface font-bold tracking-tight">
+                    {maskFinancialValue(formatCentsToBrl(balance.availableCents), isPrivate)}
+                  </span>
+                  <span className="font-code-sm text-[13px] text-emerald-800 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 rounded-md font-semibold flex items-center gap-1">
+                    <span className="material-symbols-outlined text-[16px]">trending_up</span> +{balance.monthlyVariationPercent}% no mês
+                  </span>
+                </div>
               </div>
 
-              {/* Sub-métrica 2: Limite Diário de Transferências */}
-              <div className="bg-surface-container-low p-4 rounded-xl border border-surface-container flex flex-col justify-between gap-2">
-                <div className="flex items-center justify-between">
+              {/* Sub-métricas Horizontais em Grid Limpo */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1 z-10">
+                {/* Sub-métrica 1: Saldo Bloqueado */}
+                <div className="bg-surface-container-low p-4 rounded-xl border border-surface-container flex flex-col justify-between gap-1">
                   <span className="font-label-caps text-[11px] text-on-surface-variant uppercase font-semibold">
-                    Limite Diário de Transferências
+                    Saldo Bloqueado (Garantia/Judicial)
                   </span>
-                  <span className="font-code-sm text-[11px] text-emerald-700 font-semibold">
-                    {100 - limitUsedPercent}% disp.
+                  <span className="font-code-lg text-code-lg text-on-surface font-bold">
+                    {maskFinancialValue(formatCentsToBrl(balance.blockedCents), isPrivate)}
                   </span>
-                </div>
-                <div className="flex items-baseline justify-between font-code-sm text-code-sm">
-                  <span className="font-semibold text-on-surface text-[15px]">
-                    {maskFinancialValue(formatCentsToBrl(availableLimitCents), isPrivate)}
-                  </span>
-                  <span className="text-on-surface-variant text-[12px]">
-                    de {maskFinancialValue(formatCentsToBrl(balance.dailyLimitCents), isPrivate)}
+                  <span className="font-body-sm text-[12px] text-on-surface-variant">
+                    0 centavos sob custódia
                   </span>
                 </div>
-                <div className="w-full bg-surface-container h-2 rounded-full overflow-hidden">
-                  <div
-                    className="bg-secondary h-full rounded-full transition-all duration-500"
-                    style={{ width: `${100 - limitUsedPercent}%` }}
-                  ></div>
+
+                {/* Sub-métrica 2: Limite Diário de Transferências */}
+                <div className="bg-surface-container-low p-4 rounded-xl border border-surface-container flex flex-col justify-between gap-2">
+                  <div className="flex items-center justify-between">
+                    <span className="font-label-caps text-[11px] text-on-surface-variant uppercase font-semibold">
+                      Limite Diário de Transferências
+                    </span>
+                    <span className="font-code-sm text-[11px] text-emerald-700 font-semibold">
+                      {100 - limitUsedPercent}% disp.
+                    </span>
+                  </div>
+                  <div className="flex items-baseline justify-between font-code-sm text-code-sm">
+                    <span className="font-semibold text-on-surface text-[15px]">
+                      {maskFinancialValue(formatCentsToBrl(availableLimitCents), isPrivate)}
+                    </span>
+                    <span className="text-on-surface-variant text-[12px]">
+                      de {maskFinancialValue(formatCentsToBrl(balance.dailyLimitCents), isPrivate)}
+                    </span>
+                  </div>
+                  <div className="w-full bg-surface-container h-2 rounded-full overflow-hidden">
+                    <div
+                      className="bg-secondary h-full rounded-full transition-all duration-500"
+                      style={{ width: `${100 - limitUsedPercent}%` }}
+                    ></div>
+                  </div>
                 </div>
               </div>
-            </div>
 
-            {/* Botões de Ação Rápida em Destaque */}
-            <div className="flex items-center gap-3 flex-wrap pt-2 z-10 border-t border-surface-container">
-              <Link
-                href="/dashboard/transfer"
-                className="px-5 py-2.5 rounded-xl bg-[#0e1c2f] text-white font-headline-sm text-[14px] flex items-center gap-2 hover:bg-[#1a2d47] active:scale-[0.99] transition-all shadow-sm font-semibold no-underline"
-              >
-                <span className="material-symbols-outlined text-[18px] text-emerald-400">arrow_outward</span>
-                Nova Transferência
-              </Link>
-              <Link
-                href="/dashboard/operations?tab=deposit"
-                className="px-4 py-2.5 rounded-xl bg-surface-container-high text-on-surface font-headline-sm text-[14px] flex items-center gap-2 hover:bg-surface-variant transition-colors shadow-xs font-semibold no-underline"
-              >
-                <span className="material-symbols-outlined text-[18px] text-emerald-600">arrow_downward</span>
-                Depositar Fundos
-              </Link>
-              <Link
-                href="/dashboard/operations?tab=withdraw"
-                className="px-4 py-2.5 rounded-xl bg-surface-container-high text-on-surface font-headline-sm text-[14px] flex items-center gap-2 hover:bg-surface-variant transition-colors shadow-xs font-semibold no-underline"
-              >
-                <span className="material-symbols-outlined text-[18px] text-secondary">atm</span>
-                Efetuar Saque
-              </Link>
-              <Link
-                href="/dashboard/statement"
-                className="px-4 py-2.5 rounded-xl bg-surface-container-low text-on-surface-variant font-headline-sm text-[14px] flex items-center gap-2 hover:text-on-surface hover:bg-surface-container transition-colors ml-auto font-medium no-underline"
-              >
-                <span className="material-symbols-outlined text-[18px]">receipt_long</span>
-                Ver Extrato Completo
-              </Link>
+              {/* Botões de Ação Rápida em Destaque */}
+              <div className="flex items-center gap-3 flex-wrap pt-2 z-10 border-t border-surface-container">
+                <Link
+                  href="/dashboard/transfer"
+                  className="px-5 py-2.5 rounded-xl bg-[#0e1c2f] text-white font-headline-sm text-[14px] flex items-center gap-2 hover:bg-[#1a2d47] active:scale-[0.99] transition-all shadow-sm font-semibold no-underline"
+                >
+                  <span className="material-symbols-outlined text-[18px] text-emerald-400">arrow_outward</span>
+                  Nova Transferência
+                </Link>
+                <Link
+                  href="/dashboard/operations?tab=deposit"
+                  className="px-4 py-2.5 rounded-xl bg-surface-container-high text-on-surface font-headline-sm text-[14px] flex items-center gap-2 hover:bg-surface-variant transition-colors shadow-xs font-semibold no-underline"
+                >
+                  <span className="material-symbols-outlined text-[18px] text-emerald-600">arrow_downward</span>
+                  Depositar Fundos
+                </Link>
+                <Link
+                  href="/dashboard/operations?tab=withdraw"
+                  className="px-4 py-2.5 rounded-xl bg-surface-container-high text-on-surface font-headline-sm text-[14px] flex items-center gap-2 hover:bg-surface-variant transition-colors shadow-xs font-semibold no-underline"
+                >
+                  <span className="material-symbols-outlined text-[18px] text-secondary">atm</span>
+                  Efetuar Saque
+                </Link>
+                <Link
+                  href="/dashboard/statement"
+                  className="px-4 py-2.5 rounded-xl bg-surface-container-low text-on-surface-variant font-headline-sm text-[14px] flex items-center gap-2 hover:text-on-surface hover:bg-surface-container transition-colors ml-auto font-medium no-underline"
+                >
+                  <span className="material-symbols-outlined text-[18px]">receipt_long</span>
+                  Ver Extrato Completo
+                </Link>
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Seção Últimas Movimentações */}
           <div className="w-full bg-surface-container-lowest rounded-2xl shadow-sm border border-surface-container p-6 md:p-8 flex flex-col gap-6">

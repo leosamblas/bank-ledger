@@ -8,6 +8,7 @@ import { formatCentsToBrl } from '@/utils/currency';
 import { formatDateTimeBr } from '@/utils/date';
 import { exportStatementToCsv, exportStatementToOfx } from '@/utils/exportStatement';
 import { CopyButton } from '@/components/ui/CopyButton';
+import { StatementRowSkeleton } from '@/components/ui/Skeleton';
 
 export default function StatementPage() {
   const { balance, statement, account } = useBanking();
@@ -344,7 +345,15 @@ export default function StatementPage() {
       </div>
 
       {/* Statement Primary Table & Responsive Card Rows */}
-      <div className="bg-surface-container-lowest rounded-2xl shadow-sm border border-surface-container overflow-hidden flex flex-col">
+      {statement.length === 0 && account.holderName === 'Carregando...' ? (
+        <div className="flex flex-col gap-3">
+          <StatementRowSkeleton />
+          <StatementRowSkeleton />
+          <StatementRowSkeleton />
+          <StatementRowSkeleton />
+        </div>
+      ) : (
+        <div className="bg-surface-container-lowest rounded-2xl shadow-sm border border-surface-container overflow-hidden flex flex-col">
         {/* Table View (Desktop & Tablet Lg) */}
         <div className="hidden lg:block overflow-x-auto w-full">
           <table className="w-full text-left border-collapse">
@@ -552,6 +561,7 @@ export default function StatementPage() {
           </div>
         </div>
       </div>
+      )}
 
       {/* Notice Footer Callout */}
       <div className="bg-surface-container-lowest p-5 rounded-2xl shadow-sm border border-surface-container flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">

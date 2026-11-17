@@ -41,11 +41,6 @@ import java.util.HexFormat;
 import java.util.Optional;
 import java.util.UUID;
 
-/**
- * Serviço central de autenticação reativo do Auth-Service.
- * Implementa os casos de uso de login, renovação de tokens (refresh), registro de credenciais,
- * introspecção e busca de usuários sem operações bloqueantes.
- */
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -64,10 +59,6 @@ public class AuthService implements LoginUseCase, RefreshTokenUseCase, RegisterC
     private final Optional<AccountReadyEventPublisherPort> accountReadyEventPublisherPort;
     private final AuthSecurityProperties properties;
     private final SecureRandom secureRandom = new SecureRandom();
-
-    // =================================================================================================================
-    // Use Cases (Inbound Ports)
-    // =================================================================================================================
 
     @Override
     public Mono<LoginResult> login(LoginCommand command) {
@@ -163,10 +154,6 @@ public class AuthService implements LoginUseCase, RefreshTokenUseCase, RegisterC
         return authUserRepositoryPort.findByCpf(sanitizedCpf);
     }
 
-    // =================================================================================================================
-    // Helper Methods: Validação, Lockout e Defesa contra Timing Attack
-    // =================================================================================================================
-
     private String sanitizeCpf(String cpf) {
         return cpf != null ? cpf.replaceAll("\\D", "") : "";
     }
@@ -221,10 +208,6 @@ public class AuthService implements LoginUseCase, RefreshTokenUseCase, RegisterC
         return Mono.just(user);
     }
 
-    // =================================================================================================================
-    // Helper Methods: Senhas e Criptografia (Virtual Threads / boundedElastic)
-    // =================================================================================================================
-
     private Mono<Boolean> verifyPassword(String rawPassword, String passwordHash) {
         String pwd = rawPassword != null ? rawPassword : "";
         String hash = passwordHash != null ? passwordHash : "";
@@ -236,10 +219,6 @@ public class AuthService implements LoginUseCase, RefreshTokenUseCase, RegisterC
         return Mono.fromCallable(() -> passwordEncoderPort.encode(rawPassword))
                 .subscribeOn(Schedulers.boundedElastic());
     }
-
-    // =================================================================================================================
-    // Helper Methods: Sucesso e Falha de Login
-    // =================================================================================================================
 
     private Mono<LoginResult> handleSuccessfulLogin(AuthUser user, String sanitizedCpf, Instant now) {
         Mono<Void> resetRedisMono = accountLockoutPort
@@ -287,10 +266,6 @@ public class AuthService implements LoginUseCase, RefreshTokenUseCase, RegisterC
                 .map(port -> port.recordFailedAttempt(cpf))
                 .orElseGet(() -> Mono.just(0L));
     }
-
-    // =================================================================================================================
-    // Helper Methods: Emissão, Reuso e Transformação de Tokens
-    // =================================================================================================================
 
     private String generateSecureToken() {
         byte[] bytes = new byte[32];
@@ -363,10 +338,6 @@ public class AuthService implements LoginUseCase, RefreshTokenUseCase, RegisterC
                 null
         );
     }
-
-    // =================================================================================================================
-    // Helper Methods: Registro e Publicação de Eventos
-    // =================================================================================================================
 
     private Mono<Void> checkCpfNotRegistered(String cpf) {
         return authUserRepositoryPort.existsByCpf(cpf)

@@ -8,8 +8,10 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 import tools.jackson.databind.ObjectMapper;
 
+import java.time.Duration;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -33,18 +35,29 @@ public class KafkaAccountReadyEventPublisher implements AccountReadyEventPublish
             return Mono.empty();
         }
 
-        return Mono.fromFuture(() -> {
+        return Mono.<Void>fromRunnable(() -> {
             try {
                 String messageKey = event.payload().customerId().toString();
                 String json = objectMapper.writeValueAsString(event.toEnvelope());
-                return kafkaTemplate.get().send(KafkaTopics.ACCOUNT_READY_V1, messageKey, json);
+                kafkaTemplate.get().send(KafkaTopics.ACCOUNT_READY_V1, messageKey, json)
+                        .whenComplete((result, ex) -> {
+                            if (ex != null) {
+                                log.error("Failed to publish AccountReadyEvent to topic '{}' for customerId: {}",
+                                        KafkaTopics.ACCOUNT_READY_V1, event.payload().customerId(), ex);
+                            } else {
+                                log.info("Published AccountReadyEvent to topic '{}' with key '{}', eventId: {}",
+                                        KafkaTopics.ACCOUNT_READY_V1, event.payload().customerId(), event.eventId());
+                            }
+                        });
             } catch (Exception e) {
-                throw new RuntimeException("Failed to serialize AccountReadyEvent", e);
+                log.error("Failed to publish AccountReadyEvent for customerId: {}", event.payload().customerId(), e);
             }
-        }).doOnSuccess(result -> log.info("Published AccountReadyEvent to topic '{}' with key '{}', eventId: {}",
-                KafkaTopics.ACCOUNT_READY_V1, event.payload().customerId(), event.eventId()))
-        .doOnError(e -> log.error("Failed to publish AccountReadyEvent to topic '{}' for customerId: {}",
-                KafkaTopics.ACCOUNT_READY_V1, event.payload().customerId(), e))
-        .then();
+        })
+        .subscribeOn(Schedulers.boundedElastic())
+        .timeout(Duration.ofMillis(500))
+        .onErrorResume(ex -> {
+            log.warn("AccountReadyEvent publishing timed out or failed: {}", ex.getMessage());
+            return Mono.empty();
+        });
     }
 }

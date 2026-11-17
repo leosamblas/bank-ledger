@@ -2,7 +2,7 @@
 
 **Destino:** `docs/research/2026-11-17-business-rules-backend-analysis.md`  
 **Autor:** Backend Research Specialist (Research Subagent)  
-**Data:** 17 de Novembro de 2026  
+**Data:** 17 de Novembro de 2026 (Atualizado com Revisão de Segurança e Limites Dinâmicos)  
 **Status:** Concluído com Citações Primárias e Evidências Concretas  
 
 ---
@@ -11,23 +11,19 @@
 
 Esta pesquisa examinou minuciosamente todos os microserviços de backend (`account-service`, `transaction-service`, `query-service`, `ledger-service`, `auth-service`, `platform-commons`) e contratos OpenAPI (`api-contracts/*.yaml`) do repositório `bank-ledger`.
 
-O objetivo foi avaliar a viabilidade e mapear as lacunas técnicas para os quatro novos requisitos de negócio:
-1. **Limite Diário de Transferências (Validação e Governança)**
-2. **Extrato Bancário Humanizado, Contraparte (Origem/Favorecido) e Protocolo Canônico**
-3. **Transferência por CPF e Resolução/Lookup de Destinatário**
-4. **Edição de Perfil de Usuário e Dados de Endereço Residencial**
-
-Abaixo estão as descobertas detalhadas com arquivos, linhas de código, modelos e recomendações arquiteturais.
+O objetivo foi avaliar a viabilidade e mapear as lacunas técnicas para os novos requisitos de negócio, incorporando as duas diretrizes mandatórias:
+1. **Validação de Limite no Banco de Dados (Sem Validação Estática no Código):** O teto de transferência não deve ser fixado em anotações estáticas no código (`@Max(5_000_000L)`). Cada cliente pode ter aprovações de limites diferenciadas, devendo o backend sempre consultar o banco de dados.
+2. **Segurança de PII (Sem CPF em Requisições GET):** Por conformidade estrita com LGPD e normas bancárias, CPFs e dados de conta não devem ser transmitidos via query parameters em requisições `GET` (que são persistidos em logs de servidores web, proxies reversos e cabeçalhos Referer). A consulta de conta/favorecido deve ser feita sempre via **`POST /api/v1/accounts/lookup`** com corpo JSON cifrado.
 
 ---
 
-## 1. Limite Diário de Transferências (Daily Transfer Limit)
+## 1. Limite Diário de Transferências Dinâmico no Banco de Dados
 
-### 1.1. Estado Atual no Código-Fonte
+### 1.1. Estado Atual no Código-Fonte e Limitação Estática
 
 * **`account-service`**:
   * Na tabela `account` (`services/account-service/src/main/resources/db/migration/V1__init_account_schema.sql:26-41`), existem apenas as colunas: `id`, `customer_id`, `branch`, `account_number`, `check_digit`, `status`, `version`, `created_at`, `updated_at`, `closed_at`.
-  * **Não existe** coluna nem conceito de limite (`daily_limit`, `transfer_limit`) na entidade `AccountEntity` (`AccountEntity.java:36-70`) ou no modelo de domínio `Account` (`Account.java:20-50`).
+  * **Não existe** coluna nem conceito de limite (`daily_limit`, `daily_transfer_limit_cents`) na entidade `AccountEntity` (`AccountEntity.java:36-70`).
 
 * **`transaction-service`**:
   * Em `TransferRequest.java:15` (`services/transaction-service/src/main/java/com/bankledger/transaction/adapters/in/rest/dto/TransferRequest.java`):
@@ -37,18 +33,12 @@ Abaixo estão as descobertas detalhadas com arquivos, linhas de código, modelos
     @Max(value = 5_000_000L, message = "amount must not exceed 5000000 cents (R$ 50.000,00)")
     Long amount
     ```
-    Existe apenas validação Bean Validation de limite *por transação individual* (teto de R$ 50.000,00).
+    Existe uma anotação estática `@Max` travando o valor máximo em R$ 50.000,00 para qualquer usuário. **Essa anotação estática deve ser removida** para permitir que clientes com limites aprovados superiores ou inferiores operem de acordo com a aprovação registrada no banco de dados.
   * Em `TransactionController.java:188-256` e `CreateTransferService.java:43-98`:
-    * É checada a idempotência (`idempotencyValidatorUseCase.validateOrLock`) e a igualdade entre contas (`sourceAccountId != destinationAccountId`).
-    * **Não é feita nenhuma consulta ou validação de saldo nem de limite diário acumulado**.
-    * A transação é gravada na tabela `financial_transaction` com status `PENDING` e um evento `PostJournalCommand` é enviado para o outbox (`ledger.commands.v1`).
-
-* **`ledger-service`**:
-  * `TransferPostingStrategy.java:49-89` apenas valida saldo suficiente na conta de origem (`sourceAccount.applyEntry(EntryDirection.DEBIT, command.amount())`). Se o saldo for insuficiente, lança `InsufficientFundsException` e rejeita a transação contabilmente (`REJECTED`, `INSUFFICIENT_FUNDS`).
-  * Não há verificação de limite diário no ledger.
+    * A transação é gravada na tabela `financial_transaction` sem consultar o limite aprovado da conta no banco de dados.
 
 * **`query-service`**:
-  * Em `BalanceResponse.java:32-33` (`services/query-service/src/main/java/com/bankledger/query/adapters/in/rest/dto/BalanceResponse.java`):
+  * Em `BalanceResponse.java:32-33`:
     ```java
     return new BalanceResponse(
         accountId, balance, balance, 0L,
@@ -57,196 +47,134 @@ Abaixo estão as descobertas detalhadas com arquivos, linhas de código, modelos
         0.0, currency != null ? currency : "BRL", sequence, updatedAt
     );
     ```
-    O valor de `dailyLimitCents` é **hardcoded** em 50.000,00 reais e `usedTodayCents` é **hardcoded em 0L**.
-  * A OpenAPI `api-contracts/query-service.yaml:14-29` sequer documenta os campos `dailyLimitCents` e `usedTodayCents` (embora o DTO Java os contenha).
+    O valor de `dailyLimitCents` está **hardcoded** em 50.000,00 reais e `usedTodayCents` está **hardcoded em 0L**.
 
-### 1.2. Como Modelar os Limites Diários
+### 1.2. Modelagem Dinâmica Baseada em Banco de Dados
 
-1. **Configuração de Limite (Por Conta vs Global):**
-   * **Nível de Banco/Global:** Definir valor padrão via Spring Properties em `application.yml` (ex: `bankledger.limits.default-daily-transfer-cents: 5000000` = R$ 50.000,00).
-   * **Nível de Conta (Customizável):** Adicionar coluna `daily_transfer_limit_cents BIGINT NOT NULL DEFAULT 5000000` na tabela `account` (migration `V3__add_account_limits.sql` no `account-service`).
-2. **Cálculo do Limite Utilizado no Dia (`usedTodayCents`):**
-   * **Em `transaction-service` (Validação Síncrona pré-aceite):**
-     * Para garantir integridade sem condições de corrida, antes de aceitar a transferência (`createTransfer`), o `transaction-service` calcula a soma de transferências do dia corrente:
+1. **Tabela e Limite Individual Aprovado por Conta:**
+   * **No `account-service`:**
+     * Migration `V3__add_customer_address_and_account_limits.sql`: adiciona coluna `daily_transfer_limit_cents BIGINT NOT NULL DEFAULT 5000000` na tabela `account`.
+   * **No `transaction-service`:**
+     * Migration `V3__add_account_limit_table.sql`: cria tabela `account_limit`:
        ```sql
-       SELECT COALESCE(SUM(amount), 0) 
-       FROM financial_transaction 
-       WHERE source_account_id = :sourceAccountId 
-         AND type = 'TRANSFER' 
-         AND status IN ('PENDING', 'COMPLETED') 
-         AND created_at >= :startOfDayBrt;
+       CREATE TABLE IF NOT EXISTS account_limit (
+           account_id                 UUID PRIMARY KEY,
+           daily_transfer_limit_cents BIGINT NOT NULL DEFAULT 5000000,
+           approved_by                VARCHAR(80) NOT NULL DEFAULT 'SYSTEM_DEFAULT',
+           updated_at                 TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
+       );
        ```
-     * Incluir status `PENDING` é indispensável para evitar que múltiplas transferências concorrentes quase simultâneas ultrapassem o teto diário antes da liquidação contábil.
-     * O fuso horário de corte deve ser explicitamente `America/Sao_Paulo` (UTC-3), iniciando à 00:00:00 do dia civil corrente.
-     * Se `(usedTodayCents + request.amount) > dailyLimitCents`, rejeitar imediatamente com HTTP 422 Unprocessable Entity (ProblemDetail: `DAILY_LIMIT_EXCEEDED`, "Limite diário de transferências excedido").
-   * **Em `query-service` (Projeção CQRS para Tela/Dashboard):**
-     * No endpoint `GET /api/v1/queries/accounts/{accountId}/balance`, calcular `usedTodayCents` consultando `statement_entry`:
-       ```sql
-       SELECT COALESCE(SUM(amount), 0)
-       FROM statement_entry
-       WHERE account_id = :accountId
-         AND direction = 'DEBIT'
-         AND category = 'TRANSFER'
-         AND posted_at >= :startOfDayBrt;
-       ```
-     * Retornar no `BalanceResponse`: `dailyLimitCents` (5.000.000 ou parametrizado), `usedTodayCents` (calculado) e `availableLimitCents` (`dailyLimitCents - usedTodayCents`).
+     * Permite que rotinas de backoffice ou aprovação bancária definam limites específicos para cada correntista diretamente no banco de dados.
+2. **Validação Dinâmica em Tempo de Execução (`CreateTransferService`):**
+   * Antes de aceitar qualquer transferência, o `transaction-service`:
+     1. Consulta o limite individual aprovado no banco de dados:
+        ```java
+        long approvedLimit = accountLimitRepository.findById(command.sourceAccountId())
+                .map(AccountLimitEntity::getDailyTransferLimitCents)
+                .orElse(5_000_000L);
+        ```
+     2. Consulta no banco de dados a soma de transferências já realizadas/pendentes daquela conta na data de hoje (considerando o início do dia civil em horário de Brasília `America/Sao_Paulo`):
+        ```sql
+        SELECT COALESCE(SUM(amount), 0)
+        FROM financial_transaction
+        WHERE source_account_id = :sourceAccountId
+          AND type = 'TRANSFER'
+          AND status IN ('PENDING', 'COMPLETED')
+          AND created_at >= :startOfDayBrt;
+        ```
+     3. Valida: Se `(usedTodayCents + command.amount()) > approvedLimit`, rejeita com HTTP `422 Unprocessable Entity` (`ProblemDetail: DAILY_LIMIT_EXCEEDED`, informando limite aprovado e total consumido).
+   * Desta forma, a validação é **100% dinâmica via banco de dados** e suporta limites customizados por cliente.
 
 ---
 
-## 2. Extrato (Statement), Contraparte (Origem/Favorecido) e Protocolo
+## 2. Consulta Segura de Conta e Favorecido via POST (Segurança de PII)
 
-### 2.1. Estado Atual no Código-Fonte
+### 2.1. Vulnerabilidade do Modelo Anterior com GET
 
-* **`transaction-service`**:
-  * Tabela `financial_transaction` (`V1__init_transaction_schema.sql:32-49`):
-    * Campos existentes: `id`, `type`, `status`, `source_account_id`, `destination_account_id`, `amount`, `currency`, `description`, `requested_by`, `failure_code`, `failure_reason`, `correlation_id`, `created_at`, `updated_at`, `completed_at`, `version`.
-    * **Campos ausentes:** NÃO existe campo `protocol` nem dados cadastrais da contraparte (nome do favorecido/pagador, CPF da contraparte, agência/conta da contraparte).
-    * O campo `description` fornecido pelo cliente na API (`TransferRequest.description`) é salvo em `financial_transaction`, mas **não é repassado** no comando `PostJournalCommand` enviado ao ledger (`CreateTransferService.java:62-73`).
-* **`ledger-service`**:
-  * Em `TransferPostingStrategy.java:28`:
-    * A descrição no journal é fixa: `public static final String DESCRIPTION = "Transferência contábil";`.
-  * Em `EntryPostedEvent.java:17-40`:
-    * O evento emitido para o Kafka (`ledger.entries.v1`) contém apenas:
-      `entryId`, `journalId`, `transactionId`, `accountId`, `direction`, `amount`, `balanceAfter`, `sequence`, `postedAt`.
-    * O evento contábil é agnóstico em relação à contraparte, tipos de negócio e protocolos comerciais.
-* **`query-service` (Lacuna Crítica Descoberta)**:
-  * A tabela `statement_entry` (`V1__init_query_schema.sql:42-65`) **já possui** as colunas:
-    `counterparty_name`, `counterparty_document_masked`, `counterparty_account`, `idempotency_key`, `category`, `type`, `description`.
-  * Porém, em `QueryEventConsumer.java:104-311`:
-    * O consumidor escuta apenas o tópico contábil `ledger.entries.v1`.
-    * Como o `EntryPostedEvent` do ledger não traz esses dados, o `QueryEventConsumer` insere **`NULL`** em `counterparty_name`, `counterparty_document_masked`, `counterparty_account`!
-    * Além disso, a categoria e descrição sofrem fallback cego:
-      ```java
-      // QueryEventConsumer.java:266-281
-      if ("CREDIT".equalsIgnoreCase(direction)) {
-          category = "DEPOSIT";
-          description = "Depósito em conta";
-      } else {
-          category = "WITHDRAWAL";
-          description = "Saque em conta";
-      }
-      ```
-    * Consequência: Toda transferência enviada vira "WITHDRAWAL / Saque em conta" e toda transferência recebida vira "DEPOSIT / Depósito em conta", com contraparte nula!
-* **Protocolo de Auditoria**:
-  * **Não existe** campo `protocol` em nenhum serviço (`financial_transaction`, `journal`, `entry` ou `statement_entry`).
-  * O frontend atualmente exibe o `#sequence` da conta (ex: `#1`, `#2`) como "Nº do Comprovante" e exibe o `idempotencyKey` UUID como "Protocolo de Autenticação".
+* O endpoint atual (`GET /api/v1/accounts/lookup?agency=...&number=...`) e qualquer proposta de passar CPF na query string (`GET /api/v1/accounts/lookup?cpf=...`) apresentam riscos graves de segurança:
+  1. **Vazamento em Logs de Acesso:** Servidores web (Tomcat, Nginx, API Gateways) gravam a URL completa com a query string nos logs de acesso (`access.log`), expondo CPFs e dados bancários em texto claro.
+  2. **Cache e Histórico:** Navegadores e proxies intermediários armazenam URLs de requisições `GET` em histórico e memórias cache locais.
+  3. **Cabeçalho `Referer`:** Navegadores podem vazar a query string com o CPF em requisições de terceiros.
 
-### 2.2. Como Gerar e Propagar Protocolo e Contraparte
+### 2.2. Solução Mandatória: Endpoint POST com Corpo Cifrado
 
-1. **Geração do Protocolo Canônico:**
-   * Formato padrão bancário brasileiro: `PRT-YYYYMMDD-XXXXXX`
-     Exemplo: `PRT-20261117-9F8A2D` (onde `XXXXXX` são 6 dígitos hexadecimais em maiúsculas gerados deterministicamente dos primeiros 6 caracteres do UUID da transação ou gerados aleatoriamente).
-   * O protocolo deve ser gerado no momento da criação da transação em `CreateTransferService` e salvo na coluna `protocol` de `financial_transaction`.
-2. **Propagação de Dados da Contraparte para o Extrato:**
-   * Quando `transaction-service` processa o resultado contábil (`HandleJournalResultService:51`), ou no momento do envio do `PostJournalCommand`, o `transaction-service` conhece `sourceAccountId`, `destinationAccountId`, `description` e `protocol`.
-   * `query-service` preenche `statement_entry` com:
-     * Para o pagador (`sourceAccountId`): `type = "TRANSFER_OUT"`, `description = "Transferência enviada"`, contraparte = dados do favorecido.
-     * Para o favorecido (`destinationAccountId`): `type = "TRANSFER_IN"`, `description = "Transferência recebida"`, contraparte = dados do pagador.
-     * `protocolNumber` = `PRT-YYYYMMDD-XXXXXX`.
-
----
-
-## 3. Transferência por CPF e Recipient Lookup
-
-### 3.1. Estado Atual no Código-Fonte
-
-* **`account-service`**:
-  * Em `AccountController.java:76-88` e `api-contracts/account-service.yaml:160-184`:
-    * Existe apenas: `GET /api/v1/accounts/lookup?agency={agency}&number={number}`.
-    * **Não existe endpoint para buscar conta por CPF**.
-  * No repositório Spring Data `CustomerSpringDataRepository.java:14`:
-    * Já existe o método pronto: `Optional<CustomerEntity> findByCpf(String cpf);`.
-  * No repositório `AccountSpringDataRepository.java:17`:
-    * Já existe o método pronto: `Optional<AccountEntity> findByCustomerId(UUID customerId);`.
-  * Ou seja, a camada de banco já possui 100% das consultas necessárias para localizar a conta a partir de um CPF.
-  * O retorno atual de `AccountLookupResponse.java` é:
-    ```java
-    public record AccountLookupResponse(
-        UUID accountId,
-        String agency,
-        String number,
-        String holderNameMasked
-    )
+* **Novo Endpoint no `account-service`:**  
+  `POST /api/v1/accounts/lookup`
+* **Contrato do Payload (`AccountLookupRequest`):**
+  ```json
+  {
+    "searchType": "CPF",
+    "cpf": "52998224725",
+    "agency": null,
+    "accountNumber": null
+  }
+  ```
+  Ou, para busca tradicional por conta:
+  ```json
+  {
+    "searchType": "ACCOUNT",
+    "cpf": null,
+    "agency": "0001",
+    "accountNumber": "100000"
+  }
+  ```
+* **Vantagens de Segurança:**
+  * O corpo da requisição `POST` é transmitido dentro da carga cifrada pelo TLS/HTTPS.
+  * O CPF e dados bancários **nunca** aparecem em logs de URL de roteadores, gateways, proxies ou histórico de browser.
+  * Resposta desmascarada para conferência no frontend antes do envio da transferência:
+    ```json
+    {
+      "accountId": "a3b4c5d6-...",
+      "branch": "0001",
+      "accountNumber": "100000",
+      "checkDigit": "4",
+      "holderName": "Carlos Eduardo Silva",
+      "cpf": "529.982.247-25",
+      "bankCode": "001",
+      "bankName": "Nexus Bank S.A."
+    }
     ```
-    Onde `holderNameMasked` mascara todas as palavras com asteriscos exceto a primeira letra (`Carlos Eduardo Silva` -> `C*** E*** S***`).
-* **`transaction-service`**:
-  * `TransferRequest.java:9-20` exige obrigatoriamente: `@NotNull UUID destinationAccountId`.
-  * `transaction-service` não possui clientes HTTP configurados para chamar o `account-service` de forma síncrona.
-
-### 3.2. Análise do Fluxo de Transferência por CPF
-
-* **Padrão de Mercado e Arquitetura Ideal (Padrão PIX em 2 Etapas):**
-  1. **Etapa 1 - Consulta de Destinatário (Lookup):**
-     * O frontend chama o endpoint de lookup do `account-service`:
-       `GET /api/v1/accounts/lookup?cpf=52998224725` (ou `?agency=0001&number=100000`).
-     * O `account-service` resolve `Customer` por CPF -> resolve `Account` por `customerId` -> retorna dados para confirmação:
-       ```json
-       {
-         "accountId": "a3b4c5d6-...",
-         "agency": "0001",
-         "number": "100000",
-         "digit": "4",
-         "holderName": "Carlos Eduardo Silva",
-         "cpf": "529.982.247-25",
-         "bankName": "Nexus Bank S.A.",
-         "bankCode": "001"
-       }
-       ```
-  2. **Etapa 2 - Confirmação e Envio:**
-     * O usuário visualiza o nome e dados do favorecido na tela de conferência.
-     * Ao clicar em "Confirmar Transferência", o frontend chama `POST /api/v1/transactions/transfers` passando o `destinationAccountId` já resolvido.
-  * **Vantagem Arquitetural:** Não requer chamadas síncronas entre microserviços (`transaction-service` continua desacoplado de `account-service`), mantém o fluxo de conferência de dados idêntico ao PIX/Bacen e evita expor CPFs desnecessariamente no tráfego interno de transações.
 
 ---
 
-## 4. Edição de Perfil de Usuário e Dados de Endereço
+## 3. Extrato Bancário, Contraparte e Protocolo Canônico
 
-### 4.1. Estado Atual no Código-Fonte
+### 3.1. Geração de Protocolo Canônico Bancário
 
-* **Entidades e Tabelas de `Customer` e `Account`**:
-  * Em `V1__init_account_schema.sql:8-23` e `CustomerEntity.java:36-79`:
-    * Campos existentes: `id`, `full_name`, `cpf`, `email`, `phone`, `birth_date`, `password_hash`, `failed_login_attempts`, `locked_until`, `version`, `created_at`, `updated_at`.
-    * **Não existe nenhuma coluna de endereço** (`street`, `number`, `complement`, `neighborhood`, `city`, `state`, `postal_code`).
-  * No modelo de domínio `Customer.java:139-147`:
-    * Já existem métodos mutadores para contato: `updateEmail(Email email, Instant now)` e `updatePhone(Phone phone, Instant now)`.
-* **Endpoints de Perfil**:
-  * `AccountController.java` possui apenas:
-    * `POST /api/v1/accounts`: Criação de conta.
-    * `GET /api/v1/accounts/me`: Consulta da conta do usuário autenticado. Retorna `AccountResponse` (`id`, `customerId`, `agency`, `number`, `digit`, `status`, `openedAt`, `holderName`). **Não retorna** CPF, e-mail, telefone nem data de nascimento para o frontend.
-    * `GET /api/v1/accounts/{accountId}`: Detalhes por ID com validação de ownership.
-  * **Não existe nenhum endpoint de atualização** (`PUT /accounts/{id}`, `PATCH /accounts/{id}`, `PUT /accounts/me/profile`).
+* Formato padronizado: `PRT-YYYYMMDD-XXXXXX`
+* O protocolo é gerado no momento da recepção da transação pelo `transaction-service`, gravado na coluna `protocol_number` da tabela `financial_transaction` e propagado para o `query-service`.
+* Permite conciliação auditável e identificação unívoca nos comprovantes e extratos.
 
-### 4.2. Como Modelar a Edição de Perfil e Endereço
+### 3.2. Enriquecimento de Dados no Extrato (`query-service`)
 
-1. **Migração de Banco de Dados (`V3__add_customer_address.sql` no `account-service`):**
-   ```sql
-   ALTER TABLE customer
-       ADD COLUMN IF NOT EXISTS postal_code VARCHAR(9),
-       ADD COLUMN IF NOT EXISTS street VARCHAR(150),
-       ADD COLUMN IF NOT EXISTS number VARCHAR(20),
-       ADD COLUMN IF NOT EXISTS complement VARCHAR(100),
-       ADD COLUMN IF NOT EXISTS neighborhood VARCHAR(100),
-       ADD COLUMN IF NOT EXISTS city VARCHAR(100),
-       ADD COLUMN IF NOT EXISTS state CHAR(2);
-   ```
-2. **Mapeamento JPA e Modelo de Domínio:**
-   * Criar Value Object ou Embeddable `Address` (`postalCode`, `street`, `number`, `complement`, `neighborhood`, `city`, `state`).
-   * Adicionar `Address address` em `Customer` e `CustomerEntity`.
-3. **Novo Endpoint de Perfil:**
-   * `GET /api/v1/accounts/me`:
-     * Enriquecer a resposta para retornar os dados cadastrais completos: `holderName`, `cpf`, `email`, `phone`, `birthDate`, `address: { ... }`.
-   * `PUT /api/v1/accounts/me/profile`:
-     * Payload: `phone`, `email`, `address` (`postalCode`, `street`, `number`, `complement`, `neighborhood`, `city`, `state`).
-     * **Regra de Imutabilidade Bancária:** O backend deve rejeitar qualquer tentativa de alteração de `cpf`, `birthDate` ou `fullName` nesta rota (campos imutáveis por autoatendimento).
-     * Se o `email` for alterado, emitir evento no outbox para que o `auth-service` atualize a tabela `auth_credentials`.
+* A tabela `statement_entry` já possui colunas para contraparte (`counterparty_name`, `counterparty_document_masked`, `counterparty_account`).
+* O consumidor do `query-service` preenche essas colunas com os dados do pagador ou favorecido correspondente, além de atribuir as categorias semânticas corretas:
+  * Débito de transferência: `type = "TRANSFER_OUT"`, `description = "Transferência enviada"`
+  * Crédito de transferência: `type = "TRANSFER_IN"`, `description = "Transferência recebida"`
+  * Depósito: `type = "DEPOSIT"`, `description = "Depósito em conta corrente"`
+  * Saque: `type = "WITHDRAWAL"`, `description = "Saque em terminal"`
 
 ---
 
-## 5. Resumo das Tarefas de Implementação Recomendadas
+## 4. Perfil do Usuário e Dados de Endereço
 
-| Módulo | Ações Necessárias no Backend |
-| :--- | :--- |
-| **Limite Diário** | 1. Criar migration `V3` em `account-service` com `daily_transfer_limit_cents`.<br>2. Adicionar validação de limite diário cumulativo em `CreateTransferService` (`transaction-service`).<br>3. Projetar dinamicamente `usedTodayCents` e `availableLimitCents` no `QueryController` (`query-service`). |
-| **Extrato e Contraparte** | 1. Adicionar `protocol` (`PRT-YYYYMMDD-XXXXXX`) na tabela `financial_transaction` e gerá-lo em `CreateTransferService`.<br>2. Propagar dados de contraparte e protocolo para o `query-service` preencher as colunas já existentes de `statement_entry`. |
-| **Transferência por CPF** | 1. Expandir `LookupAccountUseCase` e `AccountController.lookupAccount` para aceitar `?cpf={cpf}` além de `?agency=...&number=...`.<br>2. Retornar dados enriquecidos do favorecido para exibição e confirmação no frontend. |
-| **Perfil e Endereço** | 1. Criar migration `V3__add_customer_address.sql` no `account-service`.<br>2. Atualizar `CustomerEntity` e criar `Address`.<br>3. Implementar `PUT /api/v1/accounts/me/profile` e expandir `GET /api/v1/accounts/me`. |
+### 4.1. Migração e Modelo de Domínio no `account-service`
+
+* Migration `V3__add_customer_address_and_account_limits.sql`:
+  * Adiciona na tabela `customer`: `postal_code`, `street`, `number`, `complement`, `neighborhood`, `city`, `state`.
+* Criação do Value Object `Address` e integração nas entidades `Customer` e `CustomerEntity`.
+* Criação do endpoint `PUT /api/v1/accounts/me/profile` para atualização de telefone, e-mail e endereço residencial.
+* Enriquecimento de `GET /api/v1/accounts/me` para retornar todos os dados cadastrais e endereço completo.
+
+---
+
+## 5. Matriz de Contratos Refinada
+
+| Serviço | Método | Endpoint | Descrição / Payload |
+| :--- | :---: | :--- | :--- |
+| `account-service` | `POST` | `/api/v1/accounts/lookup` | **Body:** `{ searchType, cpf?, agency?, accountNumber? }` -> Retorna dados do favorecido |
+| `account-service` | `GET` | `/api/v1/accounts/me` | Retorna perfil completo do cliente, endereço e limite aprovado |
+| `account-service` | `PUT` | `/api/v1/accounts/me/profile` | **Body:** `{ phone, email, address: { ... } }` -> Atualiza contato e endereço |
+| `transaction-service` | `POST` | `/api/v1/transactions/transfers` | Executa transferência checando limite individual aprovado no banco de dados |
+| `query-service` | `GET` | `/api/v1/queries/accounts/{id}/balance` | Retorna saldo atual, limite aprovado individual e limite usado hoje |
+| `query-service` | `GET` | `/api/v1/queries/accounts/{id}/statement` | Retorna extrato com protocolo bancário canônico e contraparte |

@@ -22,6 +22,7 @@ import reactor.test.StepVerifier;
 
 import java.io.IOException;
 import java.time.Instant;
+import java.util.Optional;
 import java.util.Properties;
 import java.util.UUID;
 
@@ -43,6 +44,7 @@ class EmailNotificationServiceTest {
     @Mock
     private JavaMailSender mailSender;
 
+    private Optional<JavaMailSender> optionalMailSender;
     private EmailTemplateLoader templateLoader;
     private EmailNotificationProperties properties;
     private Session mailSession;
@@ -52,6 +54,7 @@ class EmailNotificationServiceTest {
     void setUp() {
         mailSession = Session.getInstance(new Properties());
         lenient().when(mailSender.createMimeMessage()).thenAnswer(inv -> new MimeMessage(mailSession));
+        optionalMailSender = Optional.of(mailSender);
 
         templateLoader = new EmailTemplateLoader();
         properties = new EmailNotificationProperties();
@@ -74,7 +77,7 @@ class EmailNotificationServiceTest {
     @DisplayName("Should skip SMTP and return empty Mono when mailEnabled is false")
     void whenMailDisabled_shouldNotSendEmailAndReturnEmptyMono() {
         properties.setEnabled(false);
-        EmailNotificationService service = new EmailNotificationService(mailSender, properties, templateLoader);
+        EmailNotificationService service = new EmailNotificationService(java.util.Optional.of(mailSender), properties, templateLoader);
 
         Mono<Void> result = service.sendAccountReadyEmail(payload);
 
@@ -85,9 +88,20 @@ class EmailNotificationServiceTest {
     }
 
     @Test
+    @DisplayName("Should skip SMTP gracefully when mailSender is empty Optional")
+    void whenMailSenderIsEmpty_shouldNotThrowAndReturnEmptyMono() {
+        EmailNotificationService service = new EmailNotificationService(java.util.Optional.empty(), properties, templateLoader);
+
+        Mono<Void> result = service.sendAccountReadyEmail(payload);
+
+        StepVerifier.create(result)
+                .verifyComplete();
+    }
+
+    @Test
     @DisplayName("Should construct rich MimeMessage and send via mailSender when mailEnabled is true")
     void whenMailEnabled_shouldConstructCorrectMimeMessageAndSend() throws MessagingException, IOException {
-        EmailNotificationService service = new EmailNotificationService(mailSender, properties, templateLoader);
+        EmailNotificationService service = new EmailNotificationService(java.util.Optional.of(mailSender), properties, templateLoader);
 
         Mono<Void> result = service.sendAccountReadyEmail(payload);
 
@@ -119,7 +133,7 @@ class EmailNotificationServiceTest {
     @Test
     @DisplayName("Should propagate error when mailSender throws MailException")
     void whenMailEnabledAndMailSenderFails_shouldPropagateError() {
-        EmailNotificationService service = new EmailNotificationService(mailSender, properties, templateLoader);
+        EmailNotificationService service = new EmailNotificationService(optionalMailSender, properties, templateLoader);
 
         doThrow(new MailSendException("SMTP connection timed out"))
                 .when(mailSender).send(any(MimeMessage.class));
@@ -135,7 +149,7 @@ class EmailNotificationServiceTest {
     @DisplayName("Should fallback to default fromAddress when given blank fromAddress")
     void whenFromAddressIsBlank_shouldFallbackToDefaultFromAddress() throws MessagingException {
         properties.setFrom("   ");
-        EmailNotificationService service = new EmailNotificationService(mailSender, properties, templateLoader);
+        EmailNotificationService service = new EmailNotificationService(optionalMailSender, properties, templateLoader);
 
         Mono<Void> result = service.sendAccountReadyEmail(payload);
 
@@ -152,7 +166,7 @@ class EmailNotificationServiceTest {
     @Test
     @DisplayName("Should throw NullPointerException when payload is null")
     void whenPayloadIsNull_shouldThrowNullPointerException() {
-        EmailNotificationService service = new EmailNotificationService(mailSender, properties, templateLoader);
+        EmailNotificationService service = new EmailNotificationService(optionalMailSender, properties, templateLoader);
 
         assertThatThrownBy(() -> service.sendAccountReadyEmail(null))
                 .isInstanceOf(NullPointerException.class)
@@ -162,7 +176,7 @@ class EmailNotificationServiceTest {
     @Test
     @DisplayName("Should sanitize HTML special characters in customer full name")
     void shouldSanitizeHtmlSpecialCharactersInFullName() {
-        EmailNotificationService service = new EmailNotificationService(mailSender, properties, templateLoader);
+        EmailNotificationService service = new EmailNotificationService(optionalMailSender, properties, templateLoader);
 
         AccountReadyPayload xssPayload = new AccountReadyPayload(
                 UUID.randomUUID(),
@@ -186,7 +200,7 @@ class EmailNotificationServiceTest {
         EmailTemplateLoader mockLoader = mock(EmailTemplateLoader.class);
         when(mockLoader.loadTemplate(any())).thenReturn(null);
 
-        EmailNotificationService service = new EmailNotificationService(mailSender, properties, mockLoader);
+        EmailNotificationService service = new EmailNotificationService(optionalMailSender, properties, mockLoader);
 
         Mono<Void> result = service.sendAccountReadyEmail(payload);
 
@@ -209,7 +223,7 @@ class EmailNotificationServiceTest {
     @Test
     @DisplayName("Should handle empty strings in payload fields cleanly without throwing")
     void whenPayloadHasEmptyStrings_shouldRenderCleanly() {
-        EmailNotificationService service = new EmailNotificationService(mailSender, properties, templateLoader);
+        EmailNotificationService service = new EmailNotificationService(optionalMailSender, properties, templateLoader);
 
         AccountReadyPayload emptyPayload = new AccountReadyPayload(
                 UUID.randomUUID(),

@@ -16,20 +16,21 @@ import reactor.core.scheduler.Schedulers;
 import java.nio.charset.StandardCharsets;
 import java.time.Year;
 import java.util.Objects;
+import java.util.Optional;
 
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class EmailNotificationService {
 
-    private final JavaMailSender mailSender;
+    private final Optional<JavaMailSender> mailSender;
     private final EmailNotificationProperties properties;
     private final EmailTemplateLoader templateLoader;
 
     public Mono<Void> sendAccountReadyEmail(AccountReadyPayload payload) {
         Objects.requireNonNull(payload, "payload must not be null");
 
-        if (!properties.isEnabled()) {
+        if (!properties.isEnabled() || mailSender.isEmpty()) {
             log.info("Email sending is DISABLED (feature flag app.mail.enabled=false). Skipping SMTP for customer: {} (email: {})",
                     payload.customerId(), payload.email());
             return Mono.empty();
@@ -37,7 +38,8 @@ public class EmailNotificationService {
 
         return Mono.<Void>fromRunnable(() -> {
             try {
-                MimeMessage mimeMessage = mailSender.createMimeMessage();
+                JavaMailSender sender = mailSender.get();
+                MimeMessage mimeMessage = sender.createMimeMessage();
                 MimeMessageHelper helper = new MimeMessageHelper(
                         mimeMessage,
                         MimeMessageHelper.MULTIPART_MODE_MIXED_RELATED,
@@ -59,7 +61,7 @@ public class EmailNotificationService {
                 }
 
                 log.debug("Dispatching account ready email to {} from {}", payload.email(), fromAddress);
-                mailSender.send(mimeMessage);
+                sender.send(mimeMessage);
                 log.info("Successfully sent account ready email to: {} for customer: {}", payload.email(), payload.customerId());
             } catch (MessagingException e) {
                 log.error("Failed to prepare MimeMessage for customer: {}", payload.customerId(), e);

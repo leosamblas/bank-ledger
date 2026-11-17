@@ -12,7 +12,9 @@ import tools.jackson.databind.json.JsonMapper;
 @SpringBootApplication(excludeName = {
     "org.springframework.boot.jdbc.autoconfigure.DataSourceAutoConfiguration",
     "org.springframework.boot.jdbc.autoconfigure.DataSourceTransactionManagerAutoConfiguration",
-    "org.springframework.boot.hibernate.autoconfigure.HibernateJpaAutoConfiguration"
+    "org.springframework.boot.hibernate.autoconfigure.HibernateJpaAutoConfiguration",
+    "org.springframework.boot.mail.autoconfigure.MailSenderAutoConfiguration",
+    "org.springframework.boot.mail.autoconfigure.MailHealthContributorAutoConfiguration"
 })
 public class NotificationServiceApplication {
 

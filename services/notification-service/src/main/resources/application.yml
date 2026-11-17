@@ -9,6 +9,8 @@ spring:
       - org.springframework.boot.jdbc.autoconfigure.DataSourceAutoConfiguration
       - org.springframework.boot.jdbc.autoconfigure.DataSourceTransactionManagerAutoConfiguration
       - org.springframework.boot.hibernate.autoconfigure.HibernateJpaAutoConfiguration
+      - org.springframework.boot.mail.autoconfigure.MailSenderAutoConfiguration
+      - org.springframework.boot.mail.autoconfigure.MailHealthContributorAutoConfiguration
   jackson:
     default-property-inclusion: non_null
   kafka:
@@ -23,7 +25,7 @@ spring:
     listener:
       ack-mode: manual_immediate
   mail:
-    host: ${SMTP_HOST:smtp.gmail.com}
+    host: ${SMTP_HOST:}
     port: ${SMTP_PORT:587}
     username: ${SMTP_USERNAME:}
     password: ${SMTP_PASSWORD:}
@@ -44,6 +46,9 @@ app:
       account-ready: ${ACCOUNT_READY_TOPIC:account.ready.v1}
 
 management:
+  health:
+    mail:
+      enabled: ${MANAGEMENT_HEALTH_MAIL_ENABLED:false}
   opentelemetry:
     resource-attributes:
       service.name: ${spring.application.name}

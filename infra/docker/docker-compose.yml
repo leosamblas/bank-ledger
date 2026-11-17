@@ -350,8 +350,8 @@ services:
       JAVA_TOOL_OPTIONS: "-Dreactor.schedulers.defaultBoundedElasticOnVirtualThreads=true"
       OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-lgtm:4318
       MANAGEMENT_OTLP_METRICS_EXPORT_URL: http://otel-lgtm:4318/v1/metrics
-      SMTP_HOST: smtp.gmail.com
-      SMTP_PORT: 587
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
       SMTP_USERNAME: ${SMTP_USERNAME:-}
       SMTP_PASSWORD: ${SMTP_PASSWORD:-}
       MAIL_ENABLED: ${MAIL_ENABLED:-false}

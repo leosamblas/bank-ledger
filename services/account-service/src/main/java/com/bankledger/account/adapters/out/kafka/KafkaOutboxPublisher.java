@@ -18,8 +18,6 @@ import java.util.concurrent.TimeUnit;
 @Component
 public class KafkaOutboxPublisher implements OutboxPublisher {
 
-    public static final long DEFAULT_PUBLISH_TIMEOUT_MS = 2000L;
-
     private final KafkaTemplate<String, String> kafkaTemplate;
     private final long publishTimeoutMs;
 

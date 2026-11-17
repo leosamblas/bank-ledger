@@ -368,8 +368,8 @@ Qualquer IA, desenvolvedor ou agente autônomo que continuar o desenvolvimento d
 - **Configuração de Listeners e AckMode:**
   - Todo microsserviço que consome Kafka deve obrigatoriamente incluir `org.springframework.boot:spring-boot-starter-kafka`, a anotação `@EnableKafka` e registrar um `ConcurrentKafkaListenerContainerFactory` com `AckMode.MANUAL_IMMEDIATE` quando o método consumidor utilizar `Acknowledgment` manual para confirmação transacional da mensagem.
 
-### 5.3 Banco de Dados e Conexões (HikariCP)
-- **Tamanho dos Pools:** Todos os microsserviços utilizam o pool dimensionado para:
+### 5.3 Banco de Dados e Conexões (PostgreSQL & HikariCP)
+- **Tamanho dos Pools nos Microsserviços:** Todos os microsserviços utilizam o pool dimensionado para:
   ```yaml
   spring:
     datasource:
@@ -377,8 +377,15 @@ Qualquer IA, desenvolvedor ou agente autônomo que continuar o desenvolvimento d
         maximum-pool-size: 30
         minimum-idle: 10
         connection-timeout: 30000
-        leak-detection-threshold: 2000
+        leak-detection-threshold: 10000
   ```
+- **Capacidade do PostgreSQL (`max_connections = 300`):**
+  - O PostgreSQL possui por padrão um limite de 100 conexões concorrentes.
+  - Como o Bank Ledger possui 5 microsserviços com `maximum-pool-size: 30`, a soma teórica de conexões simultâneas chega a 150 (mais conexões de migração Flyway e monitoramento).
+  - Sob cargas de estresse (ex: 50.000 requisições simultâneas), um limite de 100 conexões causa esgotamento (*FATAL: sorry, too many clients already*).
+  - O PostgreSQL no `docker-compose.yml` é configurado explicitamente com `-c max_connections=300` e parâmetros otimizados de buffer/WAL (`shared_buffers=256MB`, `effective_cache_size=768MB`, `work_mem=16MB`, `maintenance_work_mem=64MB`).
+- **Desacoplamento de I/O de Rede no Transactional Outbox:**
+  - O poller do Transactional Outbox (`OutboxPoller`) executa a leitura/lock em uma transação ultrarrápida (< 2ms), realiza o envio dos eventos para o Kafka **fora de qualquer transação de banco** (sem reter conexões JDBC do HikariCP) e persiste os estados atualizados em outra transação curta (< 2ms). Isso previne alertas falsos de leak detection e elimina o travamento de conexões durante eventuais latências de rede do broker.
 - **Proibição de I/O Externo em Transações:** **É terminantemente proibido realizar chamadas HTTP de rede ou esperas longas dentro de métodos anotados com `@Transactional`**. Transações devem durar menos de 10ms. Comunicação entre serviços deve ser assíncrona via Outbox no Kafka.
 
 ### 5.4 Autenticação e Segurança

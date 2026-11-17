@@ -143,39 +143,42 @@ public class OutboxPoller implements AutoCloseable {
     }
 
     /**
-     * Executes a transactional polling and publishing cycle:
-     * locks up to {@code batchSize} pending records, publishes each, and records results.
+     * Executes a polling and publishing cycle:
+     * 1. Locks up to {@code batchSize} pending records in a short-lived transaction.
+     * 2. Publishes each event to Kafka outside of any database transaction (preventing connection leaks).
+     * 3. Persists updated event states (published timestamp or incremented attempts) in a short-lived transaction.
      *
      * @return the number of events successfully published in this cycle
      */
     public int pollAndPublish() {
-        Integer publishedCount = transactionOperations.execute(status -> {
-            List<OutboxEvent> events = repository.lockPendingEvents(batchSize);
-            if (events == null || events.isEmpty()) {
-                return 0;
-            }
+        List<OutboxEvent> events = transactionOperations.execute(status -> repository.lockPendingEvents(batchSize));
+        if (events == null || events.isEmpty()) {
+            return 0;
+        }
 
-            int count = 0;
-            for (OutboxEvent event : events) {
-                if (event.getAttempts() >= maxAttempts) {
-                    log.warn("OutboxEvent {} has reached max attempts ({}), skipping publication",
-                            event.getId(), maxAttempts);
-                    continue;
-                }
-                try {
-                    publisher.publish(event);
-                    event.markPublished(Instant.now());
-                    count++;
-                } catch (Exception ex) {
-                    log.error("Failed to publish OutboxEvent {}, incrementing attempts: {}",
-                            event.getId(), ex.getMessage(), ex);
-                    event.markFailed();
-                }
-                repository.save(event);
+        int count = 0;
+        for (OutboxEvent event : events) {
+            if (event.getAttempts() >= maxAttempts) {
+                log.warn("OutboxEvent {} has reached max attempts ({}), skipping publication",
+                        event.getId(), maxAttempts);
+                continue;
             }
-            return count;
+            try {
+                publisher.publish(event);
+                event.markPublished(Instant.now());
+                count++;
+            } catch (Exception ex) {
+                log.error("Failed to publish OutboxEvent {}, incrementing attempts: {}",
+                        event.getId(), ex.getMessage(), ex);
+                event.markFailed();
+            }
+        }
+
+        transactionOperations.execute(status -> {
+            repository.saveAll(events);
+            return null;
         });
 
-        return publishedCount != null ? publishedCount : 0;
+        return count;
     }
 }

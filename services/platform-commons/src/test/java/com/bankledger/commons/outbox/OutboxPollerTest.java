@@ -152,6 +152,13 @@ class OutboxPollerTest {
                         saved.add((OutboxEvent) args[0]);
                         return args[0];
                     }
+                    if ("saveAll".equals(method.getName())) {
+                        Iterable<?> iterable = (Iterable<?>) args[0];
+                        for (Object o : iterable) {
+                            saved.add((OutboxEvent) o);
+                        }
+                        return args[0];
+                    }
                     return null;
                 }
         );

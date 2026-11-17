@@ -13,6 +13,7 @@ O sistema utiliza padrões modernos para garantir alta disponibilidade e escalab
 * **Injeção de Dependências com Lombok (@RequiredArgsConstructor)**: Padrão arquitetural obrigatório para todos os microsserviços. É terminantemente proibido o uso de `@Autowired` em construtores ou sobre atributos (`field injection`). Dependências são declaradas como `private final` e propriedades externas são encapsuladas via classes dedicadas com `@ConfigurationProperties`.
 * **CQRS (Command Query Responsibility Segregation)**: Separação lógica entre rotinas de gravação de transações e projeções desnormalizadas de extrato e saldo no PostgreSQL.
 * **Consistência Eventual Segura**: Utilização do padrão *Transactional Outbox* para publicação assíncrona confiável de eventos em tópicos do Kafka (KRaft).
+* **Padrão de Particionamento Kafka (3 Partições)**: Requisito básico onde todos os tópicos possuem 3 partições (`--partitions 3`), dimensionados em perfeita harmonia com os listeners consumidores (`concurrency = "3"`), garantindo paralelismo balanceado e ordenação sequencial por entidade via partition key (`customerId`, `accountId`, `transactionId`).
 * **Tolerância e Resiliência**: Particionamento de tabelas por data (`pg_partman`), particionamento das contas de caixa (*shards* do Banco Central) para evitar concorrência/lock, e suporte a alta idempotência na ingestão de eventos.
 * **Real-Time Updates**: Utilização de *Server-Sent Events (SSE)* no Frontend em substituição ao polling, evitando gargalos de I/O em fluxos de atualização contínua.
 

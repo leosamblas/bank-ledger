@@ -28,7 +28,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 @ActiveProfiles("test")
 @DirtiesContext
 @EmbeddedKafka(
-        partitions = 1,
+        partitions = 3,
         topics = {
                 KafkaTopics.AUTH_CREDENTIALS_REGISTRATION_V1,
                 KafkaTopics.ACCOUNT_READY_V1

@@ -61,6 +61,8 @@ services:
       KAFKA_INTER_BROKER_LISTENER_NAME: 'PLAINTEXT'
       CLUSTER_ID: 'MkU3OEVBNTcwNTJENDM2Qk'
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_NUM_PARTITIONS: 3
+      KAFKA_DEFAULT_REPLICATION_FACTOR: 1
       KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
@@ -100,7 +102,8 @@ services:
       kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists --topic transaction.events.v1 --partitions 3 --replication-factor 1
       kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists --topic auth.credentials-registration.v1 --partitions 3 --replication-factor 1
       kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists --topic account.ready.v1 --partitions 3 --replication-factor 1
-      echo 'All topics created successfully.'
+      kafka-topics --bootstrap-server kafka:29092 --alter --topic account.ready.v1 --partitions 3 || true
+      echo 'All topics created/verified successfully with 3 partitions.'
       "
     networks:
       - bank-ledger-network

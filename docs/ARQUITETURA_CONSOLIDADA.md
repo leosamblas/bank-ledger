@@ -425,14 +425,37 @@ Qualquer IA, desenvolvedor ou agente autônomo que continuar o desenvolvimento d
 
 ## 6. Tópicos do Kafka e Contratos de Mensageria
 
-| Tópico | Produtor | Consumidores | Payload / Evento | Função |
-| :--- | :--- | :--- | :--- | :--- |
-| `account.events.v1` | `account-service` | `ledger-service`, `query-service` | `AccountOpenedPayload` | Abertura de conta e provisionamento de conta contábil |
-| `auth.credentials-registration.v1` | `account-service` | `auth-service` | `RegisterCredentialsPayload` | Registro assíncrono de credenciais com isolamento estrito |
-| `account.ready.v1` | `auth-service` | `notification-service` | `AccountReadyPayload` | Sinalização de conta pronta para disparo de e-mail de boas-vindas |
-| `ledger.commands.v1` | `transaction-service` | `ledger-service` | `PostJournalCommandPayload` | Solicitação de lançamento contábil em partidas dobradas |
-| `ledger.journal-results.v1` | `ledger-service` | `transaction-service` | `JournalResultPayload` | Resultado da liquidação contábil (POSTED ou REJECTED) |
-| `ledger.entries.v1` | `ledger-service` | `query-service` | `EntryPostedPayload` | Perna contábil individual para projeção desnormalizada de extrato |
+| Tópico | Partições | Fator Replicação | Produtor | Consumidores | Payload / Evento | Função |
+| :--- | :---: | :---: | :--- | :--- | :--- | :--- |
+| `account.events.v1` | **3** | 1 | `account-service` | `ledger-service`, `query-service` | `AccountOpenedPayload` | Abertura de conta e provisionamento de conta contábil |
+| `auth.credentials-registration.v1` | **3** | 1 | `account-service` | `auth-service` | `RegisterCredentialsPayload` | Registro assíncrono de credenciais com isolamento estrito |
+| `account.ready.v1` | **3** | 1 | `auth-service` | `notification-service` | `AccountReadyPayload` | Sinalização de conta pronta para disparo de e-mail de boas-vindas |
+| `ledger.commands.v1` | **3** | 1 | `transaction-service` | `ledger-service` | `PostJournalCommandPayload` | Solicitação de lançamento contábil em partidas dobradas |
+| `ledger.journal-results.v1` | **3** | 1 | `ledger-service` | `transaction-service` | `JournalResultPayload` | Resultado da liquidação contábil (POSTED ou REJECTED) |
+| `ledger.entries.v1` | **3** | 1 | `ledger-service` | `query-service` | `EntryPostedPayload` | Perna contábil individual para projeção desnormalizada de extrato |
+
+### 6.1 Requisitos Básicos Iniciais dos Tópicos (Padrão de 3 Partições)
+
+Todo e qualquer tópico adicionado ao ecossistema Bank Ledger deve atender obrigatoriamente aos seguintes requisitos arquiteturais básicos:
+
+1. **Padrão Obrigatório de 3 Partições (`--partitions 3`):**
+   - É terminantemente proibido criar tópicos com apenas 1 partição no cluster Kafka.
+   - Todo tópico deve ser provisionado inicialmente com **no mínimo 3 partições** (`--partitions 3`).
+   - O broker Kafka (`bank-ledger-kafka`) possui a configuração mandatória `KAFKA_NUM_PARTITIONS: 3` no `docker-compose.yml`, assegurando que tópicos criados dinamicamente nunca herdem 1 partição por padrão.
+   - O container de provisionamento `kafka-init` garante a criação idempotente de todos os tópicos com `--partitions 3 --replication-factor 1`.
+
+2. **Alinhamento com a Concorrência dos Consumidores (`concurrency = "3"`):**
+   - Os microsserviços consumidores (`ledger-service`, `query-service`, `transaction-service`, `notification-service`, `auth-service`) utilizam `@KafkaListener(..., concurrency = "3")`.
+   - No modelo de partição do Apache Kafka, cada partição de um tópico é atribuída a exclusivamente uma thread/instância dentro do mesmo grupo de consumidores (`ConsumerGroup`).
+   - Tópicos com menos partições que o valor de `concurrency` geram **thread starvation**: as threads excedentes ficam ociosas (`partitions assigned: []`), degradando a vazão e serializando o processamento desnecessariamente.
+   - Com 3 partições, cada thread consumidora recebe exatamente uma partição dedicada (`partition 0`, `partition 1`, `partition 2`), viabilizando paralelismo real de I/O e processamento.
+
+3. **Chave de Particionamento Obrigatória (Partition Key):**
+   - Para evitar condições de corrida em operações contábeis ou de autenticação, produtores (`OutboxPublisher`, `KafkaTemplate`) **devem obrigatoriamente fornecer uma chave de partição estável** (ex: `customerId`, `accountId` ou `transactionId`).
+   - A garantia de ordenação sequencial estrita (FIFO) do Kafka se aplica **por partição**. O algoritmo padrão de particionamento (Murmur2 hash) direciona todas as mensagens de um mesmo cliente ou conta para a mesma partição, garantindo consistência cronológica sem comprometer o throughput global.
+
+4. **Ambiente de Testes (`@EmbeddedKafka`):**
+   - Classes de teste de integração que sobem Kafka embarcado (como `RegisterCredentialsKafkaIntegrationTest`) devem configurar `partitions = 3` para replicar com fidelidade o comportamento de distribuição de partições do cluster de produção/desenvolvimento.
 
 ---
 

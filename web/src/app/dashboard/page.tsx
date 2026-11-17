@@ -5,9 +5,11 @@ import Link from 'next/link';
 import { useBanking } from '@/hooks/useBanking';
 import { formatCentsToBrl } from '@/utils/currency';
 import { formatRelativeTime } from '@/utils/date';
+import { PrivacyToggle, useBalancePrivacy, maskFinancialValue } from '@/components/banking/PrivacyToggle';
 
 export default function DashboardPage() {
   const { account, balance, statement, refresh, isLoading } = useBanking();
+  const { isPrivate, togglePrivacy } = useBalancePrivacy();
   const [showCardDetails, setShowCardDetails] = useState(false);
   const [cardBlocked, setCardBlocked] = useState(false);
   const [adjustLimitOpen, setAdjustLimitOpen] = useState(false);
@@ -110,9 +112,12 @@ export default function DashboardPage() {
             {/* Header do Card de Saldo */}
             <div className="flex flex-col gap-2 z-10">
               <div className="flex items-center justify-between flex-wrap gap-2">
-                <span className="font-label-caps text-label-caps text-on-surface-variant uppercase font-semibold tracking-wider">
-                  Saldo Disponível em Conta
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className="font-label-caps text-label-caps text-on-surface-variant uppercase font-semibold tracking-wider">
+                    Saldo Disponível em Conta
+                  </span>
+                  <PrivacyToggle isPrivate={isPrivate} onToggle={togglePrivacy} />
+                </div>
                 <span className="font-body-sm text-[12px] px-2.5 py-1 rounded-md bg-surface-container-low text-on-surface-variant flex items-center gap-1 border border-surface-container">
                   <span className="material-symbols-outlined text-[15px] text-emerald-600">check_circle</span>
                   Saldo em tempo real
@@ -120,7 +125,7 @@ export default function DashboardPage() {
               </div>
               <div className="flex items-baseline gap-3 flex-wrap">
                 <span className="font-display-hero text-display-hero text-on-surface font-bold tracking-tight">
-                  {formatCentsToBrl(balance.availableCents)}
+                  {maskFinancialValue(formatCentsToBrl(balance.availableCents), isPrivate)}
                 </span>
                 <span className="font-code-sm text-[13px] text-emerald-800 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 rounded-md font-semibold flex items-center gap-1">
                   <span className="material-symbols-outlined text-[16px]">trending_up</span> +{balance.monthlyVariationPercent}% no mês
@@ -136,7 +141,7 @@ export default function DashboardPage() {
                   Saldo Bloqueado (Garantia/Judicial)
                 </span>
                 <span className="font-code-lg text-code-lg text-on-surface font-bold">
-                  {formatCentsToBrl(balance.blockedCents)}
+                  {maskFinancialValue(formatCentsToBrl(balance.blockedCents), isPrivate)}
                 </span>
                 <span className="font-body-sm text-[12px] text-on-surface-variant">
                   0 centavos sob custódia
@@ -155,10 +160,10 @@ export default function DashboardPage() {
                 </div>
                 <div className="flex items-baseline justify-between font-code-sm text-code-sm">
                   <span className="font-semibold text-on-surface text-[15px]">
-                    {formatCentsToBrl(availableLimitCents)}
+                    {maskFinancialValue(formatCentsToBrl(availableLimitCents), isPrivate)}
                   </span>
                   <span className="text-on-surface-variant text-[12px]">
-                    de {formatCentsToBrl(balance.dailyLimitCents)}
+                    de {maskFinancialValue(formatCentsToBrl(balance.dailyLimitCents), isPrivate)}
                   </span>
                 </div>
                 <div className="w-full bg-surface-container h-2 rounded-full overflow-hidden">
@@ -430,7 +435,7 @@ export default function DashboardPage() {
               <div className="flex items-center justify-between text-body-sm">
                 <span className="text-on-surface-variant">Consumido hoje:</span>
                 <span className="font-code-sm text-code-sm text-on-surface font-bold">
-                  {formatCentsToBrl(balance.usedTodayCents)}{' '}
+                  {maskFinancialValue(formatCentsToBrl(balance.usedTodayCents), isPrivate)}{' '}
                   <span className="text-secondary font-medium">({limitUsedPercent}%)</span>
                 </span>
               </div>
@@ -441,8 +446,8 @@ export default function DashboardPage() {
                 ></div>
               </div>
               <div className="flex items-center justify-between font-code-sm text-[11px] text-on-surface-variant">
-                <span>Consumido: {formatCentsToBrl(balance.usedTodayCents)}</span>
-                <span>Total: {formatCentsToBrl(balance.dailyLimitCents)}</span>
+                <span>Consumido: {maskFinancialValue(formatCentsToBrl(balance.usedTodayCents), isPrivate)}</span>
+                <span>Total: {maskFinancialValue(formatCentsToBrl(balance.dailyLimitCents), isPrivate)}</span>
               </div>
             </div>
 
@@ -452,7 +457,7 @@ export default function DashboardPage() {
                   Disponível para Transações
                 </span>
                 <span className="font-headline-sm text-headline-sm text-on-surface font-bold">
-                  {formatCentsToBrl(availableLimitCents)}
+                  {maskFinancialValue(formatCentsToBrl(availableLimitCents), isPrivate)}
                 </span>
               </div>
               <button

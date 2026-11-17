@@ -33,6 +33,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.reactive.server.WebTestClient;
+import reactor.core.publisher.Mono;
 import tools.jackson.databind.json.JsonMapper;
 
 import java.time.Clock;
@@ -99,7 +100,7 @@ class AuthControllerTest {
                 "mocked.refresh.token.hex",
                 new LoginResult.UserInfo(customerId, "Carlos Eduardo Silva", "52998224725", "carlos@example.com")
         );
-        when(loginUseCase.login(any(LoginCommand.class))).thenReturn(loginResult);
+        when(loginUseCase.login(any(LoginCommand.class))).thenReturn(Mono.just(loginResult));
 
         LoginRequest request = new LoginRequest("52998224725", "Secret@123");
 
@@ -144,7 +145,7 @@ class AuthControllerTest {
                 "rotated.refresh.token.hex",
                 new LoginResult.UserInfo(customerId, "Carlos Silva", "52998224725", "carlos@example.com")
         );
-        when(refreshTokenUseCase.refreshToken(any(RefreshTokenCommand.class))).thenReturn(refreshed);
+        when(refreshTokenUseCase.refreshToken(any(RefreshTokenCommand.class))).thenReturn(Mono.just(refreshed));
 
         RefreshTokenRequest request = new RefreshTokenRequest("current.refresh.token");
 
@@ -164,7 +165,7 @@ class AuthControllerTest {
     @DisplayName("401 Unauthorized with ProblemDetail when credentials are invalid")
     void shouldReturn401WhenInvalidCredentials() {
         when(loginUseCase.login(any(LoginCommand.class)))
-                .thenThrow(new InvalidCredentialsException("Credenciais inválidas"));
+                .thenReturn(Mono.error(new InvalidCredentialsException("Credenciais inválidas")));
 
         LoginRequest request = new LoginRequest("52998224725", "WrongPassword");
 
@@ -185,7 +186,7 @@ class AuthControllerTest {
     @DisplayName("401 Unauthorized with ProblemDetail when customer is locked")
     void shouldReturn401WhenCustomerLocked() {
         when(loginUseCase.login(any(LoginCommand.class)))
-                .thenThrow(new CustomerLockedException("Conta bloqueada temporariamente por excesso de tentativas. Tente novamente em 15 minutos."));
+                .thenReturn(Mono.error(new CustomerLockedException("Conta bloqueada temporariamente por excesso de tentativas. Tente novamente em 15 minutos.")));
 
         LoginRequest request = new LoginRequest("52998224725", "Secret@123");
 
@@ -259,7 +260,7 @@ class AuthControllerTest {
                 1000L,
                 "https://auth.bank.internal"
         );
-        when(introspectTokenUseCase.introspect(any(IntrospectCommand.class))).thenReturn(result);
+        when(introspectTokenUseCase.introspect(any(IntrospectCommand.class))).thenReturn(Mono.just(result));
 
         IntrospectRequest request = new IntrospectRequest("valid.rs256.jwt");
 
@@ -281,7 +282,7 @@ class AuthControllerTest {
     @DisplayName("200 OK with active=false when token is invalid during introspection")
     void shouldReturnInactiveWhenTokenInvalid() {
         when(introspectTokenUseCase.introspect(any(IntrospectCommand.class)))
-                .thenReturn(IntrospectResult.inactive());
+                .thenReturn(Mono.just(IntrospectResult.inactive()));
 
         IntrospectRequest request = new IntrospectRequest("invalid.jwt.token");
 
@@ -318,7 +319,7 @@ class AuthControllerTest {
         );
 
         when(registerCredentialsUseCase.registerCredentials(any(RegisterCredentialsCommand.class)))
-                .thenReturn(authUser);
+                .thenReturn(Mono.just(authUser));
 
         RegisterCredentialsRequest request = new RegisterCredentialsRequest(
                 customerId,
@@ -366,7 +367,7 @@ class AuthControllerTest {
         );
 
         when(registerCredentialsUseCase.registerCredentials(any(RegisterCredentialsCommand.class)))
-                .thenReturn(authUser);
+                .thenReturn(Mono.just(authUser));
 
         RegisterCredentialsPayload payload = new RegisterCredentialsPayload(
                 customerId,
@@ -396,7 +397,7 @@ class AuthControllerTest {
     @DisplayName("409 Conflict when registering credentials with duplicate CPF")
     void shouldReturn409WhenDuplicateCpf() {
         when(registerCredentialsUseCase.registerCredentials(any(RegisterCredentialsCommand.class)))
-                .thenThrow(new CredentialsAlreadyExistsException("Credenciais já cadastradas para o CPF: 52998224725"));
+                .thenReturn(Mono.error(new CredentialsAlreadyExistsException("Credenciais já cadastradas para o CPF: 52998224725")));
 
         RegisterCredentialsRequest request = new RegisterCredentialsRequest(
                 UUID.randomUUID(),

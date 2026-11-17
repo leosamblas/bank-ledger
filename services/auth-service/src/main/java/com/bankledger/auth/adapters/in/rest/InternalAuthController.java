@@ -26,7 +26,6 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 import reactor.core.publisher.Mono;
-import reactor.core.scheduler.Schedulers;
 
 import java.time.Clock;
 import java.time.Instant;
@@ -62,8 +61,7 @@ public class InternalAuthController {
     public Mono<ResponseEntity<CredentialResponse>> registerCredentials(@Valid @RequestBody RegisterCredentialsRequest request) {
         log.info("Registering internal credentials for customerId: {}", request.customerId());
         RegisterCredentialsPayload payload = request.toPayload();
-        return Mono.fromCallable(() -> registerCredentialsUseCase.registerCredentials(RegisterCredentialsCommand.fromPayload(payload)))
-                .subscribeOn(Schedulers.boundedElastic())
+        return registerCredentialsUseCase.registerCredentials(RegisterCredentialsCommand.fromPayload(payload))
                 .map(user -> ResponseEntity.status(HttpStatus.CREATED)
                         .body(new CredentialResponse(user.getId(), user.getCustomerId(), user.getCpf())));
     }
@@ -79,11 +77,9 @@ public class InternalAuthController {
             return Mono.just(ResponseEntity.status(HttpStatus.NOT_FOUND).build());
         }
 
-        return Mono.fromCallable(() -> findAuthUserUseCase.get().findByCustomerId(customerId))
-                .subscribeOn(Schedulers.boundedElastic())
-                .map(maybeUser -> maybeUser
-                        .map(user -> ResponseEntity.ok(AuthUserSummaryResponse.fromDomain(user, Instant.now(clock))))
-                        .orElseGet(() -> ResponseEntity.status(HttpStatus.NOT_FOUND).build()));
+        return findAuthUserUseCase.get().findByCustomerId(customerId)
+                .map(user -> ResponseEntity.ok(AuthUserSummaryResponse.fromDomain(user, Instant.now(clock))))
+                .defaultIfEmpty(ResponseEntity.status(HttpStatus.NOT_FOUND).build());
     }
 
     @GetMapping("/internal/auth/users/by-cpf/{cpf}")
@@ -97,11 +93,9 @@ public class InternalAuthController {
             return Mono.just(ResponseEntity.status(HttpStatus.NOT_FOUND).build());
         }
 
-        return Mono.fromCallable(() -> findAuthUserUseCase.get().findByCpf(cpf))
-                .subscribeOn(Schedulers.boundedElastic())
-                .map(maybeUser -> maybeUser
-                        .map(user -> ResponseEntity.ok(AuthUserSummaryResponse.fromDomain(user, Instant.now(clock))))
-                        .orElseGet(() -> ResponseEntity.status(HttpStatus.NOT_FOUND).build()));
+        return findAuthUserUseCase.get().findByCpf(cpf)
+                .map(user -> ResponseEntity.ok(AuthUserSummaryResponse.fromDomain(user, Instant.now(clock))))
+                .defaultIfEmpty(ResponseEntity.status(HttpStatus.NOT_FOUND).build());
     }
 
     @PutMapping("/internal/auth/ratelimit")

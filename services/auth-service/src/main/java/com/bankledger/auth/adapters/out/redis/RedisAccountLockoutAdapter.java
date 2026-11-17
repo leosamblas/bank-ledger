@@ -5,12 +5,13 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.ReactiveStringRedisTemplate;
 import org.springframework.stereotype.Component;
+import reactor.core.publisher.Mono;
 
 import java.time.Duration;
 import java.util.Optional;
 
 /**
- * Redis-backed implementation of AccountLockoutPort using ReactiveStringRedisTemplate.
+ * Reactive, non-blocking Redis implementation of AccountLockoutPort using ReactiveStringRedisTemplate.
  * Provides resilient graceful fallback in case Redis is unavailable or times out.
  */
 @Slf4j
@@ -27,64 +28,56 @@ public class RedisAccountLockoutAdapter implements AccountLockoutPort {
     private final Optional<ReactiveStringRedisTemplate> redisTemplate;
 
     @Override
-    public boolean isLocked(String cpf) {
+    public Mono<Boolean> isLocked(String cpf) {
         if (redisTemplate.isEmpty() || cpf == null || cpf.isBlank()) {
-            return false;
+            return Mono.just(false);
         }
-        try {
-            Boolean hasLock = redisTemplate.get().hasKey(LOCK_KEY_PREFIX + cpf)
-                    .timeout(OP_TIMEOUT)
-                    .block();
-            return Boolean.TRUE.equals(hasLock);
-        } catch (Exception e) {
-            log.warn("Redis isLocked check failed for CPF {}, falling back gracefully: {}", cpf, e.getMessage());
-            return false;
-        }
+        return redisTemplate.get().hasKey(LOCK_KEY_PREFIX + cpf)
+                .timeout(OP_TIMEOUT)
+                .onErrorResume(e -> {
+                    log.warn("Redis isLocked check failed for CPF {}, falling back gracefully: {}", cpf, e.getMessage());
+                    return Mono.just(false);
+                });
     }
 
     @Override
-    public long recordFailedAttempt(String cpf) {
+    public Mono<Long> recordFailedAttempt(String cpf) {
         if (redisTemplate.isEmpty() || cpf == null || cpf.isBlank()) {
-            return 0;
+            return Mono.just(0L);
         }
-        try {
-            String attemptsKey = FAILED_ATTEMPTS_PREFIX + cpf;
-            Long count = redisTemplate.get().opsForValue().increment(attemptsKey)
-                    .timeout(OP_TIMEOUT)
-                    .block();
+        String attemptsKey = FAILED_ATTEMPTS_PREFIX + cpf;
+        ReactiveStringRedisTemplate redis = redisTemplate.get();
 
-            if (count != null) {
-                // Ensure 15 minute TTL on failed attempts
-                redisTemplate.get().expire(attemptsKey, LOCKOUT_TTL)
-                        .timeout(OP_TIMEOUT)
-                        .subscribe();
+        return redis.opsForValue().increment(attemptsKey)
+                .timeout(OP_TIMEOUT)
+                .flatMap(count -> {
+                    Mono<Boolean> expireMono = (count != null && count == 1)
+                            ? redis.expire(attemptsKey, LOCKOUT_TTL).timeout(OP_TIMEOUT).onErrorReturn(false)
+                            : Mono.just(true);
 
-                if (count >= MAX_FAILED_ATTEMPTS) {
-                    redisTemplate.get().opsForValue().set(LOCK_KEY_PREFIX + cpf, "locked", LOCKOUT_TTL)
-                            .timeout(OP_TIMEOUT)
-                            .block();
-                    log.warn("Account locked in Redis for CPF {} after {} failed attempts", cpf, count);
-                }
-                return count;
-            }
-            return 0;
-        } catch (Exception e) {
-            log.warn("Redis recordFailedAttempt failed for CPF {}, falling back gracefully: {}", cpf, e.getMessage());
-            return 0;
-        }
+                    Mono<Boolean> lockMono = (count != null && count >= MAX_FAILED_ATTEMPTS)
+                            ? redis.opsForValue().set(LOCK_KEY_PREFIX + cpf, "locked", LOCKOUT_TTL).timeout(OP_TIMEOUT).onErrorReturn(false)
+                            : Mono.just(true);
+
+                    return expireMono.then(lockMono).thenReturn(count != null ? count : 0L);
+                })
+                .onErrorResume(e -> {
+                    log.warn("Redis recordFailedAttempt failed for CPF {}, falling back gracefully: {}", cpf, e.getMessage());
+                    return Mono.just(0L);
+                });
     }
 
     @Override
-    public void resetFailedAttempts(String cpf) {
+    public Mono<Void> resetFailedAttempts(String cpf) {
         if (redisTemplate.isEmpty() || cpf == null || cpf.isBlank()) {
-            return;
+            return Mono.empty();
         }
-        try {
-            redisTemplate.get().delete(FAILED_ATTEMPTS_PREFIX + cpf, LOCK_KEY_PREFIX + cpf)
-                    .timeout(OP_TIMEOUT)
-                    .subscribe();
-        } catch (Exception e) {
-            log.warn("Redis resetFailedAttempts failed for CPF {}, falling back gracefully: {}", cpf, e.getMessage());
-        }
+        return redisTemplate.get().delete(FAILED_ATTEMPTS_PREFIX + cpf, LOCK_KEY_PREFIX + cpf)
+                .timeout(OP_TIMEOUT)
+                .then()
+                .onErrorResume(e -> {
+                    log.warn("Redis resetFailedAttempts failed for CPF {}, falling back gracefully: {}", cpf, e.getMessage());
+                    return Mono.empty();
+                });
     }
 }

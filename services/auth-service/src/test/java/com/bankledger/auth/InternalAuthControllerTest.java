@@ -91,7 +91,7 @@ class InternalAuthControllerTest {
                 T0
         );
 
-        when(findAuthUserUseCase.findByCustomerId(customerId)).thenReturn(Optional.of(user));
+        when(findAuthUserUseCase.findByCustomerId(customerId)).thenReturn(Mono.just(user));
 
         client.get()
                 .uri("/internal/auth/users/" + customerId)
@@ -141,7 +141,7 @@ class InternalAuthControllerTest {
     @DisplayName("GET /internal/auth/users/{customerId}: 404 Not Found when user does not exist")
     void shouldReturn404WhenCustomerIdNotFound() {
         UUID customerId = UUID.randomUUID();
-        when(findAuthUserUseCase.findByCustomerId(customerId)).thenReturn(Optional.empty());
+        when(findAuthUserUseCase.findByCustomerId(customerId)).thenReturn(Mono.empty());
 
         client.get()
                 .uri("/internal/auth/users/" + customerId)
@@ -172,7 +172,7 @@ class InternalAuthControllerTest {
                 T0
         );
 
-        when(findAuthUserUseCase.findByCpf("52998224725")).thenReturn(Optional.of(user));
+        when(findAuthUserUseCase.findByCpf("52998224725")).thenReturn(Mono.just(user));
 
         client.get()
                 .uri("/internal/auth/users/by-cpf/52998224725")
@@ -216,7 +216,7 @@ class InternalAuthControllerTest {
                 T0
         );
 
-        when(findAuthUserUseCase.findByCpf("52998224725")).thenReturn(Optional.of(lockedUser));
+        when(findAuthUserUseCase.findByCpf("52998224725")).thenReturn(Mono.just(lockedUser));
 
         client.get()
                 .uri("/internal/auth/users/by-cpf/52998224725")

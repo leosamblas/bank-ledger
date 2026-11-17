@@ -28,6 +28,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import reactor.core.publisher.Mono;
 import tools.jackson.databind.json.JsonMapper;
 
 import java.time.Clock;
@@ -40,7 +41,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -83,6 +84,11 @@ class AuthServiceTest {
         properties.setAccessTokenValiditySeconds(900L);
         properties.setRefreshTokenValiditySeconds(604800L);
 
+        lenient().when(accountLockoutPort.isLocked(anyString())).thenReturn(Mono.just(false));
+        lenient().when(accountLockoutPort.resetFailedAttempts(anyString())).thenReturn(Mono.empty());
+        lenient().when(accountLockoutPort.recordFailedAttempt(anyString())).thenReturn(Mono.just(1L));
+        lenient().when(accountReadyEventPublisherPort.publish(any())).thenReturn(Mono.empty());
+
         authService = new AuthService(
                 authUserRepositoryPort,
                 passwordEncoderPort,
@@ -122,12 +128,13 @@ class AuthServiceTest {
     @DisplayName("Should successfully login, mint token and refresh token when user has no active token")
     void shouldLoginSuccessfully() {
         AuthUser user = buildUser(0, null);
-        when(authUserRepositoryPort.findByCpf("52998224725")).thenReturn(Optional.of(user));
+        when(authUserRepositoryPort.findByCpf("52998224725")).thenReturn(Mono.just(user));
         when(passwordEncoderPort.matches("Secret@123", "$2a$10$mockedhash")).thenReturn(true);
-        when(authUserRepositoryPort.save(any(AuthUser.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(authUserRepositoryPort.save(any(AuthUser.class))).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
 
-        LoginResult result = authService.login(new LoginCommand("52998224725", "Secret@123"));
+        LoginResult result = authService.login(new LoginCommand("52998224725", "Secret@123")).block();
 
+        assertThat(result).isNotNull();
         assertThat(result.token()).isNotEmpty();
         assertThat(result.expiresIn()).isEqualTo(900L);
         assertThat(result.tokenType()).isEqualTo("Bearer");
@@ -151,13 +158,14 @@ class AuthServiceTest {
 
         user.updateTokens(existingToken, tokenExpiresAt, existingRefreshToken, refreshExpiresAt, T0);
 
-        when(authUserRepositoryPort.findByCpf("52998224725")).thenReturn(Optional.of(user));
+        when(authUserRepositoryPort.findByCpf("52998224725")).thenReturn(Mono.just(user));
         when(passwordEncoderPort.matches("Secret@123", "$2a$10$mockedhash")).thenReturn(true);
-        when(authUserRepositoryPort.save(any(AuthUser.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(authUserRepositoryPort.save(any(AuthUser.class))).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
 
-        LoginResult result = authService.login(new LoginCommand("52998224725", "Secret@123"));
+        LoginResult result = authService.login(new LoginCommand("52998224725", "Secret@123")).block();
 
         // Must return the exact same token with remaining TTL
+        assertThat(result).isNotNull();
         assertThat(result.token()).isEqualTo(existingToken);
         assertThat(result.expiresIn()).isEqualTo(420L);
         assertThat(result.refreshToken()).isEqualTo(existingRefreshToken);
@@ -170,11 +178,12 @@ class AuthServiceTest {
         String initialRefreshToken = "valid.initial.refresh.token";
         user.updateTokens("old.token", T0.minusSeconds(10), initialRefreshToken, T0.plusSeconds(3600), T0);
 
-        when(authUserRepositoryPort.findByRefreshToken(initialRefreshToken)).thenReturn(Optional.of(user));
-        when(authUserRepositoryPort.save(any(AuthUser.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(authUserRepositoryPort.findByRefreshToken(initialRefreshToken)).thenReturn(Mono.just(user));
+        when(authUserRepositoryPort.save(any(AuthUser.class))).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
 
-        LoginResult result = authService.refreshToken(new RefreshTokenCommand(initialRefreshToken));
+        LoginResult result = authService.refreshToken(new RefreshTokenCommand(initialRefreshToken)).block();
 
+        assertThat(result).isNotNull();
         assertThat(result.token()).isNotEmpty().isNotEqualTo("old.token");
         assertThat(result.expiresIn()).isEqualTo(900L);
         assertThat(result.refreshToken()).isNotEmpty().isNotEqualTo(initialRefreshToken);
@@ -187,9 +196,9 @@ class AuthServiceTest {
         String expiredRefreshToken = "expired.refresh.token";
         user.updateTokens("old.token", T0.minusSeconds(100), expiredRefreshToken, T0.minusSeconds(1), T0);
 
-        when(authUserRepositoryPort.findByRefreshToken(expiredRefreshToken)).thenReturn(Optional.of(user));
+        when(authUserRepositoryPort.findByRefreshToken(expiredRefreshToken)).thenReturn(Mono.just(user));
 
-        assertThatThrownBy(() -> authService.refreshToken(new RefreshTokenCommand(expiredRefreshToken)))
+        assertThatThrownBy(() -> authService.refreshToken(new RefreshTokenCommand(expiredRefreshToken)).block())
                 .isInstanceOf(InvalidCredentialsException.class)
                 .hasMessageContaining("expirado");
     }
@@ -197,9 +206,9 @@ class AuthServiceTest {
     @Test
     @DisplayName("Should reject refresh token when token does not exist")
     void shouldRejectNonexistentRefreshToken() {
-        when(authUserRepositoryPort.findByRefreshToken("unknown.token")).thenReturn(Optional.empty());
+        when(authUserRepositoryPort.findByRefreshToken("unknown.token")).thenReturn(Mono.empty());
 
-        assertThatThrownBy(() -> authService.refreshToken(new RefreshTokenCommand("unknown.token")))
+        assertThatThrownBy(() -> authService.refreshToken(new RefreshTokenCommand("unknown.token")).block())
                 .isInstanceOf(InvalidCredentialsException.class);
     }
 
@@ -207,12 +216,13 @@ class AuthServiceTest {
     @DisplayName("Should sanitize formatted CPF during login (e.g. 529.982.247-25)")
     void shouldSanitizeFormattedCpfDuringLogin() {
         AuthUser user = buildUser(0, null);
-        when(authUserRepositoryPort.findByCpf("52998224725")).thenReturn(Optional.of(user));
+        when(authUserRepositoryPort.findByCpf("52998224725")).thenReturn(Mono.just(user));
         when(passwordEncoderPort.matches("Secret@123", "$2a$10$mockedhash")).thenReturn(true);
-        when(authUserRepositoryPort.save(any(AuthUser.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(authUserRepositoryPort.save(any(AuthUser.class))).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
 
-        LoginResult result = authService.login(new LoginCommand("529.982.247-25", "Secret@123"));
+        LoginResult result = authService.login(new LoginCommand("529.982.247-25", "Secret@123")).block();
 
+        assertThat(result).isNotNull();
         assertThat(result.token()).isNotEmpty();
         verify(authUserRepositoryPort).findByCpf("52998224725");
     }
@@ -220,9 +230,9 @@ class AuthServiceTest {
     @Test
     @DisplayName("Should execute dummy password check to defend against timing side-channel when user not found")
     void shouldPerformDummyHashCheckWhenUserNotFound() {
-        when(authUserRepositoryPort.findByCpf("52998224725")).thenReturn(Optional.empty());
+        when(authUserRepositoryPort.findByCpf("52998224725")).thenReturn(Mono.empty());
 
-        assertThatThrownBy(() -> authService.login(new LoginCommand("52998224725", "Secret@123")))
+        assertThatThrownBy(() -> authService.login(new LoginCommand("52998224725", "Secret@123")).block())
                 .isInstanceOf(InvalidCredentialsException.class);
 
         // Verify injected dummy hash was used
@@ -232,7 +242,7 @@ class AuthServiceTest {
     @Test
     @DisplayName("Should execute dummy password check on malformed CPF length")
     void shouldPerformDummyHashCheckOnMalformedCpf() {
-        assertThatThrownBy(() -> authService.login(new LoginCommand("12345", "Secret@123")))
+        assertThatThrownBy(() -> authService.login(new LoginCommand("12345", "Secret@123")).block())
                 .isInstanceOf(InvalidCredentialsException.class);
 
         verify(passwordEncoderPort).matches("Secret@123", DUMMY_HASH);
@@ -242,10 +252,11 @@ class AuthServiceTest {
     @DisplayName("Should increment failed attempts on wrong password")
     void shouldIncrementFailedAttemptsOnWrongPassword() {
         AuthUser user = buildUser(0, null);
-        when(authUserRepositoryPort.findByCpf("52998224725")).thenReturn(Optional.of(user));
+        when(authUserRepositoryPort.findByCpf("52998224725")).thenReturn(Mono.just(user));
         when(passwordEncoderPort.matches("WrongPass", "$2a$10$mockedhash")).thenReturn(false);
+        when(authUserRepositoryPort.save(any(AuthUser.class))).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
 
-        assertThatThrownBy(() -> authService.login(new LoginCommand("52998224725", "WrongPass")))
+        assertThatThrownBy(() -> authService.login(new LoginCommand("52998224725", "WrongPass")).block())
                 .isInstanceOf(InvalidCredentialsException.class);
 
         ArgumentCaptor<AuthUser> captor = ArgumentCaptor.forClass(AuthUser.class);
@@ -257,10 +268,12 @@ class AuthServiceTest {
     @DisplayName("Should lock customer on 5th consecutive failed login attempt")
     void shouldLockCustomerOnFifthFailure() {
         AuthUser user = buildUser(4, null);
-        when(authUserRepositoryPort.findByCpf("52998224725")).thenReturn(Optional.of(user));
+        when(accountLockoutPort.recordFailedAttempt("52998224725")).thenReturn(Mono.just(5L));
+        when(authUserRepositoryPort.findByCpf("52998224725")).thenReturn(Mono.just(user));
         when(passwordEncoderPort.matches("WrongPass", "$2a$10$mockedhash")).thenReturn(false);
+        when(authUserRepositoryPort.save(any(AuthUser.class))).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
 
-        assertThatThrownBy(() -> authService.login(new LoginCommand("52998224725", "WrongPass")))
+        assertThatThrownBy(() -> authService.login(new LoginCommand("52998224725", "WrongPass")).block())
                 .isInstanceOf(CustomerLockedException.class);
 
         ArgumentCaptor<AuthUser> captor = ArgumentCaptor.forClass(AuthUser.class);
@@ -273,18 +286,18 @@ class AuthServiceTest {
     @DisplayName("Should reject login immediately when user is already locked")
     void shouldRejectWhenAlreadyLocked() {
         AuthUser user = buildUser(5, T0.plusSeconds(900));
-        when(authUserRepositoryPort.findByCpf("52998224725")).thenReturn(Optional.of(user));
+        when(authUserRepositoryPort.findByCpf("52998224725")).thenReturn(Mono.just(user));
 
-        assertThatThrownBy(() -> authService.login(new LoginCommand("52998224725", "Secret@123")))
+        assertThatThrownBy(() -> authService.login(new LoginCommand("52998224725", "Secret@123")).block())
                 .isInstanceOf(CustomerLockedException.class);
     }
 
     @Test
     @DisplayName("Should register new credentials with sanitized CPF and encoded password")
     void shouldRegisterCredentialsWithSanitizedCpf() {
-        when(authUserRepositoryPort.existsByCpf("52998224725")).thenReturn(false);
+        when(authUserRepositoryPort.existsByCpf("52998224725")).thenReturn(Mono.just(false));
         when(passwordEncoderPort.encode("Secret@123")).thenReturn("$2a$10$encodedhash");
-        when(authUserRepositoryPort.save(any(AuthUser.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(authUserRepositoryPort.save(any(AuthUser.class))).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
 
         UUID customerId = UUID.randomUUID();
         UUID accountId = UUID.randomUUID();
@@ -297,8 +310,9 @@ class AuthServiceTest {
                 "123456",
                 "Carlos Silva",
                 "carlos@example.com"
-        ));
+        )).block();
 
+        assertThat(saved).isNotNull();
         assertThat(saved.getCpf()).isEqualTo("52998224725");
         assertThat(saved.getPasswordHash()).isEqualTo("$2a$10$encodedhash");
         assertThat(saved.getCustomerId()).isEqualTo(customerId);
@@ -317,13 +331,13 @@ class AuthServiceTest {
                 "123456",
                 "Carlos Silva",
                 "carlos@example.com"
-        ))).isInstanceOf(InvalidCredentialsException.class);
+        )).block()).isInstanceOf(InvalidCredentialsException.class);
     }
 
     @Test
     @DisplayName("Should throw exception when registering duplicate CPF")
     void shouldThrowWhenDuplicateCpf() {
-        when(authUserRepositoryPort.existsByCpf("52998224725")).thenReturn(true);
+        when(authUserRepositoryPort.existsByCpf("52998224725")).thenReturn(Mono.just(true));
 
         assertThatThrownBy(() -> authService.registerCredentials(new RegisterCredentialsCommand(
                 UUID.randomUUID(),
@@ -334,20 +348,22 @@ class AuthServiceTest {
                 "123456",
                 "Carlos Silva",
                 "carlos@example.com"
-        ))).isInstanceOf(CredentialsAlreadyExistsException.class);
+        )).block()).isInstanceOf(CredentialsAlreadyExistsException.class);
     }
 
     @Test
     @DisplayName("Should introspect valid RS256 token and return active claims")
     void shouldIntrospectValidToken() {
         AuthUser user = buildUser(0, null);
-        when(authUserRepositoryPort.findByCpf("52998224725")).thenReturn(Optional.of(user));
+        when(authUserRepositoryPort.findByCpf("52998224725")).thenReturn(Mono.just(user));
         when(passwordEncoderPort.matches("Secret@123", "$2a$10$mockedhash")).thenReturn(true);
-        when(authUserRepositoryPort.save(any(AuthUser.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(authUserRepositoryPort.save(any(AuthUser.class))).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
 
-        LoginResult result = authService.login(new LoginCommand("52998224725", "Secret@123"));
+        LoginResult result = authService.login(new LoginCommand("52998224725", "Secret@123")).block();
+        assertThat(result).isNotNull();
 
-        IntrospectResult introspectResult = authService.introspect(new IntrospectCommand(result.token()));
+        IntrospectResult introspectResult = authService.introspect(new IntrospectCommand(result.token())).block();
+        assertThat(introspectResult).isNotNull();
         assertThat(introspectResult.active()).isTrue();
         assertThat(introspectResult.sub()).isEqualTo("52998224725");
         assertThat(introspectResult.role()).isEqualTo(SecurityConstants.ROLE_USER);
@@ -358,16 +374,17 @@ class AuthServiceTest {
     @Test
     @DisplayName("Should return inactive when introspecting invalid token")
     void shouldReturnInactiveForInvalidToken() {
-        IntrospectResult result = authService.introspect(new IntrospectCommand("invalid.token.here"));
+        IntrospectResult result = authService.introspect(new IntrospectCommand("invalid.token.here")).block();
+        assertThat(result).isNotNull();
         assertThat(result.active()).isFalse();
     }
 
     @Test
     @DisplayName("Should reject login immediately when locked in Redis BEFORE querying database")
     void shouldRejectLoginFastWhenLockedInRedisBeforeQueryingDatabase() {
-        when(accountLockoutPort.isLocked("52998224725")).thenReturn(true);
+        when(accountLockoutPort.isLocked("52998224725")).thenReturn(Mono.just(true));
 
-        assertThatThrownBy(() -> authService.login(new LoginCommand("52998224725", "Secret@123")))
+        assertThatThrownBy(() -> authService.login(new LoginCommand("52998224725", "Secret@123")).block())
                 .isInstanceOf(CustomerLockedException.class)
                 .hasMessageContaining("Conta bloqueada temporariamente");
 
@@ -379,12 +396,12 @@ class AuthServiceTest {
     @DisplayName("Should lock account when Redis reports 5th failed attempt")
     void shouldLockAccountWhenRedisReportsFifthFailedAttempt() {
         AuthUser user = buildUser(0, null);
-        when(accountLockoutPort.isLocked("52998224725")).thenReturn(false);
-        when(authUserRepositoryPort.findByCpf("52998224725")).thenReturn(Optional.of(user));
+        when(authUserRepositoryPort.findByCpf("52998224725")).thenReturn(Mono.just(user));
         when(passwordEncoderPort.matches("WrongPassword", "$2a$10$mockedhash")).thenReturn(false);
-        when(accountLockoutPort.recordFailedAttempt("52998224725")).thenReturn(5L);
+        when(accountLockoutPort.recordFailedAttempt("52998224725")).thenReturn(Mono.just(5L));
+        when(authUserRepositoryPort.save(any(AuthUser.class))).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
 
-        assertThatThrownBy(() -> authService.login(new LoginCommand("52998224725", "WrongPassword")))
+        assertThatThrownBy(() -> authService.login(new LoginCommand("52998224725", "WrongPassword")).block())
                 .isInstanceOf(CustomerLockedException.class)
                 .hasMessageContaining("Conta bloqueada temporariamente");
 
@@ -395,12 +412,11 @@ class AuthServiceTest {
     @DisplayName("Should reset failed attempts in Redis on successful login")
     void shouldResetFailedAttemptsInRedisOnSuccessfulLogin() {
         AuthUser user = buildUser(0, null);
-        when(accountLockoutPort.isLocked("52998224725")).thenReturn(false);
-        when(authUserRepositoryPort.findByCpf("52998224725")).thenReturn(Optional.of(user));
+        when(authUserRepositoryPort.findByCpf("52998224725")).thenReturn(Mono.just(user));
         when(passwordEncoderPort.matches("Secret@123", "$2a$10$mockedhash")).thenReturn(true);
-        when(authUserRepositoryPort.save(any(AuthUser.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(authUserRepositoryPort.save(any(AuthUser.class))).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
 
-        authService.login(new LoginCommand("52998224725", "Secret@123"));
+        authService.login(new LoginCommand("52998224725", "Secret@123")).block();
 
         verify(accountLockoutPort).resetFailedAttempts("52998224725");
     }
@@ -408,9 +424,9 @@ class AuthServiceTest {
     @Test
     @DisplayName("Should publish AccountReadyEvent to Kafka on credentials registration")
     void shouldPublishAccountReadyEventOnRegistration() {
-        when(authUserRepositoryPort.existsByCpf("52998224725")).thenReturn(false);
+        when(authUserRepositoryPort.existsByCpf("52998224725")).thenReturn(Mono.just(false));
         when(passwordEncoderPort.encode("Secret@123")).thenReturn("$2a$10$encodedpassword");
-        when(authUserRepositoryPort.save(any(AuthUser.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(authUserRepositoryPort.save(any(AuthUser.class))).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
 
         UUID customerId = UUID.randomUUID();
         UUID accountId = UUID.randomUUID();
@@ -424,7 +440,7 @@ class AuthServiceTest {
                 "123456",
                 "Carlos Silva",
                 "carlos@example.com"
-        ));
+        )).block();
 
         ArgumentCaptor<AccountReadyEvent> eventCaptor = ArgumentCaptor.forClass(AccountReadyEvent.class);
         verify(accountReadyEventPublisherPort).publish(eventCaptor.capture());
@@ -442,13 +458,13 @@ class AuthServiceTest {
         UUID customerId = UUID.randomUUID();
         AuthUser user = buildUser(0, null);
 
-        when(authUserRepositoryPort.findByCustomerId(customerId)).thenReturn(Optional.of(user));
-        when(authUserRepositoryPort.findByCpf("52998224725")).thenReturn(Optional.of(user));
+        when(authUserRepositoryPort.findByCustomerId(customerId)).thenReturn(Mono.just(user));
+        when(authUserRepositoryPort.findByCpf("52998224725")).thenReturn(Mono.just(user));
 
-        Optional<AuthUser> byCustomer = authService.findByCustomerId(customerId);
-        Optional<AuthUser> byCpf = authService.findByCpf("529.982.247-25");
+        AuthUser byCustomer = authService.findByCustomerId(customerId).block();
+        AuthUser byCpf = authService.findByCpf("529.982.247-25").block();
 
-        assertThat(byCustomer).isPresent();
-        assertThat(byCpf).isPresent();
+        assertThat(byCustomer).isNotNull();
+        assertThat(byCpf).isNotNull();
     }
 }

@@ -64,7 +64,7 @@ class KafkaAccountReadyEventPublisherTest {
         when(kafkaTemplate.send(anyString(), anyString(), anyString()))
                 .thenReturn(CompletableFuture.completedFuture(null));
 
-        publisher.publish(event);
+        publisher.publish(event).block();
 
         ArgumentCaptor<String> topicCaptor = ArgumentCaptor.forClass(String.class);
         ArgumentCaptor<String> keyCaptor = ArgumentCaptor.forClass(String.class);
@@ -108,6 +108,6 @@ class KafkaAccountReadyEventPublisherTest {
         AccountReadyEvent event = AccountReadyEvent.of(payload, Instant.now());
 
         // Should not throw
-        nullPublisher.publish(event);
+        nullPublisher.publish(event).block();
     }
 }

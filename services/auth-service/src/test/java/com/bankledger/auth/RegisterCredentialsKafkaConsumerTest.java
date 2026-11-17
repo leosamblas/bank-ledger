@@ -17,6 +17,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.kafka.support.Acknowledgment;
+import reactor.core.publisher.Mono;
 import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.json.JsonMapper;
 
@@ -25,7 +26,6 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -100,7 +100,7 @@ class RegisterCredentialsKafkaConsumerTest {
                 Instant.now(),
                 Instant.now()
         );
-        when(registerCredentialsUseCase.registerCredentials(any(RegisterCredentialsCommand.class))).thenReturn(mockUser);
+        when(registerCredentialsUseCase.registerCredentials(any(RegisterCredentialsCommand.class))).thenReturn(Mono.just(mockUser));
 
         consumer.onMessage(record, acknowledgment);
 
@@ -153,7 +153,7 @@ class RegisterCredentialsKafkaConsumerTest {
         );
 
         when(registerCredentialsUseCase.registerCredentials(any(RegisterCredentialsCommand.class)))
-                .thenThrow(new CredentialsAlreadyExistsException("Already exists"));
+                .thenReturn(Mono.error(new CredentialsAlreadyExistsException("Already exists")));
 
         consumer.onMessage(record, acknowledgment);
 
@@ -184,6 +184,9 @@ class RegisterCredentialsKafkaConsumerTest {
                 customerId.toString(),
                 json
         );
+
+        when(registerCredentialsUseCase.registerCredentials(any(RegisterCredentialsCommand.class)))
+                .thenReturn(Mono.empty());
 
         consumer.onMessage(record, acknowledgment);
 

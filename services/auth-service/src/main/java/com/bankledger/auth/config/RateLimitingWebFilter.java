@@ -85,15 +85,21 @@ public class RateLimitingWebFilter implements WebFilter {
 
         return redis.opsForValue().increment(windowKey)
                 .flatMap(count -> {
-                    if (count == 1) {
-                        redis.expire(windowKey, Duration.ofSeconds(5))
-                                .subscribe(null, e -> log.warn("Failed to set TTL on rate limit key {}: {}", windowKey, e.getMessage()));
-                    }
-                    if (count > limit) {
-                        log.warn("Rate limit exceeded for path {}: count={}, limit={}", exchange.getRequest().getPath(), count, limit);
-                        return writeTooManyRequestsResponse(exchange, limit);
-                    }
-                    return chain.filter(exchange);
+                    Mono<Boolean> expireMono = (count != null && count == 1)
+                            ? redis.expire(windowKey, Duration.ofSeconds(5))
+                                    .onErrorResume(e -> {
+                                        log.warn("Failed to set TTL on rate limit key {}: {}", windowKey, e.getMessage());
+                                        return Mono.just(false);
+                                    })
+                            : Mono.just(true);
+
+                    return expireMono.then(Mono.defer(() -> {
+                        if (count != null && count > limit) {
+                            log.warn("Rate limit exceeded for path {}: count={}, limit={}", exchange.getRequest().getPath(), count, limit);
+                            return writeTooManyRequestsResponse(exchange, limit);
+                        }
+                        return chain.filter(exchange);
+                    }));
                 });
     }
 

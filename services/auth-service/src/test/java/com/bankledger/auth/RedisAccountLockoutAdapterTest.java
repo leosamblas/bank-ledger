@@ -42,7 +42,7 @@ class RedisAccountLockoutAdapterTest {
         String cpf = "52998224725";
         when(redisTemplate.hasKey("auth:lock:" + cpf)).thenReturn(Mono.just(true));
 
-        boolean locked = adapter.isLocked(cpf);
+        Boolean locked = adapter.isLocked(cpf).block();
 
         assertThat(locked).isTrue();
         verify(redisTemplate).hasKey("auth:lock:" + cpf);
@@ -54,7 +54,7 @@ class RedisAccountLockoutAdapterTest {
         String cpf = "52998224725";
         when(redisTemplate.hasKey("auth:lock:" + cpf)).thenReturn(Mono.just(false));
 
-        boolean locked = adapter.isLocked(cpf);
+        Boolean locked = adapter.isLocked(cpf).block();
 
         assertThat(locked).isFalse();
     }
@@ -65,7 +65,7 @@ class RedisAccountLockoutAdapterTest {
         String cpf = "52998224725";
         when(redisTemplate.hasKey("auth:lock:" + cpf)).thenReturn(Mono.error(new RuntimeException("Redis connection error")));
 
-        boolean locked = adapter.isLocked(cpf);
+        Boolean locked = adapter.isLocked(cpf).block();
 
         assertThat(locked).isFalse();
     }
@@ -78,7 +78,7 @@ class RedisAccountLockoutAdapterTest {
         when(valueOperations.increment("auth:failed_attempts:" + cpf)).thenReturn(Mono.just(1L));
         when(redisTemplate.expire(eq("auth:failed_attempts:" + cpf), eq(Duration.ofSeconds(900)))).thenReturn(Mono.just(true));
 
-        long count = adapter.recordFailedAttempt(cpf);
+        Long count = adapter.recordFailedAttempt(cpf).block();
 
         assertThat(count).isEqualTo(1L);
         verify(valueOperations).increment("auth:failed_attempts:" + cpf);
@@ -91,10 +91,9 @@ class RedisAccountLockoutAdapterTest {
         String cpf = "52998224725";
         when(redisTemplate.opsForValue()).thenReturn(valueOperations);
         when(valueOperations.increment("auth:failed_attempts:" + cpf)).thenReturn(Mono.just(5L));
-        when(redisTemplate.expire(eq("auth:failed_attempts:" + cpf), eq(Duration.ofSeconds(900)))).thenReturn(Mono.just(true));
         when(valueOperations.set(eq("auth:lock:" + cpf), eq("locked"), eq(Duration.ofSeconds(900)))).thenReturn(Mono.just(true));
 
-        long count = adapter.recordFailedAttempt(cpf);
+        Long count = adapter.recordFailedAttempt(cpf).block();
 
         assertThat(count).isEqualTo(5L);
         verify(valueOperations).set(eq("auth:lock:" + cpf), eq("locked"), eq(Duration.ofSeconds(900)));
@@ -106,7 +105,7 @@ class RedisAccountLockoutAdapterTest {
         String cpf = "52998224725";
         when(redisTemplate.delete("auth:failed_attempts:" + cpf, "auth:lock:" + cpf)).thenReturn(Mono.just(2L));
 
-        adapter.resetFailedAttempts(cpf);
+        adapter.resetFailedAttempts(cpf).block();
 
         verify(redisTemplate).delete("auth:failed_attempts:" + cpf, "auth:lock:" + cpf);
     }
@@ -116,9 +115,9 @@ class RedisAccountLockoutAdapterTest {
     void shouldHandleNullRedisTemplateGracefully() {
         RedisAccountLockoutAdapter nullAdapter = new RedisAccountLockoutAdapter(Optional.empty());
 
-        assertThat(nullAdapter.isLocked("52998224725")).isFalse();
-        assertThat(nullAdapter.recordFailedAttempt("52998224725")).isEqualTo(0);
+        assertThat(nullAdapter.isLocked("52998224725").block()).isFalse();
+        assertThat(nullAdapter.recordFailedAttempt("52998224725").block()).isEqualTo(0L);
         // should not throw:
-        nullAdapter.resetFailedAttempts("52998224725");
+        nullAdapter.resetFailedAttempts("52998224725").block();
     }
 }

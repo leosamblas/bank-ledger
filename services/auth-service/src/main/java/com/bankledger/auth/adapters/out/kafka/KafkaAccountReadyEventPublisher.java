@@ -7,13 +7,14 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Component;
+import reactor.core.publisher.Mono;
 import tools.jackson.databind.ObjectMapper;
 
 import java.util.Objects;
 import java.util.Optional;
 
 /**
- * Outbound Kafka adapter that publishes AccountReadyEvent wrapped in
+ * Reactive outbound Kafka adapter that publishes AccountReadyEvent wrapped in
  * KafkaEventEnvelope<AccountReadyPayload> to topic 'account.ready.v1'.
  */
 @Slf4j
@@ -25,23 +26,25 @@ public class KafkaAccountReadyEventPublisher implements AccountReadyEventPublish
     private final ObjectMapper objectMapper;
 
     @Override
-    public void publish(AccountReadyEvent event) {
+    public Mono<Void> publish(AccountReadyEvent event) {
         Objects.requireNonNull(event, "event must not be null");
         if (kafkaTemplate.isEmpty()) {
             log.warn("KafkaTemplate not available, skipping AccountReadyEvent publish for eventId: {}", event.eventId());
-            return;
+            return Mono.empty();
         }
 
-        try {
-            String messageKey = event.payload().customerId().toString();
-            String json = objectMapper.writeValueAsString(event.toEnvelope());
-            kafkaTemplate.get().send(KafkaTopics.ACCOUNT_READY_V1, messageKey, json);
-            log.info("Published AccountReadyEvent to topic '{}' with key '{}', eventId: {}",
-                    KafkaTopics.ACCOUNT_READY_V1, messageKey, event.eventId());
-        } catch (Exception e) {
-            log.error("Failed to publish AccountReadyEvent to topic '{}' for customerId: {}",
-                    KafkaTopics.ACCOUNT_READY_V1, event.payload().customerId(), e);
-            throw new RuntimeException("Failed to publish AccountReadyEvent", e);
-        }
+        return Mono.fromFuture(() -> {
+            try {
+                String messageKey = event.payload().customerId().toString();
+                String json = objectMapper.writeValueAsString(event.toEnvelope());
+                return kafkaTemplate.get().send(KafkaTopics.ACCOUNT_READY_V1, messageKey, json);
+            } catch (Exception e) {
+                throw new RuntimeException("Failed to serialize AccountReadyEvent", e);
+            }
+        }).doOnSuccess(result -> log.info("Published AccountReadyEvent to topic '{}' with key '{}', eventId: {}",
+                KafkaTopics.ACCOUNT_READY_V1, event.payload().customerId(), event.eventId()))
+        .doOnError(e -> log.error("Failed to publish AccountReadyEvent to topic '{}' for customerId: {}",
+                KafkaTopics.ACCOUNT_READY_V1, event.payload().customerId(), e))
+        .then();
     }
 }

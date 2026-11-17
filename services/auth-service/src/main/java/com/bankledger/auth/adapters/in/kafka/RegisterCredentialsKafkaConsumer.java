@@ -15,6 +15,7 @@ import org.springframework.stereotype.Component;
 import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.ObjectMapper;
 
+import java.time.Duration;
 import java.util.Objects;
 
 /**
@@ -51,11 +52,17 @@ public class RegisterCredentialsKafkaConsumer {
             }
 
             try {
-                registerCredentialsUseCase.registerCredentials(RegisterCredentialsCommand.fromPayload(payload));
+                registerCredentialsUseCase.registerCredentials(RegisterCredentialsCommand.fromPayload(payload))
+                        .block(Duration.ofSeconds(10));
                 log.info("Successfully registered credentials via Kafka for customerId={}", payload.customerId());
-            } catch (CredentialsAlreadyExistsException e) {
-                log.warn("Credentials already exist for customerId={}, skipping idempotent message: {}",
-                        payload.customerId(), e.getMessage());
+            } catch (Exception e) {
+                Throwable cause = e.getCause() != null ? e.getCause() : e;
+                if (cause instanceof CredentialsAlreadyExistsException || e instanceof CredentialsAlreadyExistsException) {
+                    log.warn("Credentials already exist for customerId={}, skipping idempotent message: {}",
+                            payload.customerId(), cause.getMessage());
+                } else {
+                    throw e;
+                }
             }
 
             if (acknowledgment != null) {

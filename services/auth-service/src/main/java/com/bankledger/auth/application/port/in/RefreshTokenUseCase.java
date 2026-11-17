@@ -1,5 +1,7 @@
 package com.bankledger.auth.application.port.in;
 
+import reactor.core.publisher.Mono;
+
 public interface RefreshTokenUseCase {
-    LoginResult refreshToken(RefreshTokenCommand command);
+    Mono<LoginResult> refreshToken(RefreshTokenCommand command);
 }

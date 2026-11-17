@@ -79,7 +79,7 @@ class RegisterCredentialsKafkaIntegrationTest {
                 .atMost(Duration.ofSeconds(10))
                 .pollInterval(Duration.ofMillis(200))
                 .untilAsserted(() -> {
-                    Optional<AuthUser> user = authUserRepositoryPort.findByCpf(cpf);
+                    Optional<AuthUser> user = authUserRepositoryPort.findByCpf(cpf).blockOptional();
                     assertThat(user).isPresent();
                     assertThat(user.get().getCustomerId()).isEqualTo(customerId);
                     assertThat(user.get().getAccountId()).isEqualTo(accountId);
@@ -127,7 +127,7 @@ class RegisterCredentialsKafkaIntegrationTest {
                 .atMost(Duration.ofSeconds(10))
                 .pollInterval(Duration.ofMillis(200))
                 .untilAsserted(() -> {
-                    Optional<AuthUser> user = authUserRepositoryPort.findByCpf(cpf);
+                    Optional<AuthUser> user = authUserRepositoryPort.findByCpf(cpf).blockOptional();
                     assertThat(user).isPresent();
                     assertThat(user.get().getCustomerId()).isEqualTo(customerId);
                 });

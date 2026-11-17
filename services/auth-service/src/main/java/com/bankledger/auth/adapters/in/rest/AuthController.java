@@ -23,7 +23,6 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 import reactor.core.publisher.Mono;
-import reactor.core.scheduler.Schedulers;
 
 import java.util.Map;
 
@@ -39,8 +38,7 @@ public class AuthController {
 
     @PostMapping(SecurityConstants.AUTH_LOGIN_PATH)
     public Mono<ResponseEntity<TokenResponse>> login(@Valid @RequestBody LoginRequest request) {
-        return Mono.fromCallable(() -> loginUseCase.login(new LoginCommand(request.cpf(), request.password())))
-                .subscribeOn(Schedulers.boundedElastic())
+        return loginUseCase.login(new LoginCommand(request.cpf(), request.password()))
                 .map(result -> ResponseEntity.ok(new TokenResponse(
                         result.token(),
                         result.expiresIn(),
@@ -57,8 +55,7 @@ public class AuthController {
 
     @PostMapping(SecurityConstants.AUTH_REFRESH_PATH)
     public Mono<ResponseEntity<TokenResponse>> refresh(@Valid @RequestBody RefreshTokenRequest request) {
-        return Mono.fromCallable(() -> refreshTokenUseCase.refreshToken(new RefreshTokenCommand(request.refreshToken())))
-                .subscribeOn(Schedulers.boundedElastic())
+        return refreshTokenUseCase.refreshToken(new RefreshTokenCommand(request.refreshToken()))
                 .map(result -> ResponseEntity.ok(new TokenResponse(
                         result.token(),
                         result.expiresIn(),
@@ -81,8 +78,7 @@ public class AuthController {
 
     @PostMapping(SecurityConstants.AUTH_INTROSPECT_PATH)
     public Mono<ResponseEntity<IntrospectResponse>> introspect(@Valid @RequestBody IntrospectRequest request) {
-        return Mono.fromCallable(() -> introspectTokenUseCase.introspect(new IntrospectCommand(request.token())))
-                .subscribeOn(Schedulers.boundedElastic())
+        return introspectTokenUseCase.introspect(new IntrospectCommand(request.token()))
                 .map(result -> ResponseEntity.ok(new IntrospectResponse(
                         result.active(),
                         result.sub(),

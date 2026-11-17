@@ -4,8 +4,9 @@ import com.bankledger.auth.application.port.out.AuthUserRepositoryPort;
 import com.bankledger.auth.domain.model.AuthUser;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
+import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 
-import java.util.Optional;
 import java.util.UUID;
 
 @Component
@@ -15,29 +16,38 @@ public class AuthUserPersistenceAdapter implements AuthUserRepositoryPort {
     private final AuthUserRepository repository;
 
     @Override
-    public Optional<AuthUser> findByCpf(String cpf) {
-        return repository.findByCpf(cpf).map(AuthUserEntity::toDomain);
+    public Mono<AuthUser> findByCpf(String cpf) {
+        return Mono.fromCallable(() -> repository.findByCpf(cpf).map(AuthUserEntity::toDomain))
+                .subscribeOn(Schedulers.boundedElastic())
+                .flatMap(Mono::justOrEmpty);
     }
 
     @Override
-    public Optional<AuthUser> findByCustomerId(UUID customerId) {
-        return repository.findByCustomerId(customerId).map(AuthUserEntity::toDomain);
+    public Mono<AuthUser> findByCustomerId(UUID customerId) {
+        return Mono.fromCallable(() -> repository.findByCustomerId(customerId).map(AuthUserEntity::toDomain))
+                .subscribeOn(Schedulers.boundedElastic())
+                .flatMap(Mono::justOrEmpty);
     }
 
     @Override
-    public Optional<AuthUser> findByRefreshToken(String refreshToken) {
-        return repository.findByRefreshToken(refreshToken).map(AuthUserEntity::toDomain);
+    public Mono<AuthUser> findByRefreshToken(String refreshToken) {
+        return Mono.fromCallable(() -> repository.findByRefreshToken(refreshToken).map(AuthUserEntity::toDomain))
+                .subscribeOn(Schedulers.boundedElastic())
+                .flatMap(Mono::justOrEmpty);
     }
 
     @Override
-    public boolean existsByCpf(String cpf) {
-        return repository.existsByCpf(cpf);
+    public Mono<Boolean> existsByCpf(String cpf) {
+        return Mono.fromCallable(() -> repository.existsByCpf(cpf))
+                .subscribeOn(Schedulers.boundedElastic());
     }
 
     @Override
-    public AuthUser save(AuthUser authUser) {
-        AuthUserEntity entity = AuthUserEntity.fromDomain(authUser);
-        AuthUserEntity saved = repository.save(entity);
-        return saved.toDomain();
+    public Mono<AuthUser> save(AuthUser authUser) {
+        return Mono.fromCallable(() -> {
+            AuthUserEntity entity = AuthUserEntity.fromDomain(authUser);
+            AuthUserEntity saved = repository.save(entity);
+            return saved.toDomain();
+        }).subscribeOn(Schedulers.boundedElastic());
     }
 }

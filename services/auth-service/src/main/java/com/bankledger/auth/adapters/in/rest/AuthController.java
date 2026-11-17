@@ -37,7 +37,7 @@ public class AuthController {
     private final IntrospectTokenUseCase introspectTokenUseCase;
     private final RsaJwtSigner rsaJwtSigner;
 
-    @PostMapping({SecurityConstants.AUTH_LOGIN_PATH, "/auth/login"})
+    @PostMapping(SecurityConstants.AUTH_LOGIN_PATH)
     public Mono<ResponseEntity<TokenResponse>> login(@Valid @RequestBody LoginRequest request) {
         return Mono.fromCallable(() -> loginUseCase.login(new LoginCommand(request.cpf(), request.password())))
                 .subscribeOn(Schedulers.boundedElastic())
@@ -55,7 +55,7 @@ public class AuthController {
                 )));
     }
 
-    @PostMapping({SecurityConstants.AUTH_REFRESH_PATH, "/auth/refresh"})
+    @PostMapping(SecurityConstants.AUTH_REFRESH_PATH)
     public Mono<ResponseEntity<TokenResponse>> refresh(@Valid @RequestBody RefreshTokenRequest request) {
         return Mono.fromCallable(() -> refreshTokenUseCase.refreshToken(new RefreshTokenCommand(request.refreshToken())))
                 .subscribeOn(Schedulers.boundedElastic())
@@ -73,7 +73,7 @@ public class AuthController {
                 )));
     }
 
-    @GetMapping(value = {SecurityConstants.JWKS_WELL_KNOWN_PATH, "/api/v1/auth/.well-known/jwks.json"}, produces = MediaType.APPLICATION_JSON_VALUE)
+    @GetMapping(value = SecurityConstants.JWKS_WELL_KNOWN_PATH, produces = MediaType.APPLICATION_JSON_VALUE)
     public Mono<ResponseEntity<Map<String, Object>>> jwks() {
         return Mono.fromCallable(rsaJwtSigner::toJwksMap)
                 .map(ResponseEntity::ok);

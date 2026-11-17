@@ -112,18 +112,8 @@ class AuthControllerTest {
     }
 
     @Test
-    @DisplayName("200 OK on alternate /auth/login path")
-    void shouldReturn200OnAlternateLoginPath() {
-        UUID customerId = UUID.randomUUID();
-        LoginResult loginResult = new LoginResult(
-                "mocked.token",
-                900L,
-                "Bearer",
-                "mocked.refresh.token.hex",
-                new LoginResult.UserInfo(customerId, "Carlos Silva", "52998224725", "carlos@example.com")
-        );
-        when(loginUseCase.login(any(LoginCommand.class))).thenReturn(loginResult);
-
+    @DisplayName("404 Not Found on unversioned /auth/login path")
+    void shouldReturn404OnUnversionedLoginPath() {
         LoginRequest request = new LoginRequest("52998224725", "Secret@123");
 
         client.post()
@@ -131,10 +121,7 @@ class AuthControllerTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .bodyValue(request)
                 .exchange()
-                .expectStatus().isOk()
-                .expectBody()
-                .jsonPath("$.token").isEqualTo("mocked.token")
-                .jsonPath("$.refreshToken").isEqualTo("mocked.refresh.token.hex");
+                .expectStatus().isNotFound();
     }
 
     @Test
@@ -238,16 +225,12 @@ class AuthControllerTest {
     }
 
     @Test
-    @DisplayName("200 OK with valid RFC 7517 JWKS on /api/v1/auth/.well-known/jwks.json")
-    void shouldReturnJwksOnApiPrefixEndpoint() {
+    @DisplayName("404 Not Found on removed unversioned /api/v1/auth/.well-known/jwks.json path")
+    void shouldReturn404OnUnversionedJwksPath() {
         client.get()
                 .uri("/api/v1/auth/.well-known/jwks.json")
                 .exchange()
-                .expectStatus().isOk()
-                .expectHeader().contentTypeCompatibleWith(MediaType.APPLICATION_JSON)
-                .expectBody()
-                .jsonPath("$.keys").isArray()
-                .jsonPath("$.keys[0].kty").isEqualTo("RSA");
+                .expectStatus().isNotFound();
     }
 
     @Test

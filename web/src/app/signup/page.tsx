@@ -12,6 +12,7 @@ import { OpenAccountForm } from '@/components/forms/OpenAccountForm';
 
 export default function AbrirConta() {
   const [cardHolderName, setCardHolderName] = useState("");
+  const [currentStep, setCurrentStep] = useState(1);
 
   return (
     <main className="w-full min-h-screen flex flex-col justify-between bg-surface">
@@ -33,7 +34,7 @@ export default function AbrirConta() {
           <span className="text-on-surface font-semibold">Abertura de Conta Digital</span>
         </nav>
 
-        <Stepper />
+        <Stepper currentStep={currentStep} onStepClick={setCurrentStep} />
 
         {/* Main Content 2-Column Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-start my-auto py-2">
@@ -51,7 +52,11 @@ export default function AbrirConta() {
               </p>
             </div>
 
-            <OpenAccountForm onNameChange={setCardHolderName} />
+            <OpenAccountForm
+              onNameChange={setCardHolderName}
+              currentStep={currentStep}
+              onStepChange={setCurrentStep}
+            />
           </div>
 
           {/* Right Column: Visual Showcase & Trust Banner */}

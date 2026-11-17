@@ -6,6 +6,7 @@ import { useBanking } from '@/hooks/useBanking';
 import { formatCentsToBrl, parseBrlToCents } from '@/utils/currency';
 import { generateUUID } from '@/utils/uuid';
 import { AccountLookupResponse, StatementItem } from '@/services/types';
+import { CopyButton } from '@/components/ui/CopyButton';
 
 function TransferContent() {
   const { balance, transfer, lookup } = useBanking();
@@ -226,7 +227,10 @@ function TransferContent() {
               </span>
             </div>
             <div className="md:col-span-2 pt-2 border-t border-surface-container text-xs font-mono text-on-surface-variant/80 space-y-1">
-              <div>Identificador da Transação: {successItem.transactionId}</div>
+              <div className="flex items-center justify-between gap-2">
+                <span className="break-all">Identificador da Transação: {successItem.transactionId}</span>
+                <CopyButton textToCopy={successItem.transactionId} label="Comprovante de Transferência" />
+              </div>
               <div>Protocolo de Segurança: {successItem.idempotencyKey}</div>
             </div>
           </div>

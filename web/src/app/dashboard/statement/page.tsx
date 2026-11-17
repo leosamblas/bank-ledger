@@ -7,6 +7,7 @@ import { StatementItem, TransactionCategory } from '@/services/types';
 import { formatCentsToBrl } from '@/utils/currency';
 import { formatDateTimeBr } from '@/utils/date';
 import { exportStatementToCsv, exportStatementToOfx } from '@/utils/exportStatement';
+import { CopyButton } from '@/components/ui/CopyButton';
 
 export default function StatementPage() {
   const { balance, statement, account } = useBanking();
@@ -649,6 +650,10 @@ export default function StatementPage() {
 
               {/* Protocolo de Segurança */}
               <div className="text-[11px] font-mono text-on-surface-variant/80 break-all space-y-1">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="break-all">ID da Transação: {selectedReceipt.transactionId}</span>
+                  <CopyButton textToCopy={selectedReceipt.transactionId} label="ID da Transação" />
+                </div>
                 <div>Protocolo de Autenticação: {selectedReceipt.idempotencyKey}</div>
                 <div>Código de Verificação: {selectedReceipt.hashSignature ? 'Certificado Digitalmente' : 'Autenticado'}</div>
               </div>

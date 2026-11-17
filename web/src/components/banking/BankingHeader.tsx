@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useBanking } from '@/hooks/useBanking';
 import { authService } from '@/services';
+import { toastManager, ToastContainer } from '@/components/ui/Toast';
 
 export function BankingHeader() {
   const pathname = usePathname();
@@ -91,7 +92,7 @@ export function BankingHeader() {
             aria-label="Notificações"
             className="p-2 text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors rounded-lg flex items-center justify-center relative cursor-pointer"
             type="button"
-            onClick={() => alert('Você não possui novas notificações no momento.')}
+            onClick={() => toastManager.notify('Você não possui novas notificações no momento.', 'info')}
           >
             <span className="material-symbols-outlined text-[20px]">notifications</span>
             <span className="w-2 h-2 rounded-full bg-error absolute top-2 right-2"></span>
@@ -173,6 +174,8 @@ export function BankingHeader() {
           </div>
         </div>
       )}
+      {/* Toast Notification Container */}
+      <ToastContainer />
     </header>
   );
 }

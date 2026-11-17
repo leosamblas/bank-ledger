@@ -4,6 +4,7 @@ import React, { useState, ChangeEvent, FormEvent } from 'react';
 import Link from 'next/link';
 import { CpfInput } from '@/components/ui/CpfInput';
 import { isValidCpf } from '@/utils/cpf';
+import { getPasswordInputType, getPasswordToggleAriaLabel } from '@/utils/formUtils';
 import { accountService, AccountResponse, ApiError } from '@/services';
 
 interface Props {
@@ -26,6 +27,8 @@ export function OpenAccountForm({ onNameChange }: Props) {
 
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
@@ -237,6 +240,9 @@ export function OpenAccountForm({ onNameChange }: Props) {
             required
             value={fullName}
             onChange={handleNameChange}
+            autoComplete="name"
+            autoCapitalize="words"
+            autoCorrect="off"
           />
           {nameValid && (
             <span className="material-symbols-outlined absolute right-3 top-3 text-emerald-600 text-xl" style={{ fontVariationSettings: "'FILL' 1" }}>
@@ -277,6 +283,7 @@ export function OpenAccountForm({ onNameChange }: Props) {
               required
               value={birthDate}
               onChange={handleBirthDateChange}
+              autoComplete="bday"
             />
           </div>
           <p className={`font-body-sm text-body-sm ${ageValid === true ? 'text-emerald-700' : ageValid === false ? 'text-error' : 'text-on-surface-variant'}`}>
@@ -299,6 +306,10 @@ export function OpenAccountForm({ onNameChange }: Props) {
             required
             value={email}
             onChange={(e) => setEmail(e.target.value)}
+            autoComplete="email"
+            inputMode="email"
+            autoCapitalize="none"
+            spellCheck={false}
           />
           <p className="font-body-sm text-body-sm text-on-surface-variant">
             Para avisos de conta e comprovantes bancários.
@@ -318,6 +329,8 @@ export function OpenAccountForm({ onNameChange }: Props) {
             required
             value={phone}
             onChange={handlePhoneChange}
+            autoComplete="tel"
+            inputMode="tel"
           />
           <p className="font-body-sm text-body-sm text-on-surface-variant">
             Confirmação por SMS e autenticação instantânea.
@@ -331,16 +344,31 @@ export function OpenAccountForm({ onNameChange }: Props) {
           <label className="block font-body-sm text-body-sm font-semibold text-on-surface" htmlFor="password">
             Senha de Acesso
           </label>
-          <div className="relative">
+          <div className="relative flex items-center">
             <input
-              className="w-full bg-surface-container-low text-on-surface font-body-md text-body-md px-4 py-3 rounded-lg focus:outline-none focus:bg-surface-container-lowest focus:ring-2 focus:ring-primary-container transition-all"
+              className="w-full bg-surface-container-low text-on-surface font-body-md text-body-md pl-4 pr-12 py-3 rounded-lg focus:outline-none focus:bg-surface-container-lowest focus:ring-2 focus:ring-primary-container transition-all"
               id="password"
-              type="password"
+              type={getPasswordInputType(showPassword)}
               placeholder="Mínimo 8 caracteres"
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
+              autoComplete="new-password"
+              spellCheck={false}
+              autoCorrect="off"
+              autoCapitalize="none"
             />
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              aria-label={getPasswordToggleAriaLabel('Senha de Acesso', showPassword)}
+              aria-pressed={showPassword}
+              className="absolute right-1 w-11 h-11 min-h-[44px] min-w-[44px] flex items-center justify-center text-on-surface-variant hover:text-on-surface transition-colors cursor-pointer rounded-lg"
+            >
+              <span className="material-symbols-outlined text-xl">
+                {showPassword ? 'visibility_off' : 'visibility'}
+              </span>
+            </button>
           </div>
         </div>
 
@@ -348,16 +376,31 @@ export function OpenAccountForm({ onNameChange }: Props) {
           <label className="block font-body-sm text-body-sm font-semibold text-on-surface" htmlFor="confirmPassword">
             Confirmar Senha
           </label>
-          <div className="relative">
+          <div className="relative flex items-center">
             <input
-              className={`w-full bg-surface-container-low text-on-surface font-body-md text-body-md px-4 py-3 rounded-lg focus:outline-none focus:bg-surface-container-lowest focus:ring-2 focus:ring-primary-container transition-all ${pwdMatchError ? 'ring-2 ring-error focus:ring-error' : ''}`}
+              className={`w-full bg-surface-container-low text-on-surface font-body-md text-body-md pl-4 pr-12 py-3 rounded-lg focus:outline-none focus:bg-surface-container-lowest focus:ring-2 focus:ring-primary-container transition-all ${pwdMatchError ? 'ring-2 ring-error focus:ring-error' : ''}`}
               id="confirmPassword"
-              type="password"
+              type={getPasswordInputType(showConfirmPassword)}
               placeholder="Repita sua senha"
               required
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
+              autoComplete="new-password"
+              spellCheck={false}
+              autoCorrect="off"
+              autoCapitalize="none"
             />
+            <button
+              type="button"
+              onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+              aria-label={getPasswordToggleAriaLabel('Confirmar Senha', showConfirmPassword)}
+              aria-pressed={showConfirmPassword}
+              className="absolute right-1 w-11 h-11 min-h-[44px] min-w-[44px] flex items-center justify-center text-on-surface-variant hover:text-on-surface transition-colors cursor-pointer rounded-lg"
+            >
+              <span className="material-symbols-outlined text-xl">
+                {showConfirmPassword ? 'visibility_off' : 'visibility'}
+              </span>
+            </button>
           </div>
         </div>
       </div>

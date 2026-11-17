@@ -7,6 +7,7 @@ import { Header } from '@/components/ui/Header';
 import { Footer } from '@/components/ui/Footer';
 import { CpfInput } from '@/components/ui/CpfInput';
 import { isValidCpf } from '@/utils/cpf';
+import { getPasswordInputType, getPasswordToggleAriaLabel } from '@/utils/formUtils';
 import { authService, TokenResponse, ApiError } from '@/services';
 
 export default function LoginPage() {
@@ -217,20 +218,24 @@ export default function LoginPage() {
                   <input
                     id="passwordInput"
                     name="password"
-                    type={showPassword ? 'text' : 'password'}
+                    type={getPasswordInputType(showPassword)}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="Digite sua senha"
                     minLength={8}
                     required
                     autoComplete="current-password"
-                    className="w-full h-12 pl-11 pr-11 bg-surface-container-low text-on-surface font-body-md text-body-md rounded-xl border border-transparent focus:border-secondary focus:outline-none focus:bg-surface-container transition-all"
+                    spellCheck={false}
+                    autoCorrect="off"
+                    autoCapitalize="none"
+                    className="w-full h-12 pl-11 pr-12 bg-surface-container-low text-on-surface font-body-md text-body-md rounded-xl border border-transparent focus:border-secondary focus:outline-none focus:bg-surface-container transition-all"
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    aria-label="Alternar exibição de senha"
-                    className="absolute right-3.5 text-on-surface-variant hover:text-on-surface transition-colors cursor-pointer"
+                    aria-label={getPasswordToggleAriaLabel('senha', showPassword)}
+                    aria-pressed={showPassword}
+                    className="absolute right-1 w-11 h-11 min-h-[44px] min-w-[44px] flex items-center justify-center text-on-surface-variant hover:text-on-surface transition-colors cursor-pointer rounded-lg"
                   >
                     <span className="material-symbols-outlined text-headline-sm">
                       {showPassword ? 'visibility_off' : 'visibility'}

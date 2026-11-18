@@ -55,13 +55,16 @@ export function formatRecipientDetails(counterparty: AccountLookupResponse) {
   const branch = counterparty.branch || counterparty.agency || '0001';
   const accNum = counterparty.accountNumber || counterparty.number || '';
   const checkDigit = counterparty.checkDigit || counterparty.digit || '';
-  const accountString = `Agência: ${branch} | Conta: ${accNum}${checkDigit ? `-${checkDigit}` : ''}`;
+  const accountFormatted = `${accNum}${checkDigit ? `-${checkDigit}` : ''}`;
+  const accountString = `Agência: ${branch} | Conta: ${accountFormatted}`;
 
   return {
     holderName,
     formattedCpf,
     institution,
     accountString,
+    accountFormatted,
+    branch,
   };
 }
 
@@ -211,7 +214,7 @@ function TransferContent() {
         idempotencyKey: activeIdempotencyKey,
         destinationHolderName: details.holderName,
         destinationDocument: details.formattedCpf,
-        destinationAccountFormatted: details.accountString,
+        destinationAccountFormatted: details.accountFormatted || details.accountString,
       });
 
       if (tx.status === 'COMPLETED') {
@@ -227,7 +230,7 @@ function TransferContent() {
           counterpartyName: details.holderName,
           counterpartyDocument: details.formattedCpf,
           counterpartyDocumentMasked: details.formattedCpf,
-          counterpartyAccount: details.accountString,
+          counterpartyAccount: details.accountFormatted || details.accountString,
           nature: 'DEBIT',
           amountCents: tx.amount || amountCents,
           balanceAfterCents: Math.max(0, balance.availableCents - amountCents),

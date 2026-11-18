@@ -54,6 +54,50 @@ export function getCanonicalProtocolNumber(item: {
 }
 
 /**
+ * Decompõe e limpa dados de agência e conta, removendo prefixos duplicados como "Agência: ... | Conta: ...".
+ */
+export function parseAccountDetails(rawAccount?: string, fallbackAgency = '0001') {
+  if (!rawAccount || !rawAccount.trim()) {
+    return { agency: fallbackAgency, account: 'Não informada' };
+  }
+  const clean = rawAccount.trim();
+
+  // Caso: "Agência: 0001 | Conta: 100001-2" ou "Agência: 0001 / Conta: 100001-2"
+  const agencyMatch = clean.match(/ag[êe]ncia:?\s*([^|\s]+)/i);
+  const accountMatch = clean.match(/conta:?\s*([^|\s]+)/i);
+
+  if (accountMatch) {
+    return {
+      agency: agencyMatch ? agencyMatch[1].trim() : fallbackAgency,
+      account: accountMatch[1].trim(),
+    };
+  }
+
+  // Caso: "0001 / 100001-2" ou "0001/100001-2"
+  if (clean.includes('/')) {
+    const parts = clean.split('/');
+    return {
+      agency: parts[0].trim() || fallbackAgency,
+      account: parts[1].trim() || 'Não informada',
+    };
+  }
+
+  // Caso: "0001 - 100001-2"
+  const dashPrefixMatch = clean.match(/^(\d{4})\s*-\s*(\d+.*)$/);
+  if (dashPrefixMatch) {
+    return {
+      agency: dashPrefixMatch[1].trim(),
+      account: dashPrefixMatch[2].trim(),
+    };
+  }
+
+  return {
+    agency: fallbackAgency,
+    account: clean,
+  };
+}
+
+/**
  * Implementação padrão de SHA-256 (FIPS 180-4) para geração síncrona de hash criptográfico
  */
 function sha256Hex(ascii: string): string {
@@ -211,6 +255,22 @@ export default function StatementPage() {
       return matchText;
     });
   }, [statement, selectedCategory, searchTerm]);
+
+  const destinoAccount = useMemo(() => {
+    if (!selectedReceipt) return { agency: '0001', account: 'Não informada' };
+    return parseAccountDetails(
+      selectedReceipt.counterpartyAccount || selectedReceipt.creditAccount,
+      selectedReceipt.creditAccount?.split('/')[0] || '0001'
+    );
+  }, [selectedReceipt]);
+
+  const origemAccount = useMemo(() => {
+    if (!selectedReceipt) return { agency: account.agency, account: `${account.accountNumber}-${account.digit}` };
+    return parseAccountDetails(
+      selectedReceipt.counterpartyAccount || selectedReceipt.debitAccount,
+      selectedReceipt.debitAccount?.split('/')[0] || account.agency
+    );
+  }, [selectedReceipt, account]);
 
   const handleExport = () => {
     setExportModalOpen(false);
@@ -859,20 +919,20 @@ export default function StatementPage() {
                           : selectedReceipt.counterpartyDocument || selectedReceipt.counterpartyDocumentMasked || 'Não informado'}
                       </span>
                     </div>
-                    <div className="flex justify-between">
-                      <span className="text-on-surface-variant">Agência:</span>
-                      <span className="text-on-surface">
+                    <div className="flex justify-between items-center">
+                      <span className="text-on-surface-variant whitespace-nowrap">Agência:</span>
+                      <span className="text-on-surface font-mono">
                         {selectedReceipt.nature === 'DEBIT'
                           ? account.agency
-                          : selectedReceipt.debitAccount?.split('/')[0] || account.agency}
+                          : origemAccount.agency}
                       </span>
                     </div>
-                    <div className="flex justify-between">
-                      <span className="text-on-surface-variant">Conta:</span>
-                      <span className="text-on-surface">
+                    <div className="flex justify-between items-center">
+                      <span className="text-on-surface-variant whitespace-nowrap">Conta:</span>
+                      <span className="text-on-surface font-mono">
                         {selectedReceipt.nature === 'DEBIT'
                           ? `${account.accountNumber}-${account.digit}`
-                          : selectedReceipt.counterpartyAccount || selectedReceipt.debitAccount || 'Conta Externa'}
+                          : origemAccount.account}
                       </span>
                     </div>
                   </div>
@@ -904,20 +964,20 @@ export default function StatementPage() {
                           : selectedReceipt.counterpartyDocument || selectedReceipt.counterpartyDocumentMasked || 'Não informado'}
                       </span>
                     </div>
-                    <div className="flex justify-between">
-                      <span className="text-on-surface-variant">Agência:</span>
-                      <span className="text-on-surface">
+                    <div className="flex justify-between items-center">
+                      <span className="text-on-surface-variant whitespace-nowrap">Agência:</span>
+                      <span className="text-on-surface font-mono">
                         {selectedReceipt.nature === 'CREDIT'
                           ? account.agency
-                          : selectedReceipt.creditAccount?.split('/')[0] || '0001'}
+                          : destinoAccount.agency}
                       </span>
                     </div>
-                    <div className="flex justify-between">
-                      <span className="text-on-surface-variant">Conta:</span>
-                      <span className="text-on-surface">
+                    <div className="flex justify-between items-center">
+                      <span className="text-on-surface-variant whitespace-nowrap">Conta:</span>
+                      <span className="text-on-surface font-mono">
                         {selectedReceipt.nature === 'CREDIT'
                           ? `${account.accountNumber}-${account.digit}`
-                          : selectedReceipt.counterpartyAccount || selectedReceipt.creditAccount || 'Não informada'}
+                          : destinoAccount.account}
                       </span>
                     </div>
                   </div>

@@ -6,6 +6,7 @@ import {
   getTransactionTypeLabel,
   formatCounterpartyRow,
   getCanonicalProtocolNumber,
+  parseAccountDetails,
 } from '../../app/dashboard/statement/page';
 
 test('StatementPage - Humanized Portuguese transaction labels', () => {
@@ -130,4 +131,26 @@ test('StatementPage - Static Architecture & Accessibility Quality Guardrails', (
     content.includes('exportStatementToCsv') && content.includes('exportStatementToOfx'),
     'Must import and wire both CSV and OFX real export functions'
   );
+});
+
+test('StatementPage - parseAccountDetails decomposes composite and raw account strings', () => {
+  // Caso com prefixo longo "Agência: 0001 | Conta: 100001-2" (como na tela de detalhe)
+  const composite = parseAccountDetails('Agência: 0001 | Conta: 100001-2');
+  assert.strictEqual(composite.agency, '0001');
+  assert.strictEqual(composite.account, '100001-2');
+
+  // Caso com barra "0001 / 100001-2"
+  const slash = parseAccountDetails('0001 / 100001-2');
+  assert.strictEqual(slash.agency, '0001');
+  assert.strictEqual(slash.account, '100001-2');
+
+  // Caso simples apenas com a conta "100001-2"
+  const simple = parseAccountDetails('100001-2', '0002');
+  assert.strictEqual(simple.agency, '0002');
+  assert.strictEqual(simple.account, '100001-2');
+
+  // Caso nulo / vazio
+  const empty = parseAccountDetails('', '0001');
+  assert.strictEqual(empty.agency, '0001');
+  assert.strictEqual(empty.account, 'Não informada');
 });

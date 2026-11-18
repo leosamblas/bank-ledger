@@ -4,7 +4,6 @@ import com.bankledger.account.domain.exception.InvalidAccountNumberException;
 import com.bankledger.account.domain.model.Account;
 
 import java.io.Serializable;
-import java.util.Objects;
 
 /**
  * Pure domain value object representing a Bank Account Number.

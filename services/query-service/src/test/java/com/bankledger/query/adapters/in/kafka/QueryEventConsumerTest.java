@@ -1,8 +1,6 @@
 package com.bankledger.query.adapters.in.kafka;
 
 import com.bankledger.commons.constant.KafkaTopics;
-import com.bankledger.commons.events.KafkaEventEnvelope;
-import com.bankledger.commons.events.v1.account.AccountOpenedPayload;
 import com.bankledger.commons.inbox.InboxHandler;
 import com.bankledger.query.adapters.out.persistence.AccountBalanceEntity;
 import com.bankledger.query.adapters.out.persistence.AccountBalanceRepository;

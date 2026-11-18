@@ -4,7 +4,6 @@ import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
-import java.io.Serializable;
 import java.security.Principal;
 import java.util.Collection;
 import java.util.List;
@@ -21,7 +20,7 @@ public record CommonAuthenticatedUser(
         String role,
         String branch,
         String accountNumber
-) implements Principal, UserDetails, Serializable {
+) implements Principal, UserDetails {
 
     public CommonAuthenticatedUser(UUID customerId, UUID accountId, String branch, String accountNumber, String role) {
         this(customerId, accountId, null, role, branch, accountNumber);

@@ -2,8 +2,6 @@ package com.bankledger.account.adapters.in.rest;
 
 import com.bankledger.account.adapters.in.rest.dto.AccountCreationRequest;
 import com.bankledger.account.adapters.in.rest.dto.AccountLookupRequest;
-import com.bankledger.account.adapters.in.rest.dto.AccountLookupResponse;
-import com.bankledger.account.adapters.in.rest.dto.AccountResponse;
 import com.bankledger.account.application.port.in.*;
 import com.bankledger.account.domain.exception.*;
 import com.bankledger.account.domain.model.AccountStatus;
@@ -22,21 +20,17 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.DataIntegrityViolationException;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.converter.json.JacksonJsonHttpMessageConverter;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.web.method.annotation.AuthenticationPrincipalArgumentResolver;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
-import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.json.JsonMapper;
 
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
-import java.util.List;
 import java.util.UUID;
 
 import static org.hamcrest.Matchers.containsString;

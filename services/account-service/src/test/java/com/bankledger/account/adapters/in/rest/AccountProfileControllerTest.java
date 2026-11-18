@@ -1,7 +1,5 @@
 package com.bankledger.account.adapters.in.rest;
 
-import com.bankledger.account.adapters.in.rest.dto.AccountResponse;
-import com.bankledger.account.adapters.in.rest.dto.AddressDto;
 import com.bankledger.account.adapters.in.rest.dto.UpdateProfileRequest;
 import com.bankledger.account.application.port.in.AccountMeResult;
 import com.bankledger.account.application.port.in.CreateAccountUseCase;

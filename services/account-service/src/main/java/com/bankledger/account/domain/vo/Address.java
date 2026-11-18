@@ -3,7 +3,6 @@ package com.bankledger.account.domain.vo;
 import com.bankledger.account.domain.exception.InvalidAddressException;
 
 import java.io.Serializable;
-import java.util.Objects;
 import java.util.Set;
 
 /**

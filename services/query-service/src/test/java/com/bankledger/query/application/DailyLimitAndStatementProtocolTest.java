@@ -3,7 +3,6 @@ package com.bankledger.query.application;
 import com.bankledger.commons.inbox.InboxHandler;
 import com.bankledger.commons.security.CommonAuthenticatedUser;
 import com.bankledger.commons.security.SecurityConstants;
-import com.bankledger.query.adapters.in.kafka.EntryPostedInboundDto;
 import com.bankledger.query.adapters.in.kafka.QueryEventConsumer;
 import com.bankledger.query.adapters.in.rest.QueryController;
 import com.bankledger.query.adapters.in.rest.dto.BalanceResponse;
@@ -43,8 +42,6 @@ import static org.mockito.Mockito.*;
 @ExtendWith(MockitoExtension.class)
 @DisplayName("Task 5: Database-Driven Limit & Statement Protocol Projections Test")
 class DailyLimitAndStatementProtocolTest {
-
-    private static final ZoneId SAO_PAULO_ZONE = ZoneId.of("America/Sao_Paulo");
 
     @Mock
     private AccountBalanceRepository accountBalanceRepository;

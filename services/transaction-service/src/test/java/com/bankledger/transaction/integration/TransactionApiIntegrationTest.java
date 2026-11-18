@@ -9,7 +9,6 @@ import com.bankledger.commons.security.SecurityConstants;
 import com.bankledger.commons.security.TokenClaims;
 import com.bankledger.transaction.adapters.in.rest.dto.DepositRequest;
 import com.bankledger.transaction.adapters.in.rest.dto.WithdrawalRequest;
-import com.bankledger.transaction.adapters.out.persistence.repository.IdempotencySpringDataRepository;
 import com.bankledger.transaction.adapters.out.persistence.repository.TransactionSpringDataRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -75,7 +74,6 @@ class TransactionApiIntegrationTest {
     private final WebApplicationContext context;
     private final JwksPublicKeyProvider jwksPublicKeyProvider;
     private final TransactionSpringDataRepository transactionRepository;
-    private final IdempotencySpringDataRepository idempotencyRepository;
     private final OutboxEventRepository outboxEventRepository;
     private final ObjectMapper objectMapper;
 
@@ -86,14 +84,12 @@ class TransactionApiIntegrationTest {
             WebApplicationContext context,
             JwksPublicKeyProvider jwksPublicKeyProvider,
             TransactionSpringDataRepository transactionRepository,
-            IdempotencySpringDataRepository idempotencyRepository,
             OutboxEventRepository outboxEventRepository,
             ObjectMapper objectMapper
     ) {
         this.context = context;
         this.jwksPublicKeyProvider = jwksPublicKeyProvider;
         this.transactionRepository = transactionRepository;
-        this.idempotencyRepository = idempotencyRepository;
         this.outboxEventRepository = outboxEventRepository;
         this.objectMapper = objectMapper;
     }

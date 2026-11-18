@@ -10,10 +10,10 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.JavaMailSenderImpl;
-import org.springframework.util.Assert;
 import org.springframework.util.StringUtils;
 
 import java.util.Map;
+import java.util.Objects;
 import java.util.Properties;
 
 /**
@@ -65,7 +65,7 @@ public class MailConfiguration {
                 javaMailProperties.setProperty("mail." + protocol + ".ssl.enable", "true");
             }
             if (StringUtils.hasLength(ssl.getBundle())) {
-                Assert.state(sslBundles != null, "'sslBundles' must not be null");
+                Objects.requireNonNull(sslBundles, "'sslBundles' must not be null");
                 SslBundle sslBundle = sslBundles.getBundle(ssl.getBundle());
                 javaMailProperties.put("mail." + protocol + ".ssl.socketFactory",
                         sslBundle.createSslContext().getSocketFactory());

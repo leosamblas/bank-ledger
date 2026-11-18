@@ -5,10 +5,6 @@ import com.bankledger.commons.security.JwksPublicKeyProvider;
 import com.bankledger.commons.security.RsaJwtSigner;
 import com.bankledger.commons.security.SecurityConstants;
 import com.bankledger.commons.security.TokenClaims;
-import com.bankledger.query.adapters.out.persistence.AccountBalanceEntity;
-import com.bankledger.query.adapters.out.persistence.AccountBalanceRepository;
-import com.bankledger.query.adapters.out.persistence.StatementEntryEntity;
-import com.bankledger.query.adapters.out.persistence.StatementEntryRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -30,7 +26,6 @@ import tools.jackson.databind.ObjectMapper;
 
 import java.time.Clock;
 import java.time.Duration;
-import java.time.Instant;
 import java.util.Map;
 import java.util.UUID;
 
@@ -72,8 +67,6 @@ class QuerySecurityIntegrationTest {
 
     private final WebApplicationContext context;
     private final JwksPublicKeyProvider jwksPublicKeyProvider;
-    private final AccountBalanceRepository accountBalanceRepository;
-    private final StatementEntryRepository statementEntryRepository;
     private final ObjectMapper objectMapper;
     private final Clock clock;
 
@@ -83,15 +76,11 @@ class QuerySecurityIntegrationTest {
     public QuerySecurityIntegrationTest(
             WebApplicationContext context,
             JwksPublicKeyProvider jwksPublicKeyProvider,
-            AccountBalanceRepository accountBalanceRepository,
-            StatementEntryRepository statementEntryRepository,
             ObjectMapper objectMapper,
             Clock clock
     ) {
         this.context = context;
         this.jwksPublicKeyProvider = jwksPublicKeyProvider;
-        this.accountBalanceRepository = accountBalanceRepository;
-        this.statementEntryRepository = statementEntryRepository;
         this.objectMapper = objectMapper;
         this.clock = clock;
     }

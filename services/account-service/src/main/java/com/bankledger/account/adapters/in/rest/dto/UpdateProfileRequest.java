@@ -2,7 +2,6 @@ package com.bankledger.account.adapters.in.rest.dto;
 
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.Size;
 
 /**
  * Request payload for PUT /api/v1/accounts/me/profile.

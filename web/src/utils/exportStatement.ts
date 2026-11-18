@@ -3,16 +3,60 @@ import { formatCentsToBrl } from './currency';
 import { formatDateTimeBr } from './date';
 
 /**
- * Sanitiza valores de células contra CSV Formula Injection (CWE-1236).
- * Previne que caracteres como '=', '+', '-', '@' acionem execução arbitrária no Excel.
+ * Mapeamento humanizado dos tipos de transação em língua portuguesa.
  */
-function sanitizeCsvCell(value: string | number): string {
-  if (value === null || value === undefined) return '';
+export function getTransactionTypeLabel(type: string): string {
+  switch (type) {
+    case 'TRANSFER_OUT':
+      return 'Transferência enviada';
+    case 'TRANSFER_IN':
+      return 'Transferência recebida';
+    case 'DEPOSIT':
+      return 'Depósito em conta corrente';
+    case 'WITHDRAWAL':
+      return 'Saque em terminal';
+    default:
+      return type;
+  }
+}
+
+/**
+ * Obtém ou gera o número de protocolo canônico auditável no padrão PRT-YYYYMMDD-XXXXXX.
+ */
+export function getCanonicalProtocol(tx: Partial<StatementItem>): string {
+  if (tx.protocolNumber) {
+    return tx.protocolNumber;
+  }
+  const dt = formatDateTimeBr(tx.timestamp || new Date().toISOString());
+  const dateCompact = dt.date.replace(/\//g, '');
+  const seq = String(tx.sequence ?? 0).padStart(6, '0');
+  return `PRT-${dateCompact}-${seq}`;
+}
+
+/**
+ * Sanitiza valores de células contra CSV Formula Injection (CWE-1236).
+ * Previne que caracteres como '=', '+', '-', '@' acionem execução arbitrária em planilhas eletrônicas.
+ */
+function sanitizeCsvCell(value: string | number | undefined | null): string {
+  if (value === null || value === undefined) return '""';
   const str = String(value).trim();
   if (/^[=+@\-\t\r]/.test(str)) {
     return `"'${str.replace(/"/g, '""')}"`;
   }
   return `"${str.replace(/"/g, '""')}"`;
+}
+
+/**
+ * Gera o nome padronizado de arquivo para download: extrato-nexus-YYYYMMDD.ext
+ */
+export function getStatementExportFilename(
+  type: 'csv' | 'ofx',
+  date: Date = new Date()
+): string {
+  const yyyy = date.getFullYear();
+  const mm = String(date.getMonth() + 1).padStart(2, '0');
+  const dd = String(date.getDate()).padStart(2, '0');
+  return `extrato-nexus-${yyyy}${mm}${dd}.${type}`;
 }
 
 /**
@@ -32,81 +76,85 @@ function triggerBrowserDownload(content: string, filename: string, mimeType: str
 }
 
 /**
- * Exporta os lançamentos em formato CSV estruturado com BOM UTF-8
+ * Gera a string do Extrato em CSV com cabeçalho obrigatório, delimitador ';' e UTF-8 com BOM.
+ * Header: Data;Protocolo;Tipo;Descrição;Contraparte;Documento;Agência/Conta;Natureza;Valor (R$);Saldo Após (R$)
  */
-export function exportStatementToCsv(
+export function generateStatementCsv(
   statement: StatementItem[],
-  account: BankingAccountInfo,
-  filenamePrefix = 'extrato_nexus'
-): void {
+  account?: BankingAccountInfo
+): string {
   const headers = [
     'Data',
-    'Hora',
     'Protocolo',
-    'Descricao',
-    'Contraparte',
-    'Agencia/Conta Contraparte',
     'Tipo',
+    'Descrição',
+    'Contraparte',
+    'Documento',
+    'Agência/Conta',
     'Natureza',
-    'Valor (BRL)',
-    'Saldo Resultante (BRL)',
+    'Valor (R$)',
+    'Saldo Após (R$)',
   ];
 
   const rows = statement.map((tx) => {
     const dt = formatDateTimeBr(tx.timestamp);
+    const dataHora = `${dt.date} ${dt.time}`;
+    const protocolo = getCanonicalProtocol(tx);
+    const tipo = getTransactionTypeLabel(tx.type);
+    const contraparteDoc = tx.counterpartyDocument || tx.counterpartyDocumentMasked || '';
+    const natureza = tx.nature === 'CREDIT' ? 'Crédito' : 'Débito';
     const valorFormatted = `${tx.nature === 'CREDIT' ? '+' : '-'}${formatCentsToBrl(tx.amountCents, false)}`;
     const saldoFormatted = formatCentsToBrl(tx.balanceAfterCents, false);
 
     return [
-      sanitizeCsvCell(dt.date),
-      sanitizeCsvCell(dt.time),
-      sanitizeCsvCell(tx.sequence),
+      sanitizeCsvCell(dataHora),
+      sanitizeCsvCell(protocolo),
+      sanitizeCsvCell(tipo),
       sanitizeCsvCell(tx.description),
       sanitizeCsvCell(tx.counterpartyName),
+      sanitizeCsvCell(contraparteDoc),
       sanitizeCsvCell(tx.counterpartyAccount),
-      sanitizeCsvCell(tx.type),
-      sanitizeCsvCell(tx.nature === 'CREDIT' ? 'Credito' : 'Debito'),
+      sanitizeCsvCell(natureza),
       sanitizeCsvCell(valorFormatted),
       sanitizeCsvCell(saldoFormatted),
     ].join(';');
   });
 
-  // \uFEFF adiciona o Byte Order Mark (BOM) UTF-8 para compatibilidade perfeita com Excel no Windows
-  const csvContent = '\uFEFF' + [headers.join(';'), ...rows].join('\r\n');
-  const nowStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
-  const filename = `${filenamePrefix}_ag${account.agency}_cc${account.accountNumber}_${nowStr}.csv`;
-
-  triggerBrowserDownload(csvContent, filename, 'text/csv;charset=utf-8;');
+  // \uFEFF adiciona o Byte Order Mark (BOM) UTF-8 para compatibilidade nativa com Excel no Windows
+  return '\uFEFF' + [headers.join(';'), ...rows].join('\r\n');
 }
 
 /**
- * Exporta os lançamentos em formato OFX (Open Financial Exchange 1.0.2)
- * Padrão aceito por softwares de contabilidade, ERPs e conciliadores
+ * Gera a representação OFX (Open Financial Exchange 1.0.2) estruturada
  */
-export function exportStatementToOfx(
+export function generateStatementOfx(
   statement: StatementItem[],
-  account: BankingAccountInfo,
-  filenamePrefix = 'extrato_nexus'
-): void {
+  account: BankingAccountInfo
+): string {
   const now = new Date();
   const nowOfx = now.toISOString().replace(/[-:T]/g, '').slice(0, 14);
 
   const transactionsOfx = statement
     .map((tx) => {
       const txDate = new Date(tx.timestamp);
-      const dtPosted = txDate.toISOString().replace(/[-:T]/g, '').slice(0, 14);
+      const dtPosted = isNaN(txDate.getTime())
+        ? nowOfx
+        : txDate.toISOString().replace(/[-:T]/g, '').slice(0, 14);
       const isCredit = tx.nature === 'CREDIT';
       const trnType = isCredit ? 'CREDIT' : 'DEBIT';
       const trnAmt = `${isCredit ? '' : '-'}${(tx.amountCents / 100).toFixed(2)}`;
+      const safeName = (tx.counterpartyName || 'Nexus Bank').replace(/[<>&]/g, '');
+      const safeMemo = (tx.description || '').replace(/[<>&]/g, '');
 
       return `
 <STMTTRN>
 <TRNTYPE>${trnType}</TRNTYPE>
 <DTPOSTED>${dtPosted}[-3:BRT]</DTPOSTED>
 <TRNAMT>${trnAmt}</TRNAMT>
-<FITID>${tx.transactionId}</FITID>
+<FITID>${tx.transactionId || tx.id}</FITID>
 <CHECKNUM>${tx.sequence}</CHECKNUM>
-<MEMO>${tx.description.replace(/[<>]/g, '')}</MEMO>
+<NAME>${safeName}</NAME>
+<MEMO>${safeMemo}</MEMO>
 </STMTTRN>`;
     })
     .join('');
@@ -114,7 +162,7 @@ export function exportStatementToOfx(
   const latestBalanceCents = statement[0]?.balanceAfterCents ?? 0;
   const latestBalanceAmt = (latestBalanceCents / 100).toFixed(2);
 
-  const ofxContent = `OFXHEADER:100
+  return `OFXHEADER:100
 DATA:OFXSGML
 VERSION:102
 SECURITY:NONE
@@ -135,7 +183,7 @@ NEWFILEUID:NONE
 <LANGUAGE>POR</LANGUAGE>
 <FI>
 <ORG>Nexus Bank S.A.</ORG>
-<FID>0418</FID>
+<FID>001</FID>
 </FI>
 </SONRS>
 </SIGNONMSGSRSV1>
@@ -149,7 +197,7 @@ NEWFILEUID:NONE
 <STMTRS>
 <CURDEF>BRL</CURDEF>
 <BANKACCTFROM>
-<BANKID>0418</BANKID>
+<BANKID>001</BANKID>
 <BRANCHID>${account.agency}</BRANCHID>
 <ACCTID>${account.accountNumber}${account.digit}</ACCTID>
 <ACCTTYPE>CHECKING</ACCTTYPE>
@@ -166,9 +214,28 @@ NEWFILEUID:NONE
 </STMTTRNRS>
 </BANKMSGSRSV1>
 </OFX>`;
+}
 
-  const nowStr = now.toISOString().slice(0, 10).replace(/-/g, '');
-  const filename = `${filenamePrefix}_ag${account.agency}_cc${account.accountNumber}_${nowStr}.ofx`;
+/**
+ * Exporta os lançamentos em formato CSV estruturado com BOM UTF-8 e salva o arquivo
+ */
+export function exportStatementToCsv(
+  statement: StatementItem[],
+  account?: BankingAccountInfo
+): void {
+  const csvContent = generateStatementCsv(statement, account);
+  const filename = getStatementExportFilename('csv');
+  triggerBrowserDownload(csvContent, filename, 'text/csv;charset=utf-8;');
+}
 
+/**
+ * Exporta os lançamentos em formato OFX e salva o arquivo
+ */
+export function exportStatementToOfx(
+  statement: StatementItem[],
+  account: BankingAccountInfo
+): void {
+  const ofxContent = generateStatementOfx(statement, account);
+  const filename = getStatementExportFilename('ofx');
   triggerBrowserDownload(ofxContent, filename, 'application/x-ofx;charset=utf-8;');
 }

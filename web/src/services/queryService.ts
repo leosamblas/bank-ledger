@@ -27,6 +27,8 @@ interface RawStatementItemResponse {
   balanceAfterCents?: number;
   balanceAfter?: number;
   idempotencyKey?: string;
+  protocolNumber?: string;
+  counterpartyDocument?: string;
   failureReason?: string;
   debitAccount?: string;
   creditAccount?: string;
@@ -98,6 +100,8 @@ export const queryService = {
       amountCents: item.amountCents ?? item.amount ?? 0,
       balanceAfterCents: item.balanceAfterCents ?? item.balanceAfter ?? 0,
       idempotencyKey: item.idempotencyKey || '',
+      protocolNumber: item.protocolNumber,
+      counterpartyDocument: item.counterpartyDocument,
       failureReason: item.failureReason,
       debitAccount: item.debitAccount,
       creditAccount: item.creditAccount,

@@ -1,6 +1,7 @@
 package com.bankledger.account.adapters.in.rest;
 
 import com.bankledger.account.adapters.in.rest.dto.AccountCreationRequest;
+import com.bankledger.account.adapters.in.rest.dto.AccountLookupRequest;
 import com.bankledger.account.adapters.in.rest.dto.AccountLookupResponse;
 import com.bankledger.account.adapters.in.rest.dto.AccountResponse;
 import com.bankledger.account.application.port.in.*;
@@ -70,7 +71,7 @@ class AccountControllerTest {
 
     @BeforeEach
     void setUp() {
-        accountController = new AccountController(createAccountUseCase, getAccountMeUseCase, lookupAccountUseCase);
+        accountController = new AccountController(createAccountUseCase, getAccountMeUseCase, lookupAccountUseCase, null);
         globalExceptionHandler = new GlobalExceptionHandler();
 
         rsaJwtSigner = new RsaJwtSigner();
@@ -391,6 +392,111 @@ class AccountControllerTest {
                     .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
                     .andExpect(jsonPath("$.status").value(404))
                     .andExpect(jsonPath("$.title").value("Not Found"));
+        }
+    }
+
+    @Nested
+    @DisplayName("POST /api/v1/accounts/lookup (Secure Lookup)")
+    class SecurePostLookupAccountTests {
+
+        @Test
+        @DisplayName("200 OK with unmasked data when looking up by CPF")
+        void shouldLookupByCpfSecurely() throws Exception {
+            UUID accountId = UUID.randomUUID();
+            AccountLookupResult result = new AccountLookupResult(
+                    accountId,
+                    "0001",
+                    "100000",
+                    "4",
+                    "Carlos Eduardo Silva",
+                    "529.982.247-25",
+                    "001",
+                    "Nexus Bank S.A.",
+                    "C*** E*** S***"
+            );
+
+            when(lookupAccountUseCase.lookup("CPF", "52998224725", null, null)).thenReturn(result);
+
+            AccountLookupRequest request = new AccountLookupRequest("CPF", "52998224725", null, null);
+
+            mockMvc.perform(post("/api/v1/accounts/lookup")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(request)))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.accountId").value(accountId.toString()))
+                    .andExpect(jsonPath("$.branch").value("0001"))
+                    .andExpect(jsonPath("$.accountNumber").value("100000"))
+                    .andExpect(jsonPath("$.checkDigit").value("4"))
+                    .andExpect(jsonPath("$.holderName").value("Carlos Eduardo Silva"))
+                    .andExpect(jsonPath("$.cpf").value("529.982.247-25"))
+                    .andExpect(jsonPath("$.bankCode").value("001"))
+                    .andExpect(jsonPath("$.bankName").value("Nexus Bank S.A."));
+        }
+
+        @Test
+        @DisplayName("200 OK with unmasked data when looking up by ACCOUNT")
+        void shouldLookupByAccountSecurely() throws Exception {
+            UUID accountId = UUID.randomUUID();
+            AccountLookupResult result = new AccountLookupResult(
+                    accountId,
+                    "0001",
+                    "100000",
+                    "4",
+                    "Carlos Eduardo Silva",
+                    "529.982.247-25",
+                    "001",
+                    "Nexus Bank S.A.",
+                    "C*** E*** S***"
+            );
+
+            when(lookupAccountUseCase.lookup("ACCOUNT", null, "0001", "100000")).thenReturn(result);
+
+            AccountLookupRequest request = new AccountLookupRequest("ACCOUNT", null, "0001", "100000");
+
+            mockMvc.perform(post("/api/v1/accounts/lookup")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(request)))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.accountId").value(accountId.toString()))
+                    .andExpect(jsonPath("$.branch").value("0001"))
+                    .andExpect(jsonPath("$.accountNumber").value("100000"))
+                    .andExpect(jsonPath("$.checkDigit").value("4"))
+                    .andExpect(jsonPath("$.holderName").value("Carlos Eduardo Silva"))
+                    .andExpect(jsonPath("$.cpf").value("529.982.247-25"))
+                    .andExpect(jsonPath("$.bankCode").value("001"))
+                    .andExpect(jsonPath("$.bankName").value("Nexus Bank S.A."));
+        }
+
+        @Test
+        @DisplayName("404 Not Found when CPF does not exist")
+        void shouldReturn404WhenCpfNotFound() throws Exception {
+            when(lookupAccountUseCase.lookup("CPF", "52998224725", null, null))
+                    .thenThrow(new CustomerNotFoundException("Customer not found for CPF: 52998224725"));
+
+            AccountLookupRequest request = new AccountLookupRequest("CPF", "52998224725", null, null);
+
+            mockMvc.perform(post("/api/v1/accounts/lookup")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(request)))
+                    .andExpect(status().isNotFound())
+                    .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+                    .andExpect(jsonPath("$.status").value(404));
+        }
+
+        @Test
+        @DisplayName("400 Bad Request when search parameters are invalid")
+        void shouldReturn400WhenParamsInvalid() throws Exception {
+            when(lookupAccountUseCase.lookup("UNKNOWN", null, null, null))
+                    .thenThrow(new IllegalArgumentException("Invalid search parameters: searchType must be CPF or ACCOUNT"));
+
+            AccountLookupRequest request = new AccountLookupRequest("UNKNOWN", null, null, null);
+
+            mockMvc.perform(post("/api/v1/accounts/lookup")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(request)))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+                    .andExpect(jsonPath("$.status").value(400));
         }
     }
 

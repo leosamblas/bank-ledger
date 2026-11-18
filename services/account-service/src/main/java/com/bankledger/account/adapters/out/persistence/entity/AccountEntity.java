@@ -56,6 +56,10 @@ public class AccountEntity {
     @Column(name = "status", nullable = false, length = 20)
     private AccountStatus status;
 
+    @Column(name = "daily_transfer_limit_cents", nullable = false)
+    @Builder.Default
+    private Long dailyTransferLimitCents = 5000000L;
+
     @Version
     @Column(name = "version", nullable = false)
     private Long version;
@@ -76,6 +80,7 @@ public class AccountEntity {
                 branch,
                 AccountNumber.of(branch, accountNumber, checkDigit),
                 status,
+                dailyTransferLimitCents != null ? dailyTransferLimitCents : 5000000L,
                 createdAt,
                 updatedAt,
                 closedAt
@@ -93,6 +98,7 @@ public class AccountEntity {
                 .accountNumber(domain.accountNumber().number())
                 .checkDigit(domain.accountNumber().checkDigit())
                 .status(domain.status())
+                .dailyTransferLimitCents(domain.dailyTransferLimitCents())
                 .createdAt(domain.createdAt())
                 .updatedAt(domain.updatedAt())
                 .closedAt(domain.closedAt())

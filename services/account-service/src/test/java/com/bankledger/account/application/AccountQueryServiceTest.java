@@ -29,6 +29,7 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -194,5 +195,77 @@ class AccountQueryServiceTest {
         assertThat(result.accountId()).isEqualTo(accountId);
         assertThat(result.customerId()).isEqualTo(customerId);
         assertThat(result.holderName()).isEqualTo("Carlos Eduardo Silva");
+    }
+
+    @Test
+    @DisplayName("Should update customer profile (email, phone, address) and keep cpf, birthDate, fullName immutable")
+    void shouldUpdateProfileSuccessfully() {
+        UUID customerId = UUID.randomUUID();
+        UUID accountId = UUID.randomUUID();
+        Account account = createAccount(accountId, customerId, "0001", "100000", "4");
+        Customer customer = createCustomer(customerId, "Carlos Eduardo Silva");
+
+        when(accountRepository.findById(accountId)).thenReturn(Optional.of(account));
+        when(customerRepository.findById(customerId)).thenReturn(Optional.of(customer));
+        when(customerRepository.findByEmail(Email.of("new.email@example.com"))).thenReturn(Optional.empty());
+        when(customerRepository.save(any(Customer.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        com.bankledger.account.application.port.in.UpdateProfileCommand command =
+                new com.bankledger.account.application.port.in.UpdateProfileCommand(
+                        accountId,
+                        "+5511977776666",
+                        "new.email@example.com",
+                        "01310-100",
+                        "Avenida Paulista",
+                        "1500",
+                        "Conjunto 50",
+                        "Bela Vista",
+                        "São Paulo",
+                        "SP"
+                );
+
+        AccountMeResult result = accountQueryService.updateProfile(command);
+
+        assertThat(result).isNotNull();
+        assertThat(result.holderName()).isEqualTo("Carlos Eduardo Silva"); // immutable
+        assertThat(result.holderCpf()).isEqualTo("52998224725"); // immutable
+        assertThat(result.holderEmail()).isEqualTo("new.email@example.com"); // updated
+        assertThat(result.holderPhone()).isEqualTo("+5511977776666"); // updated
+        assertThat(result.address()).isNotNull();
+        assertThat(result.address().street()).isEqualTo("Avenida Paulista");
+        assertThat(result.address().number()).isEqualTo("1500");
+    }
+
+    @Test
+    @DisplayName("Should throw EmailAlreadyExistsException when updating profile to an email owned by another customer")
+    void shouldThrowWhenEmailBelongsToAnotherCustomer() {
+        UUID customerId = UUID.randomUUID();
+        UUID otherCustomerId = UUID.randomUUID();
+        UUID accountId = UUID.randomUUID();
+        Account account = createAccount(accountId, customerId, "0001", "100000", "4");
+        Customer customer = createCustomer(customerId, "Carlos Eduardo Silva");
+        Customer otherCustomer = createCustomer(otherCustomerId, "Other Person");
+
+        when(accountRepository.findById(accountId)).thenReturn(Optional.of(account));
+        when(customerRepository.findById(customerId)).thenReturn(Optional.of(customer));
+        when(customerRepository.findByEmail(Email.of("taken@example.com"))).thenReturn(Optional.of(otherCustomer));
+
+        com.bankledger.account.application.port.in.UpdateProfileCommand command =
+                new com.bankledger.account.application.port.in.UpdateProfileCommand(
+                        accountId,
+                        "+5511977776666",
+                        "taken@example.com",
+                        "01310-100",
+                        "Avenida Paulista",
+                        "1500",
+                        null,
+                        "Bela Vista",
+                        "São Paulo",
+                        "SP"
+                );
+
+        assertThatThrownBy(() -> accountQueryService.updateProfile(command))
+                .isInstanceOf(com.bankledger.account.domain.exception.EmailAlreadyExistsException.class)
+                .hasMessageContaining("taken@example.com");
     }
 }

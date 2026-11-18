@@ -1,6 +1,7 @@
 package com.bankledger.account.domain.model;
 
 import com.bankledger.account.domain.exception.CustomerUnderageException;
+import com.bankledger.account.domain.vo.Address;
 import com.bankledger.account.domain.vo.Cpf;
 import com.bankledger.account.domain.vo.Email;
 import com.bankledger.account.domain.vo.Phone;
@@ -26,17 +27,18 @@ public class Customer implements Serializable {
     public static final String DELEGATED_PASSWORD_HASH = "[DELEGATED_TO_AUTH_SERVICE]";
 
     private final UUID id;
-    private String fullName;
+    private final String fullName;
     private final Cpf cpf;
     private Email email;
     private Phone phone;
     private final LocalDate birthDate;
     private String passwordHash;
+    private Address address;
     private final Instant createdAt;
     private Instant updatedAt;
 
     /**
-     * Full constructor for reconstitution from persistence.
+     * Full constructor for reconstitution from persistence including Address.
      */
     public Customer(
             UUID id,
@@ -46,6 +48,7 @@ public class Customer implements Serializable {
             Phone phone,
             LocalDate birthDate,
             String passwordHash,
+            Address address,
             Instant createdAt,
             Instant updatedAt
     ) {
@@ -59,8 +62,23 @@ public class Customer implements Serializable {
         this.phone = Objects.requireNonNull(phone, "phone must not be null");
         this.birthDate = Objects.requireNonNull(birthDate, "birthDate must not be null");
         this.passwordHash = (passwordHash != null && !passwordHash.isBlank()) ? passwordHash : DELEGATED_PASSWORD_HASH;
+        this.address = address;
         this.createdAt = Objects.requireNonNull(createdAt, "createdAt must not be null");
         this.updatedAt = Objects.requireNonNull(updatedAt, "updatedAt must not be null");
+    }
+
+    public Customer(
+            UUID id,
+            String fullName,
+            Cpf cpf,
+            Email email,
+            Phone phone,
+            LocalDate birthDate,
+            String passwordHash,
+            Instant createdAt,
+            Instant updatedAt
+    ) {
+        this(id, fullName, cpf, email, phone, birthDate, passwordHash, null, createdAt, updatedAt);
     }
 
     public Customer(
@@ -73,7 +91,7 @@ public class Customer implements Serializable {
             Instant createdAt,
             Instant updatedAt
     ) {
-        this(id, fullName, cpf, email, phone, birthDate, DELEGATED_PASSWORD_HASH, createdAt, updatedAt);
+        this(id, fullName, cpf, email, phone, birthDate, DELEGATED_PASSWORD_HASH, null, createdAt, updatedAt);
     }
 
     /**
@@ -86,19 +104,8 @@ public class Customer implements Serializable {
             Email email,
             Phone phone,
             LocalDate birthDate,
-            Instant now
-    ) {
-        return create(id, fullName, cpf, email, phone, birthDate, DELEGATED_PASSWORD_HASH, now);
-    }
-
-    public static Customer create(
-            UUID id,
-            String fullName,
-            Cpf cpf,
-            Email email,
-            Phone phone,
-            LocalDate birthDate,
             String passwordHash,
+            Address address,
             Instant now
     ) {
         Objects.requireNonNull(birthDate, "birthDate must not be null");
@@ -121,9 +128,35 @@ public class Customer implements Serializable {
                 phone,
                 birthDate,
                 passwordHash != null && !passwordHash.isBlank() ? passwordHash : DELEGATED_PASSWORD_HASH,
+                address,
                 now,
                 now
         );
+    }
+
+    public static Customer create(
+            UUID id,
+            String fullName,
+            Cpf cpf,
+            Email email,
+            Phone phone,
+            LocalDate birthDate,
+            String passwordHash,
+            Instant now
+    ) {
+        return create(id, fullName, cpf, email, phone, birthDate, passwordHash, null, now);
+    }
+
+    public static Customer create(
+            UUID id,
+            String fullName,
+            Cpf cpf,
+            Email email,
+            Phone phone,
+            LocalDate birthDate,
+            Instant now
+    ) {
+        return create(id, fullName, cpf, email, phone, birthDate, DELEGATED_PASSWORD_HASH, null, now);
     }
 
     public static Customer create(
@@ -133,7 +166,7 @@ public class Customer implements Serializable {
             Phone phone,
             LocalDate birthDate
     ) {
-        return create(UUID.randomUUID(), fullName, cpf, email, phone, birthDate, DELEGATED_PASSWORD_HASH, Instant.now());
+        return create(UUID.randomUUID(), fullName, cpf, email, phone, birthDate, DELEGATED_PASSWORD_HASH, null, Instant.now());
     }
 
     public void updateEmail(Email email, Instant now) {
@@ -146,6 +179,18 @@ public class Customer implements Serializable {
         this.updatedAt = Objects.requireNonNull(now, "now must not be null");
     }
 
+    public void updateAddress(Address address, Instant now) {
+        this.address = Objects.requireNonNull(address, "address must not be null");
+        this.updatedAt = Objects.requireNonNull(now, "now must not be null");
+    }
+
+    public void updateProfile(Phone phone, Email email, Address address, Instant now) {
+        this.phone = Objects.requireNonNull(phone, "phone must not be null");
+        this.email = Objects.requireNonNull(email, "email must not be null");
+        this.address = Objects.requireNonNull(address, "address must not be null");
+        this.updatedAt = Objects.requireNonNull(now, "now must not be null");
+    }
+
     // Standard JavaBeans getters
     public UUID getId() { return id; }
     public String getFullName() { return fullName; }
@@ -154,6 +199,7 @@ public class Customer implements Serializable {
     public Phone getPhone() { return phone; }
     public LocalDate getBirthDate() { return birthDate; }
     public String getPasswordHash() { return passwordHash; }
+    public Address getAddress() { return address; }
     public Instant getCreatedAt() { return createdAt; }
     public Instant getUpdatedAt() { return updatedAt; }
 
@@ -165,6 +211,7 @@ public class Customer implements Serializable {
     public Phone phone() { return phone; }
     public LocalDate birthDate() { return birthDate; }
     public String passwordHash() { return passwordHash; }
+    public Address address() { return address; }
     public Instant createdAt() { return createdAt; }
     public Instant updatedAt() { return updatedAt; }
 }

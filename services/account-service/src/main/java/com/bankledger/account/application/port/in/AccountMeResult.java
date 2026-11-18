@@ -1,6 +1,7 @@
 package com.bankledger.account.application.port.in;
 
 import com.bankledger.account.domain.model.AccountStatus;
+import com.bankledger.account.domain.vo.Address;
 
 import java.time.Instant;
 import java.util.Objects;
@@ -19,7 +20,10 @@ public record AccountMeResult(
         Instant createdAt,
         String holderName,
         String holderCpf,
-        String holderEmail
+        String holderEmail,
+        String holderPhone,
+        Address address,
+        Long dailyTransferLimitCents
 ) {
 
     public AccountMeResult {
@@ -33,6 +37,35 @@ public record AccountMeResult(
         Objects.requireNonNull(holderName, "holderName must not be null");
         Objects.requireNonNull(holderCpf, "holderCpf must not be null");
         Objects.requireNonNull(holderEmail, "holderEmail must not be null");
+    }
+
+    public AccountMeResult(
+            UUID accountId,
+            UUID customerId,
+            String branch,
+            String accountNumber,
+            String checkDigit,
+            AccountStatus status,
+            Instant createdAt,
+            String holderName,
+            String holderCpf,
+            String holderEmail
+    ) {
+        this(
+                accountId,
+                customerId,
+                branch,
+                accountNumber,
+                checkDigit,
+                status,
+                createdAt,
+                holderName,
+                holderCpf,
+                holderEmail,
+                null,
+                null,
+                5_000_000L
+        );
     }
 
     public String agency() {

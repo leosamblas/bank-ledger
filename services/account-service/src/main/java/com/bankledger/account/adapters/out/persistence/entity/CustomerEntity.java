@@ -1,6 +1,7 @@
 package com.bankledger.account.adapters.out.persistence.entity;
 
 import com.bankledger.account.domain.model.Customer;
+import com.bankledger.account.domain.vo.Address;
 import com.bankledger.account.domain.vo.Cpf;
 import com.bankledger.account.domain.vo.Email;
 import com.bankledger.account.domain.vo.Phone;
@@ -60,6 +61,27 @@ public class CustomerEntity {
     @Column(name = "password_hash", nullable = false, length = 255)
     private String passwordHash;
 
+    @Column(name = "postal_code", length = 9)
+    private String postalCode;
+
+    @Column(name = "street", length = 150)
+    private String street;
+
+    @Column(name = "number", length = 20)
+    private String number;
+
+    @Column(name = "complement", length = 100)
+    private String complement;
+
+    @Column(name = "neighborhood", length = 100)
+    private String neighborhood;
+
+    @Column(name = "city", length = 100)
+    private String city;
+
+    @Column(name = "state", length = 2)
+    private String state;
+
     @Column(name = "failed_login_attempts", nullable = false)
     @Builder.Default
     private int failedLoginAttempts = 0;
@@ -78,6 +100,11 @@ public class CustomerEntity {
     private Instant updatedAt;
 
     public Customer toDomain() {
+        Address domainAddress = null;
+        if (postalCode != null && !postalCode.isBlank() && street != null && !street.isBlank()) {
+            domainAddress = Address.of(postalCode, street, number, complement, neighborhood, city, state);
+        }
+
         return new Customer(
                 id,
                 fullName,
@@ -86,6 +113,7 @@ public class CustomerEntity {
                 Phone.of(phone),
                 birthDate,
                 passwordHash != null && !passwordHash.isBlank() ? passwordHash : DELEGATED_PASSWORD_HASH,
+                domainAddress,
                 createdAt,
                 updatedAt
         );
@@ -99,6 +127,8 @@ public class CustomerEntity {
                 ? domain.passwordHash()
                 : DELEGATED_PASSWORD_HASH;
 
+        Address addr = domain.address();
+
         return CustomerEntity.builder()
                 .id(domain.id())
                 .fullName(domain.fullName())
@@ -107,6 +137,13 @@ public class CustomerEntity {
                 .phone(domain.phone().value())
                 .birthDate(domain.birthDate())
                 .passwordHash(effectivePasswordHash)
+                .postalCode(addr != null ? addr.postalCode() : null)
+                .street(addr != null ? addr.street() : null)
+                .number(addr != null ? addr.number() : null)
+                .complement(addr != null ? addr.complement() : null)
+                .neighborhood(addr != null ? addr.neighborhood() : null)
+                .city(addr != null ? addr.city() : null)
+                .state(addr != null ? addr.state() : null)
                 .failedLoginAttempts(0)
                 .lockedUntil(null)
                 .createdAt(domain.createdAt())

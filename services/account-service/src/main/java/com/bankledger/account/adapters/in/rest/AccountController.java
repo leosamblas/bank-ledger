@@ -1,8 +1,11 @@
 package com.bankledger.account.adapters.in.rest;
 
 import com.bankledger.account.adapters.in.rest.dto.AccountCreationRequest;
+import com.bankledger.account.adapters.in.rest.dto.AccountLookupRequest;
 import com.bankledger.account.adapters.in.rest.dto.AccountLookupResponse;
 import com.bankledger.account.adapters.in.rest.dto.AccountResponse;
+import com.bankledger.account.adapters.in.rest.dto.AddressDto;
+import com.bankledger.account.adapters.in.rest.dto.UpdateProfileRequest;
 import com.bankledger.account.application.port.in.*;
 import com.bankledger.commons.security.CommonAuthenticatedUser;
 import com.bankledger.commons.security.SecurityConstants;
@@ -21,12 +24,24 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/v1/accounts")
-@RequiredArgsConstructor
 public class AccountController {
 
     private final CreateAccountUseCase createAccountUseCase;
     private final GetAccountMeUseCase getAccountMeUseCase;
     private final LookupAccountUseCase lookupAccountUseCase;
+    private final UpdateProfileUseCase updateProfileUseCase;
+
+    public AccountController(
+            CreateAccountUseCase createAccountUseCase,
+            GetAccountMeUseCase getAccountMeUseCase,
+            LookupAccountUseCase lookupAccountUseCase,
+            UpdateProfileUseCase updateProfileUseCase
+    ) {
+        this.createAccountUseCase = createAccountUseCase;
+        this.getAccountMeUseCase = getAccountMeUseCase;
+        this.lookupAccountUseCase = lookupAccountUseCase;
+        this.updateProfileUseCase = updateProfileUseCase;
+    }
 
     @PostMapping
     public ResponseEntity<AccountResponse> createAccount(@Valid @RequestBody AccountCreationRequest request) {
@@ -71,6 +86,63 @@ public class AccountController {
         }
         AccountMeResult result = getAccountMeUseCase.getAccountMe(principal.accountId());
         return ResponseEntity.ok(toAccountResponse(result));
+    }
+
+    @PutMapping("/me/profile")
+    public ResponseEntity<?> updateProfile(
+            @Valid @RequestBody UpdateProfileRequest request,
+            @AuthenticationPrincipal CommonAuthenticatedUser user,
+            Authentication authentication
+    ) {
+        CommonAuthenticatedUser principal = resolvePrincipal(user, authentication);
+        if (principal == null || principal.accountId() == null) {
+            ProblemDetail problem = ProblemDetail.forStatusAndDetail(
+                    HttpStatus.UNAUTHORIZED,
+                    "Authentication is required to access this resource"
+            );
+            problem.setTitle("Unauthorized");
+            problem.setType(URI.create("about:blank"));
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .contentType(MediaType.APPLICATION_PROBLEM_JSON)
+                    .body(problem);
+        }
+
+        UpdateProfileCommand command = new UpdateProfileCommand(
+                principal.accountId(),
+                request.phone(),
+                request.email(),
+                request.effectivePostalCode(),
+                request.effectiveStreet(),
+                request.effectiveNumber(),
+                request.effectiveComplement(),
+                request.effectiveNeighborhood(),
+                request.effectiveCity(),
+                request.effectiveState()
+        );
+
+        AccountMeResult result = updateProfileUseCase.updateProfile(command);
+        return ResponseEntity.ok(toAccountResponse(result));
+    }
+
+    @PostMapping("/lookup")
+    public ResponseEntity<AccountLookupResponse> lookupAccountSecure(@RequestBody AccountLookupRequest request) {
+        AccountLookupResult result = lookupAccountUseCase.lookup(
+                request.searchType(),
+                request.cpf(),
+                request.agency(),
+                request.accountNumber()
+        );
+        return ResponseEntity.ok(new AccountLookupResponse(
+                result.accountId(),
+                result.branch(),
+                result.accountNumber(),
+                result.checkDigit(),
+                result.holderName(),
+                result.cpf(),
+                result.bankCode(),
+                result.bankName(),
+                result.holderNameMasked()
+        ));
     }
 
     @GetMapping("/lookup")
@@ -143,7 +215,12 @@ public class AccountController {
                 result.digit(),
                 result.status().name(),
                 result.openedAt(),
-                result.holderName()
+                result.holderName(),
+                result.holderCpf(),
+                result.holderEmail(),
+                result.holderPhone(),
+                AddressDto.fromDomain(result.address()),
+                result.dailyTransferLimitCents()
         );
     }
 }

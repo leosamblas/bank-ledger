@@ -16,19 +16,43 @@ public class Account implements Serializable {
     private static final long serialVersionUID = 1L;
 
     public static final String DEFAULT_BRANCH = "0001";
+    public static final long DEFAULT_DAILY_TRANSFER_LIMIT_CENTS = 5_000_000L;
 
     private final UUID id;
     private final UUID customerId;
     private final String branch;
     private final AccountNumber accountNumber;
     private AccountStatus status;
+    private long dailyTransferLimitCents;
     private final Instant createdAt;
     private Instant updatedAt;
     private Instant closedAt;
 
     /**
-     * Full constructor for reconstitution from persistence.
+     * Full constructor for reconstitution from persistence including dailyTransferLimitCents.
      */
+    public Account(
+            UUID id,
+            UUID customerId,
+            String branch,
+            AccountNumber accountNumber,
+            AccountStatus status,
+            long dailyTransferLimitCents,
+            Instant createdAt,
+            Instant updatedAt,
+            Instant closedAt
+    ) {
+        this.id = Objects.requireNonNull(id, "id must not be null");
+        this.customerId = Objects.requireNonNull(customerId, "customerId must not be null");
+        this.branch = branch != null && !branch.isBlank() ? branch.trim() : DEFAULT_BRANCH;
+        this.accountNumber = Objects.requireNonNull(accountNumber, "accountNumber must not be null");
+        this.status = Objects.requireNonNull(status, "status must not be null");
+        this.dailyTransferLimitCents = dailyTransferLimitCents;
+        this.createdAt = Objects.requireNonNull(createdAt, "createdAt must not be null");
+        this.updatedAt = Objects.requireNonNull(updatedAt, "updatedAt must not be null");
+        this.closedAt = closedAt;
+    }
+
     public Account(
             UUID id,
             UUID customerId,
@@ -39,14 +63,7 @@ public class Account implements Serializable {
             Instant updatedAt,
             Instant closedAt
     ) {
-        this.id = Objects.requireNonNull(id, "id must not be null");
-        this.customerId = Objects.requireNonNull(customerId, "customerId must not be null");
-        this.branch = branch != null && !branch.isBlank() ? branch.trim() : DEFAULT_BRANCH;
-        this.accountNumber = Objects.requireNonNull(accountNumber, "accountNumber must not be null");
-        this.status = Objects.requireNonNull(status, "status must not be null");
-        this.createdAt = Objects.requireNonNull(createdAt, "createdAt must not be null");
-        this.updatedAt = Objects.requireNonNull(updatedAt, "updatedAt must not be null");
-        this.closedAt = closedAt;
+        this(id, customerId, branch, accountNumber, status, DEFAULT_DAILY_TRANSFER_LIMIT_CENTS, createdAt, updatedAt, closedAt);
     }
 
     /**
@@ -57,6 +74,7 @@ public class Account implements Serializable {
             UUID customerId,
             String branch,
             AccountNumber accountNumber,
+            long dailyTransferLimitCents,
             Instant now
     ) {
         Objects.requireNonNull(customerId, "customerId must not be null");
@@ -78,18 +96,37 @@ public class Account implements Serializable {
                 accountBranch,
                 accountNumber,
                 AccountStatus.ACTIVE,
+                dailyTransferLimitCents,
                 now,
                 now,
                 null
         );
     }
 
+    public static Account create(
+            UUID id,
+            UUID customerId,
+            String branch,
+            AccountNumber accountNumber,
+            Instant now
+    ) {
+        return create(id, customerId, branch, accountNumber, DEFAULT_DAILY_TRANSFER_LIMIT_CENTS, now);
+    }
+
     public static Account create(UUID customerId, AccountNumber accountNumber, Instant now) {
-        return create(UUID.randomUUID(), customerId, DEFAULT_BRANCH, accountNumber, now);
+        return create(UUID.randomUUID(), customerId, DEFAULT_BRANCH, accountNumber, DEFAULT_DAILY_TRANSFER_LIMIT_CENTS, now);
     }
 
     public static Account create(UUID customerId, AccountNumber accountNumber) {
-        return create(UUID.randomUUID(), customerId, DEFAULT_BRANCH, accountNumber, Instant.now());
+        return create(UUID.randomUUID(), customerId, DEFAULT_BRANCH, accountNumber, DEFAULT_DAILY_TRANSFER_LIMIT_CENTS, Instant.now());
+    }
+
+    public void updateDailyTransferLimit(long newLimitCents, Instant now) {
+        if (newLimitCents < 0) {
+            throw new IllegalArgumentException("dailyTransferLimitCents cannot be negative");
+        }
+        this.dailyTransferLimitCents = newLimitCents;
+        this.updatedAt = Objects.requireNonNull(now, "now must not be null");
     }
 
     /**
@@ -143,6 +180,7 @@ public class Account implements Serializable {
     public String getBranch() { return branch; }
     public AccountNumber getAccountNumber() { return accountNumber; }
     public AccountStatus getStatus() { return status; }
+    public long getDailyTransferLimitCents() { return dailyTransferLimitCents; }
     public Instant getCreatedAt() { return createdAt; }
     public Instant getUpdatedAt() { return updatedAt; }
     public Instant getClosedAt() { return closedAt; }
@@ -153,6 +191,7 @@ public class Account implements Serializable {
     public String branch() { return branch; }
     public AccountNumber accountNumber() { return accountNumber; }
     public AccountStatus status() { return status; }
+    public long dailyTransferLimitCents() { return dailyTransferLimitCents; }
     public Instant createdAt() { return createdAt; }
     public Instant updatedAt() { return updatedAt; }
     public Instant closedAt() { return closedAt; }

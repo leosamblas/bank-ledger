@@ -8,4 +8,6 @@ public interface LookupAccountUseCase {
     AccountLookupResult lookup(LookupAccountQuery query);
 
     AccountLookupResult lookup(String branch, String accountNumber);
+
+    AccountLookupResult lookup(String searchType, String cpf, String agency, String accountNumber);
 }

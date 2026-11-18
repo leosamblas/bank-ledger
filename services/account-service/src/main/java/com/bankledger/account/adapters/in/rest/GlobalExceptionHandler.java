@@ -68,7 +68,8 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
             InvalidCpfException.class,
             InvalidEmailException.class,
             InvalidPhoneException.class,
-            InvalidAccountNumberException.class
+            InvalidAccountNumberException.class,
+            InvalidAddressException.class
     })
     public ResponseEntity<ProblemDetail> handleUnprocessableEntity(DomainException ex) {
         HttpStatus status = HttpStatus.valueOf(422);

@@ -215,8 +215,7 @@ function TransferContent() {
       });
 
       if (tx.status === 'COMPLETED') {
-        const todayStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
-        const suffix = tx.id.replace(/-/g, '').slice(0, 6).toUpperCase();
+        const protocol = tx.id || generateUUID();
         const receiptItem: StatementItem = {
           id: tx.id,
           sequence: 0,
@@ -233,7 +232,7 @@ function TransferContent() {
           amountCents: tx.amount || amountCents,
           balanceAfterCents: Math.max(0, balance.availableCents - amountCents),
           idempotencyKey: activeIdempotencyKey,
-          protocolNumber: `PRT-${todayStr}-${suffix}`,
+          protocolNumber: protocol,
         };
 
         setSuccessItem(receiptItem);

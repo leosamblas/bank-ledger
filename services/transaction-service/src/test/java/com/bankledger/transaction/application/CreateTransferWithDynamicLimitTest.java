@@ -28,7 +28,6 @@ import java.time.Instant;
 import java.time.ZoneId;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.regex.Pattern;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -41,8 +40,6 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 @DisplayName("Dynamic Database Limit Validation & Canonical Banking Protocol Tests")
 class CreateTransferWithDynamicLimitTest {
-
-    private static final Pattern PROTOCOL_PATTERN = Pattern.compile("^PRT-\\d{8}-[0-9A-F]{6}$");
 
     @Mock
     private TransactionRepositoryPort transactionRepositoryPort;
@@ -114,8 +111,7 @@ class CreateTransferWithDynamicLimitTest {
         assertThat(result.getType()).isEqualTo(TransactionType.TRANSFER);
         assertThat(result.getStatus()).isEqualTo(TransactionStatus.PENDING);
         assertThat(result.getProtocolNumber()).isNotNull();
-        assertThat(result.getProtocolNumber()).matches(PROTOCOL_PATTERN);
-        assertThat(result.getProtocolNumber()).startsWith("PRT-20261118-");
+        assertThat(UUID.fromString(result.getProtocolNumber())).isNotNull();
 
         // 2. Transfer R$ 11.000,00 (1.100.000 cents) -> Should reject with DailyLimitExceededException
         CreateTransferCommand command11k = new CreateTransferCommand(
@@ -168,8 +164,8 @@ class CreateTransferWithDynamicLimitTest {
 
         assertThat(result).isNotNull();
         assertThat(result.getAmount()).isEqualTo(15_000_000L);
-        assertThat(result.getProtocolNumber()).matches(PROTOCOL_PATTERN);
-        assertThat(result.getProtocolNumber()).startsWith("PRT-20261118-");
+        assertThat(result.getProtocolNumber()).isNotNull();
+        assertThat(UUID.fromString(result.getProtocolNumber())).isNotNull();
 
         ArgumentCaptor<FinancialTransaction> txCaptor = ArgumentCaptor.forClass(FinancialTransaction.class);
         verify(transactionRepositoryPort).save(txCaptor.capture());

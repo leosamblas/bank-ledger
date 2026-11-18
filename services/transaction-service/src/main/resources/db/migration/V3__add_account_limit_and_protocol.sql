@@ -9,7 +9,7 @@ CREATE TABLE IF NOT EXISTS account_limit (
 );
 
 ALTER TABLE financial_transaction
-    ADD COLUMN IF NOT EXISTS protocol_number VARCHAR(30);
+    ADD COLUMN IF NOT EXISTS protocol_number VARCHAR(64);
 
 CREATE INDEX IF NOT EXISTS ix_tx_protocol ON financial_transaction (protocol_number);
 CREATE INDEX IF NOT EXISTS ix_tx_daily_limit ON financial_transaction (source_account_id, type, status, created_at);

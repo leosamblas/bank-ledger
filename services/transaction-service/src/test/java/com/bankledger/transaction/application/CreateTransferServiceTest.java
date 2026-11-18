@@ -102,7 +102,8 @@ class CreateTransferServiceTest {
         assertThat(result.getRequestedBy()).isEqualTo(customerId);
         assertThat(result.getCorrelationId()).isEqualTo(correlationId);
         assertThat(result.getCreatedAt()).isEqualTo(fixedInstant);
-        assertThat(result.getProtocolNumber()).isNotNull().startsWith("PRT-");
+        assertThat(result.getProtocolNumber()).isNotNull();
+        assertThat(UUID.fromString(result.getProtocolNumber())).isNotNull();
 
         // Verify transaction saved
         ArgumentCaptor<FinancialTransaction> txCaptor = ArgumentCaptor.forClass(FinancialTransaction.class);

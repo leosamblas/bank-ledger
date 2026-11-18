@@ -66,7 +66,7 @@ public class StatementEntryEntity {
     @Column(name = "counterparty_account", length = 40)
     private String counterpartyAccount;
 
-    @Column(name = "protocol_number", length = 30)
+    @Column(name = "protocol_number", length = 64)
     private String protocolNumber;
 
     @Column(name = "description", length = 140)

@@ -295,9 +295,7 @@ export function useBanking() {
       const resolvedTx = await transactionService.pollTransactionUntilResolved(initialTx.id);
 
       if (resolvedTx.status === 'COMPLETED') {
-        const todayStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
-        const suffix = resolvedTx.id.replace(/-/g, '').slice(0, 6).toUpperCase();
-        const protocol = `PRT-${todayStr}-${suffix}`;
+        const protocol = resolvedTx.id || generateUUID();
 
         const newUsedToday = globalBalance.usedTodayCents + params.amountCents;
         const newAvailableLimit = Math.max(0, globalBalance.dailyLimitCents - newUsedToday);

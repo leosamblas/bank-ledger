@@ -133,5 +133,5 @@ test('TransferPage - transfer payload includes counterparty details and protocol
   assert.ok(content.includes('destinationHolderName: details.holderName'), 'Must forward recipient name');
   assert.ok(content.includes('destinationDocument: details.formattedCpf'), 'Must forward recipient document');
   assert.ok(content.includes('destinationAccountFormatted: details.accountString'), 'Must forward recipient account details');
-  assert.ok(content.includes('protocolNumber: `PRT-${todayStr}-${suffix}`'), 'Must produce canonical protocol number on receipt');
+  assert.ok(content.includes('protocolNumber: protocol'), 'Must produce protocol number on receipt');
 });

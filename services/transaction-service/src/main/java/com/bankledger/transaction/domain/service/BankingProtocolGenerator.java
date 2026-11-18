@@ -1,68 +1,50 @@
 package com.bankledger.transaction.domain.service;
 
-import java.security.SecureRandom;
 import java.time.Clock;
 import java.time.LocalDate;
-import java.time.ZoneId;
-import java.time.format.DateTimeFormatter;
-import java.util.Objects;
 import java.util.UUID;
 
 /**
- * Domain service responsible for generating canonical banking audit protocol numbers.
- * Format: PRT-YYYYMMDD-XXXXXX (e.g. PRT-20261118-9F8A2D)
- * Pure domain logic: no framework dependencies.
+ * Domain service responsible for generating banking audit protocol numbers using UUIDs.
+ * Simple, robust, and zero-complexity implementation.
  */
 public class BankingProtocolGenerator {
 
-    private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyyMMdd");
-    private static final SecureRandom RANDOM = new SecureRandom();
-    private static final ZoneId DEFAULT_ZONE = ZoneId.of("America/Sao_Paulo");
-
-    private final Clock clock;
-
     public BankingProtocolGenerator() {
-        this(Clock.system(DEFAULT_ZONE));
     }
 
     public BankingProtocolGenerator(Clock clock) {
-        this.clock = clock != null ? clock : Clock.system(DEFAULT_ZONE);
+        // Kept for backward compatibility in constructor injection and existing tests
     }
 
     /**
-     * Generates a protocol number using the current date in America/Sao_Paulo.
+     * Generates a unique banking protocol number as a standard UUID string.
      */
     public String generate() {
-        return generate(LocalDate.now(clock));
+        return UUID.randomUUID().toString();
     }
 
     /**
-     * Generates a protocol number for a specified date.
+     * Generates a protocol number using an optional seed UUID, or creates a new random UUID if seed is null.
      *
-     * @param date Date for the protocol timestamp
-     * @return Formatted protocol string
+     * @param seed Optional UUID seed (e.g. transactionId)
+     * @return Formatted UUID protocol string
+     */
+    public String generate(UUID seed) {
+        return (seed != null ? seed : UUID.randomUUID()).toString();
+    }
+
+    /**
+     * Legacy overload for backward compatibility with date-based callers.
      */
     public String generate(LocalDate date) {
-        return generate(date, null);
+        return generate();
     }
 
     /**
-     * Generates a protocol number for a specified date, optionally seeded with a unique UUID
-     * to prevent concurrency collisions and enable deterministic cross-service correlation.
-     *
-     * @param date Date for the protocol timestamp
-     * @param seed Optional UUID seed (e.g. transactionId)
-     * @return Formatted protocol string
+     * Legacy overload for backward compatibility with date-and-seed callers.
      */
     public String generate(LocalDate date, UUID seed) {
-        Objects.requireNonNull(date, "date must not be null");
-        String suffix;
-        if (seed != null) {
-            suffix = seed.toString().replace("-", "").substring(0, 6).toUpperCase();
-        } else {
-            int randomVal = RANDOM.nextInt(0x1000000); // 24 bits -> 6 hex chars
-            suffix = String.format("%06X", randomVal);
-        }
-        return String.format("PRT-%s-%s", date.format(DATE_FORMATTER), suffix);
+        return generate(seed);
     }
 }

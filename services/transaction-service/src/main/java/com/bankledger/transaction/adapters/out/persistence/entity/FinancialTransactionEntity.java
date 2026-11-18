@@ -76,7 +76,7 @@ public class FinancialTransactionEntity {
     @Column(name = "correlation_id", nullable = false)
     private UUID correlationId;
 
-    @Column(name = "protocol_number", length = 30)
+    @Column(name = "protocol_number", length = 64)
     private String protocolNumber;
 
     @Column(name = "created_at", nullable = false)

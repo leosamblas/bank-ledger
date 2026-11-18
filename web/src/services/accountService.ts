@@ -77,6 +77,7 @@ export const accountService = {
       digit: randomDigit,
       status: 'PENDING_ACTIVATION',
       openedAt: new Date().toISOString(),
+      birthDate: '1990-05-15',
     };
 
     return mockAccount;
@@ -96,6 +97,7 @@ export const accountService = {
         digit: '3',
         status: 'ACTIVE',
         openedAt: new Date().toISOString(),
+        birthDate: '1990-05-15',
       };
     }
 

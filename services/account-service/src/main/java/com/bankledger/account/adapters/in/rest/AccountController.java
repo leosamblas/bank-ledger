@@ -194,6 +194,7 @@ public class AccountController {
                 result.holderCpf(),
                 result.holderEmail(),
                 result.holderPhone(),
+                result.birthDate(),
                 AddressDto.fromDomain(result.address()),
                 result.dailyTransferLimitCents()
         );

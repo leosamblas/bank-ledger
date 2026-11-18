@@ -4,6 +4,7 @@ import com.bankledger.account.domain.model.AccountStatus;
 import com.bankledger.account.domain.vo.Address;
 
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.Objects;
 import java.util.UUID;
 
@@ -22,6 +23,7 @@ public record AccountMeResult(
         String holderCpf,
         String holderEmail,
         String holderPhone,
+        LocalDate birthDate,
         Address address,
         Long dailyTransferLimitCents
 ) {
@@ -49,6 +51,39 @@ public record AccountMeResult(
             Instant createdAt,
             String holderName,
             String holderCpf,
+            String holderEmail,
+            String holderPhone,
+            Address address,
+            Long dailyTransferLimitCents
+    ) {
+        this(
+                accountId,
+                customerId,
+                branch,
+                accountNumber,
+                checkDigit,
+                status,
+                createdAt,
+                holderName,
+                holderCpf,
+                holderEmail,
+                holderPhone,
+                null,
+                address,
+                dailyTransferLimitCents
+        );
+    }
+
+    public AccountMeResult(
+            UUID accountId,
+            UUID customerId,
+            String branch,
+            String accountNumber,
+            String checkDigit,
+            AccountStatus status,
+            Instant createdAt,
+            String holderName,
+            String holderCpf,
             String holderEmail
     ) {
         this(
@@ -62,6 +97,7 @@ public record AccountMeResult(
                 holderName,
                 holderCpf,
                 holderEmail,
+                null,
                 null,
                 null,
                 5_000_000L

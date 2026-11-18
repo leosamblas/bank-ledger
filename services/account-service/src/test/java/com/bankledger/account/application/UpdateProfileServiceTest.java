@@ -107,6 +107,7 @@ class UpdateProfileServiceTest {
         assertThat(result.address()).isNotNull();
         assertThat(result.address().street()).isEqualTo("Avenida Paulista");
         assertThat(result.address().number()).isEqualTo("1500");
+        assertThat(result.birthDate()).isEqualTo(LocalDate.of(1990, 5, 15));
     }
 
     @Test

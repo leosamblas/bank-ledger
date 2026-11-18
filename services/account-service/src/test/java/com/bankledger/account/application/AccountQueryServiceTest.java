@@ -164,6 +164,7 @@ class AccountQueryServiceTest {
         assertThat(result.holderName()).isEqualTo("Carlos Eduardo Silva");
         assertThat(result.holderCpf()).isEqualTo("52998224725");
         assertThat(result.holderEmail()).isEqualTo("carlos@example.com");
+        assertThat(result.birthDate()).isEqualTo(LocalDate.of(1990, 1, 1));
     }
 
     @Test
@@ -194,5 +195,6 @@ class AccountQueryServiceTest {
         assertThat(result.accountId()).isEqualTo(accountId);
         assertThat(result.customerId()).isEqualTo(customerId);
         assertThat(result.holderName()).isEqualTo("Carlos Eduardo Silva");
+        assertThat(result.birthDate()).isEqualTo(LocalDate.of(1990, 1, 1));
     }
 }

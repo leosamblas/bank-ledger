@@ -76,6 +76,7 @@ public class UpdateProfileService implements UpdateProfileUseCase {
                 savedCustomer.getCpf().value(),
                 savedCustomer.getEmail().value(),
                 savedCustomer.getPhone().value(),
+                savedCustomer.getBirthDate(),
                 savedCustomer.getAddress(),
                 account.getDailyTransferLimitCents()
         );

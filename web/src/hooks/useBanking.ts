@@ -41,6 +41,7 @@ const INITIAL_ACCOUNT: BankingAccountInfo = {
   holderName: 'Carregando...',
   companyName: 'Nexus Bank S.A.',
   cpfMasked: '***.***.***-**',
+  birthDate: '',
   status: 'ACTIVE',
 };
 

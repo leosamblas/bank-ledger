@@ -132,6 +132,7 @@ public class AccountQueryService implements GetAccountMeUseCase, LookupAccountUs
                 customer.getCpf().value(),
                 customer.getEmail().value(),
                 customer.getPhone() != null ? customer.getPhone().value() : null,
+                customer.getBirthDate(),
                 customer.getAddress(),
                 account.getDailyTransferLimitCents()
         );
@@ -159,6 +160,7 @@ public class AccountQueryService implements GetAccountMeUseCase, LookupAccountUs
                 customer.getCpf().value(),
                 customer.getEmail().value(),
                 customer.getPhone() != null ? customer.getPhone().value() : null,
+                customer.getBirthDate(),
                 customer.getAddress(),
                 account.getDailyTransferLimitCents()
         );

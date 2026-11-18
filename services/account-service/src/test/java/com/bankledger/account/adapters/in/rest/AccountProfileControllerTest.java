@@ -29,6 +29,7 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import tools.jackson.databind.json.JsonMapper;
 
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -267,6 +268,7 @@ class AccountProfileControllerTest {
                     "52998224725",
                     "carlos@example.com",
                     "+5511987654321",
+                    LocalDate.of(1990, 5, 15),
                     address,
                     10_000_000L
             );
@@ -285,6 +287,7 @@ class AccountProfileControllerTest {
                     .andExpect(jsonPath("$.cpf").value("52998224725"))
                     .andExpect(jsonPath("$.email").value("carlos@example.com"))
                     .andExpect(jsonPath("$.phone").value("+5511987654321"))
+                    .andExpect(jsonPath("$.birthDate").value("1990-05-15"))
                     .andExpect(jsonPath("$.address.postalCode").value("01310-100"))
                     .andExpect(jsonPath("$.address.street").value("Avenida Paulista"))
                     .andExpect(jsonPath("$.dailyTransferLimitCents").value(10000000));

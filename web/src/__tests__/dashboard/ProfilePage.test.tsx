@@ -7,6 +7,7 @@ import {
   formatCep,
   validateEmail,
   fetchAddressByCep,
+  formatDisplayDate,
 } from '../../app/dashboard/profile/page';
 import { accountService } from '../../services/accountService';
 import { UpdateProfileRequest } from '../../services/types';
@@ -35,6 +36,12 @@ test('ProfilePage - Input Masks & Formatters', () => {
   assert.strictEqual(formatCep('01310-100'), '01310-100');
   assert.strictEqual(formatCep('01310'), '01310');
   assert.strictEqual(formatCep(''), '');
+
+  // Data de Nascimento display formatter (YYYY-MM-DD -> DD/MM/YYYY)
+  assert.strictEqual(formatDisplayDate('1990-05-15'), '15/05/1990');
+  assert.strictEqual(formatDisplayDate('1985-12-01'), '01/12/1985');
+  assert.strictEqual(formatDisplayDate(''), '-');
+  assert.strictEqual(formatDisplayDate(undefined), '-');
 });
 
 test('ProfilePage - Email Validation', () => {

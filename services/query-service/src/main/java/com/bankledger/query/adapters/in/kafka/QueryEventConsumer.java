@@ -169,6 +169,7 @@ public class QueryEventConsumer {
                     .balance(0L)
                     .currency("BRL")
                     .lastSequence(0L)
+                    .dailyTransferLimitCents(5_000_000L)
                     .updatedAt(timestamp)
                     .build();
             accountBalanceRepository.save(entity);
@@ -227,6 +228,7 @@ public class QueryEventConsumer {
                         .balance(0L)
                         .currency("BRL")
                         .lastSequence(0L)
+                        .dailyTransferLimitCents(5_000_000L)
                         .updatedAt(Instant.now())
                         .build());
 
@@ -282,7 +284,9 @@ public class QueryEventConsumer {
 
         String counterpartyName = dto.counterpartyName();
         String counterpartyDocumentMasked = dto.counterpartyDocumentMasked();
+        String counterpartyDocument = dto.counterpartyDocument();
         String counterpartyAccount = dto.counterpartyAccount();
+        String protocolNumber = dto.protocolNumber();
         String idempotencyKey = dto.idempotencyKey();
         String failureReason = dto.failureReason();
 
@@ -299,7 +303,9 @@ public class QueryEventConsumer {
                 .balanceAfter(balanceAfter)
                 .counterpartyName(counterpartyName)
                 .counterpartyDocumentMasked(counterpartyDocumentMasked)
+                .counterpartyDocument(counterpartyDocument)
                 .counterpartyAccount(counterpartyAccount)
+                .protocolNumber(protocolNumber)
                 .description(description)
                 .idempotencyKey(idempotencyKey)
                 .failureReason(failureReason)

@@ -17,20 +17,24 @@ public record BalanceResponse(
         Instant updatedAt
 ) implements Serializable {
 
+    public static final long DEFAULT_DAILY_LIMIT_CENTS = 5_000_000L;
+
     public static BalanceResponse of(
             UUID accountId,
             long balance,
             String currency,
             long sequence,
-            Instant updatedAt
+            Instant updatedAt,
+            long dailyLimitCents,
+            long usedTodayCents
     ) {
         return new BalanceResponse(
                 accountId,
                 balance,
                 balance,
                 0L,
-                5000000L,
-                0L,
+                dailyLimitCents > 0 ? dailyLimitCents : DEFAULT_DAILY_LIMIT_CENTS,
+                usedTodayCents,
                 0.0,
                 currency != null ? currency : "BRL",
                 sequence,
@@ -38,7 +42,21 @@ public record BalanceResponse(
         );
     }
 
+    public static BalanceResponse of(
+            UUID accountId,
+            long balance,
+            String currency,
+            long sequence,
+            Instant updatedAt
+    ) {
+        return of(accountId, balance, currency, sequence, updatedAt, DEFAULT_DAILY_LIMIT_CENTS, 0L);
+    }
+
     public static BalanceResponse zero(UUID accountId) {
-        return of(accountId, 0L, "BRL", 0L, Instant.now());
+        return of(accountId, 0L, "BRL", 0L, Instant.now(), DEFAULT_DAILY_LIMIT_CENTS, 0L);
+    }
+
+    public static BalanceResponse zero(UUID accountId, long dailyLimitCents) {
+        return of(accountId, 0L, "BRL", 0L, Instant.now(), dailyLimitCents, 0L);
     }
 }

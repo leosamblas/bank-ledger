@@ -11,8 +11,8 @@ import com.bankledger.query.adapters.out.persistence.StatementEntryEntity;
 import com.bankledger.query.adapters.out.persistence.StatementEntryRepository;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ProblemDetail;
@@ -26,7 +26,9 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.net.URI;
+import java.time.Clock;
 import java.time.Instant;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.UUID;
 
@@ -37,12 +39,33 @@ import java.util.UUID;
 @Slf4j
 @RestController
 @RequestMapping("/api/v1/queries")
-@RequiredArgsConstructor
 @Tag(name = "Query Service", description = "CQRS Read projections for account balances and bank statements")
 public class QueryController {
 
+    private static final ZoneId ZONE_SAO_PAULO = ZoneId.of("America/Sao_Paulo");
+    private static final long DEFAULT_DAILY_LIMIT_CENTS = 5_000_000L;
+
     private final AccountBalanceRepository accountBalanceRepository;
     private final StatementEntryRepository statementEntryRepository;
+    private final Clock clock;
+
+    @Autowired
+    public QueryController(
+            AccountBalanceRepository accountBalanceRepository,
+            StatementEntryRepository statementEntryRepository,
+            Clock clock
+    ) {
+        this.accountBalanceRepository = accountBalanceRepository;
+        this.statementEntryRepository = statementEntryRepository;
+        this.clock = clock != null ? clock : Clock.systemUTC();
+    }
+
+    public QueryController(
+            AccountBalanceRepository accountBalanceRepository,
+            StatementEntryRepository statementEntryRepository
+    ) {
+        this(accountBalanceRepository, statementEntryRepository, Clock.systemUTC());
+    }
 
     @Operation(summary = "Get account balance", description = "Returns available balance, limits, and projection sequence")
     @GetMapping("/accounts/{accountId}/balance")
@@ -59,14 +82,32 @@ public class QueryController {
 
         log.info("Querying balance for accountId={}", accountId);
 
+        Instant now = clock.instant();
+        Instant startOfDay = now.atZone(ZONE_SAO_PAULO)
+                .toLocalDate()
+                .atStartOfDay(ZONE_SAO_PAULO)
+                .toInstant();
+
+        Long usedToday = statementEntryRepository
+                .sumAmountByAccountIdAndDirectionAndCategoryAndPostedAtGreaterThanEqual(
+                        accountId, "DEBIT", "TRANSFER", startOfDay);
+        long usedTodayCents = usedToday != null ? usedToday : 0L;
+
         BalanceResponse response = accountBalanceRepository.findById(accountId)
-                .map(entity -> BalanceResponse.of(
-                        entity.getAccountId(),
-                        entity.getBalance(),
-                        entity.getCurrency(),
-                        entity.getLastSequence(),
-                        entity.getUpdatedAt()
-                ))
+                .map(entity -> {
+                    long limit = entity.getDailyTransferLimitCents() > 0
+                            ? entity.getDailyTransferLimitCents()
+                            : DEFAULT_DAILY_LIMIT_CENTS;
+                    return BalanceResponse.of(
+                            entity.getAccountId(),
+                            entity.getBalance(),
+                            entity.getCurrency(),
+                            entity.getLastSequence(),
+                            entity.getUpdatedAt(),
+                            limit,
+                            usedTodayCents
+                    );
+                })
                 .orElseGet(() -> {
                     log.info("No balance found for accountId={}, initializing and returning zero balance", accountId);
                     AccountBalanceEntity zeroEntity = AccountBalanceEntity.builder()
@@ -74,14 +115,23 @@ public class QueryController {
                             .balance(0L)
                             .currency("BRL")
                             .lastSequence(0L)
-                            .updatedAt(Instant.now())
+                            .dailyTransferLimitCents(DEFAULT_DAILY_LIMIT_CENTS)
+                            .updatedAt(now)
                             .build();
                     try {
                         accountBalanceRepository.save(zeroEntity);
                     } catch (Exception ex) {
                         log.debug("Concurrent insertion when initializing zero balance: {}", ex.getMessage());
                     }
-                    return BalanceResponse.zero(accountId);
+                    return BalanceResponse.of(
+                            accountId,
+                            0L,
+                            "BRL",
+                            0L,
+                            now,
+                            DEFAULT_DAILY_LIMIT_CENTS,
+                            usedTodayCents
+                    );
                 });
 
         return ResponseEntity.ok(response);
@@ -202,7 +252,9 @@ public class QueryController {
                 entity.getBalanceAfter(),
                 entity.getBalanceAfter(),
                 entity.getIdempotencyKey(),
-                entity.getFailureReason()
+                entity.getFailureReason(),
+                entity.getProtocolNumber(),
+                entity.getCounterpartyDocument()
         );
     }
 }

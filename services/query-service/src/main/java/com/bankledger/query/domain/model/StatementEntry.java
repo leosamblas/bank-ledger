@@ -25,8 +25,52 @@ public record StatementEntry(
         String description,
         String idempotencyKey,
         String failureReason,
-        Instant postedAt
+        Instant postedAt,
+        String protocolNumber,
+        String counterpartyDocument
 ) implements Serializable {
+
+    public StatementEntry(
+            UUID id,
+            UUID accountId,
+            long sequence,
+            UUID journalId,
+            UUID transactionId,
+            String category,
+            String type,
+            String direction,
+            long amount,
+            long balanceAfter,
+            String counterpartyName,
+            String counterpartyDocumentMasked,
+            String counterpartyAccount,
+            String description,
+            String idempotencyKey,
+            String failureReason,
+            Instant postedAt
+    ) {
+        this(
+                id,
+                accountId,
+                sequence,
+                journalId,
+                transactionId,
+                category,
+                type,
+                direction,
+                amount,
+                balanceAfter,
+                counterpartyName,
+                counterpartyDocumentMasked,
+                counterpartyAccount,
+                description,
+                idempotencyKey,
+                failureReason,
+                postedAt,
+                null,
+                null
+        );
+    }
 
     public StatementEntry {
         Objects.requireNonNull(id, "id must not be null");

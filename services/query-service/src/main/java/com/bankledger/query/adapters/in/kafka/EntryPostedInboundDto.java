@@ -31,6 +31,60 @@ public record EntryPostedInboundDto(
         String counterpartyDocumentMasked,
         String counterpartyAccount,
         String idempotencyKey,
-        String failureReason
+        String failureReason,
+        String protocolNumber,
+        String counterpartyDocument
 ) {
+
+    public EntryPostedInboundDto(
+            UUID id,
+            UUID entryId,
+            UUID accountId,
+            UUID ledgerAccountId,
+            UUID journalId,
+            UUID transactionId,
+            String direction,
+            String entryType,
+            long amount,
+            long sequence,
+            Instant postedAt,
+            Instant timestamp,
+            Instant createdAt,
+            Long balanceAfter,
+            String category,
+            String type,
+            String description,
+            String counterpartyName,
+            String counterpartyDocumentMasked,
+            String counterpartyAccount,
+            String idempotencyKey,
+            String failureReason
+    ) {
+        this(
+                id,
+                entryId,
+                accountId,
+                ledgerAccountId,
+                journalId,
+                transactionId,
+                direction,
+                entryType,
+                amount,
+                sequence,
+                postedAt,
+                timestamp,
+                createdAt,
+                balanceAfter,
+                category,
+                type,
+                description,
+                counterpartyName,
+                counterpartyDocumentMasked,
+                counterpartyAccount,
+                idempotencyKey,
+                failureReason,
+                null,
+                null
+        );
+    }
 }

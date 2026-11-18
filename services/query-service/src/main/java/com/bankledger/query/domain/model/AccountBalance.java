@@ -13,10 +13,22 @@ public record AccountBalance(
         long balance,
         String currency,
         long lastSequence,
-        Instant updatedAt
+        Instant updatedAt,
+        long dailyTransferLimitCents
 ) implements Serializable {
 
     public static final String DEFAULT_CURRENCY = "BRL";
+    public static final long DEFAULT_DAILY_TRANSFER_LIMIT_CENTS = 5_000_000L;
+
+    public AccountBalance(
+            UUID accountId,
+            long balance,
+            String currency,
+            long lastSequence,
+            Instant updatedAt
+    ) {
+        this(accountId, balance, currency, lastSequence, updatedAt, DEFAULT_DAILY_TRANSFER_LIMIT_CENTS);
+    }
 
     public AccountBalance {
         Objects.requireNonNull(accountId, "accountId must not be null");
@@ -26,6 +38,9 @@ public record AccountBalance(
         if (updatedAt == null) {
             updatedAt = Instant.now();
         }
+        if (dailyTransferLimitCents <= 0) {
+            dailyTransferLimitCents = DEFAULT_DAILY_TRANSFER_LIMIT_CENTS;
+        }
     }
 
     public static AccountBalance zero(UUID accountId, Instant now) {
@@ -34,7 +49,8 @@ public record AccountBalance(
                 0L,
                 DEFAULT_CURRENCY,
                 0L,
-                now != null ? now : Instant.now()
+                now != null ? now : Instant.now(),
+                DEFAULT_DAILY_TRANSFER_LIMIT_CENTS
         );
     }
 }

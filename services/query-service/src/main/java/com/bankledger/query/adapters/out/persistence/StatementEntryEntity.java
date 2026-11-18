@@ -60,8 +60,14 @@ public class StatementEntryEntity {
     @Column(name = "counterparty_document_masked", length = 20)
     private String counterpartyDocumentMasked;
 
+    @Column(name = "counterparty_document", length = 20)
+    private String counterpartyDocument;
+
     @Column(name = "counterparty_account", length = 40)
     private String counterpartyAccount;
+
+    @Column(name = "protocol_number", length = 30)
+    private String protocolNumber;
 
     @Column(name = "description", length = 140)
     private String description;
@@ -89,7 +95,9 @@ public class StatementEntryEntity {
                 .balanceAfter(model.balanceAfter())
                 .counterpartyName(model.counterpartyName())
                 .counterpartyDocumentMasked(model.counterpartyDocumentMasked())
+                .counterpartyDocument(model.counterpartyDocument())
                 .counterpartyAccount(model.counterpartyAccount())
+                .protocolNumber(model.protocolNumber())
                 .description(model.description())
                 .idempotencyKey(model.idempotencyKey())
                 .failureReason(model.failureReason())
@@ -115,7 +123,9 @@ public class StatementEntryEntity {
                 description,
                 idempotencyKey,
                 failureReason,
-                postedAt
+                postedAt,
+                protocolNumber,
+                counterpartyDocument
         );
     }
 }

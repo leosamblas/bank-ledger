@@ -42,6 +42,10 @@ public class AccountBalanceEntity {
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
 
+    @Builder.Default
+    @Column(name = "daily_transfer_limit_cents", nullable = false)
+    private long dailyTransferLimitCents = 5_000_000L;
+
     public static AccountBalanceEntity fromDomain(AccountBalance model) {
         return AccountBalanceEntity.builder()
                 .accountId(model.accountId())
@@ -49,6 +53,7 @@ public class AccountBalanceEntity {
                 .currency(model.currency())
                 .lastSequence(model.lastSequence())
                 .updatedAt(model.updatedAt())
+                .dailyTransferLimitCents(model.dailyTransferLimitCents())
                 .build();
     }
 
@@ -58,7 +63,8 @@ public class AccountBalanceEntity {
                 balance,
                 currency,
                 lastSequence,
-                updatedAt
+                updatedAt,
+                dailyTransferLimitCents
         );
     }
 }

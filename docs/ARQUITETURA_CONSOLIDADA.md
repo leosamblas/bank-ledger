@@ -1,7 +1,7 @@
 # Bank Ledger — Arquitetura Consolidada do Sistema
 
 > **Documento Consolidado de Referência Técnica & Contexto para IA e Engenheiros**  
-> *Versão:* 3.0 (Atualizado pós-lease-based outbox, escalabilidade horizontal com réplicas e SMTP condicional)  
+> *Versão:* 4.0 (Atualizado pós-reformulação de regras de negócio, limites diários dinâmicos no banco, perfil com endereço, POST /lookup seguro e protocolo canônico UUID)  
 > *Data de Consolidação:* Novembro de 2026
 
 ---
@@ -377,6 +377,11 @@ stateDiagram-v2
   - Gestão de clientes (`Customer`), documentos (CPF com validação Módulo 11 estrita) e contas (`Account`).
   - **Abertura de Conta 100% Assíncrona:** O método `createAccount` persiste `Customer`, `Account` e dois registros de Outbox atômicos em **< 10ms**, devolvendo a conexão JDBC ao pool imediatamente. Zero chamadas síncronas HTTP bloqueando o banco.
   - Publica `AccountOpened` em `account.events.v1` e credenciais em `auth.credentials-registration.v1` via Outbox Poller.
+  - **Governança de Limites por Conta no Banco de Dados:** Tabela `account_limit` (Flyway V3) com coluna `daily_transfer_limit_cents BIGINT NOT NULL DEFAULT 5000000` (R$ 50.000,00 inicial), parametrizável individualmente por conta e exposta em `GET /api/v1/accounts/me`.
+  - **Gestão de Endereço Residencial do Cliente:** Modelagem de objeto de valor `Address` persistido na tabela `customer` (Flyway V3) contendo `postal_code`, `street`, `number`, `complement`, `neighborhood`, `city` e `state`.
+  - **Consulta Segura de Conta/Destinatário via POST (`POST /api/v1/accounts/lookup`):** Substituição definitiva de parâmetros de query `GET` por payload JSON cifrado via TLS. Aceita busca por par Agência/Conta ou por Chave CPF, retornando dados do favorecido desmascarados para conferência visual segura antes de transferências, eliminando vazamentos de PII em logs de servidores web, proxies e navegadores conforme diretrizes da LGPD e OWASP.
+  - **Endpoint de Edição de Perfil (`PUT /api/v1/accounts/me/profile`):** Atualização assistida de telefone, e-mail e endereço residencial com validações de unicidade e garantia rigorosa de imutabilidade de CPF, Nome Completo e Data de Nascimento.
+  - **Consulta Enriquecida de Perfil (`GET /api/v1/accounts/me`):** Retorna os dados completos do titular, incluindo dados bancários, de contato, endereço residencial, limite diário aprovado e data de nascimento (`birthDate`).
   - **Escalabilidade Horizontal Multi-Instância:** Suporta execução de múltiplas instâncias simultâneas (1 primária na porta fixa 8081 + N réplicas em portas dinâmicas sob o alias de rede Docker `account-service`). A concorrência entre os pollers de cada instância é protegida pelo mecanismo de lease atômico (`locked_until`), garantindo que apenas uma instância reivindique e publique cada evento no Kafka, sem mensagens duplicadas.
 
 #### 3. `transaction-service` (Porta 8082)
@@ -386,6 +391,9 @@ stateDiagram-v2
   - **Idempotência em Dois Níveis:**
     - *Tier 1 (Redis):* Lock atômico `SET lock:idempotency:{key} {worker} NX EX 60` para rejeição instantânea de requisições concorrentes idênticas (`409 Conflict`).
     - *Tier 2 (PostgreSQL):* Registro durável com hash SHA-256 do payload, status e resposta original para repetições legítimas (*replay*).
+  - **Validação Dinâmica de Limites no Banco de Dados:** Eliminação de qualquer anotação estática `@Max` no código. O limite diário é consultado dinamicamente na tabela `account_limit` (Flyway V3) e confrontado contra o somatório das transferências do dia corrente no fuso de Brasília (`America/Sao_Paulo`), rejeitando transações que excedam o saldo diário disponível (`422 Unprocessable Entity - DAILY_LIMIT_EXCEEDED`).
+  - **Geração Canônica de Protocolo Bancário UUID:** Utiliza `BankingProtocolGenerator` para gerar identificadores canônicos nativos UUID (`UUID.randomUUID().toString()`), persistidos na coluna `protocol_number VARCHAR(64)` (Flyway V4) e propagados em todos os eventos contábeis.
+  - **Propagação de Contraparte em Partidas Dobradas:** Propaga `counterpartyName`, `counterpartyDocument` e `counterpartyAccount` juntamente com o protocolo canônico no comando `PostJournalCommandPayload` publicado no tópico `ledger.commands.v1`.
   - Responde imediatamente HTTP `202 Accepted` com cabeçalho `Location` para polling/acompanhamento.
   - Comunicação com o core contábil via tópico `ledger.commands.v1` e consumo da confirmação em `ledger.journal-results.v1`.
 
@@ -395,12 +403,15 @@ stateDiagram-v2
   - Motor de Partidas Dobradas (Double-Entry Engine): gravação atômica e imutável de `Journal` e pernas de `Entry` (débitos e créditos).
   - **Alocação Híbrida de Shards de Caixa (`SYS-CASH`):** 16 shards de caixa (`SYS-CASH-00` a `SYS-CASH-15`) para distribuir o lock de concorrência em depósitos e saques (por terminal físico ou hash determinístico `hash(transactionId) % 16`).
   - **Lock Pessimista Anti-Deadlock:** `SELECT ... FOR UPDATE` ordenando os IDs de contas deterministicamente por UUID (`min(idA, idB)` antes de `max(idA, idB)`).
+  - **Propagação de Metadados de Contraparte e Protocolo:** Repassa `protocolNumber` e `counterpartyAccount` para os eventos de projeção `EntryPostedPayload` publicados no tópico `ledger.entries.v1`.
   - Segurança de microsserviço interno via validação do header `X-Internal-Service-Key`.
 
 #### 5. `query-service` (Porta 8083)
 - **Tipo:** Projeções de Leitura CQRS.
 - **Responsabilidades:**
   - Projeções desnormalizadas de saldo (`account_balance`) e extrato oficial (`statement_entries`) persistidas no `query_db`.
+  - **Cálculo Reativo de Limite Diário (`GET /api/v1/queries/balance`):** Calcula dinamicamente `usedTodayCents` somando os débitos de transferência do dia corrente no fuso de Brasília (`America/Sao_Paulo`), retornando o limite diário aprovado (`dailyLimitCents`) e o limite disponível restante (`availableLimitCents`).
+  - **Projeção de Protocolo e Contraparte no Extrato (`GET /api/v1/queries/accounts/{id}/statement`):** Persistência e exposição de `protocol_number VARCHAR(64)` (Flyway V4), dados completos da contraparte (`counterpartyName`, `counterpartyDocument`, `counterpartyAccount`), categorias e tipos humanizados de transação.
   - Ingestão contínua de eventos via Kafka (`account.events.v1` e `ledger.entries.v1`).
   - **Mitigação Estrita de BOLA/IDOR:** Validação de que o usuário autenticado no JWT é o titular da conta consultada (ou perfil `ROLE_ADMIN`), retornando `403 Forbidden` com RFC 7807 ProblemDetail em caso de tentativa de acesso a conta alheia.
 
@@ -516,15 +527,18 @@ bank-ledger/
 │   │       ├── java/com/bankledger/account/
 │   │       │   ├── AccountServiceApplication.java
 │   │       │   ├── config/            # KafkaConfig, OpenApiConfig, OutboxPollerProperties, SecurityConfig
-│   │       │   ├── domain/            # Account, Customer, AccountStatus, VOs (Cpf Módulo 11, Email, Phone, AccountNumber)
-│   │       │   ├── application/       # CreateAccountService (abertura atômica < 10ms), AccountQueryService
+│   │       │   ├── domain/            # Account, Customer, AccountStatus, VOs (Address, Cpf Módulo 11, Email, Phone)
+│   │       │   ├── application/       # CreateAccountService, AccountQueryService, UpdateProfileService
 │   │       │   └── adapters/
-│   │       │       ├── in/rest/       # AccountController (POST /api/v1/accounts, GET /me, GET /lookup)
-│   │       │       ├── out/persistence/# AccountEntity, CustomerEntity, OutboxPersistenceAdapter
+│   │       │       ├── in/rest/       # AccountController (POST /accounts, POST /lookup seguro, GET /me, PUT /me/profile)
+│   │       │       ├── out/persistence/# AccountEntity, CustomerEntity, AccountLimitEntity, OutboxPersistenceAdapter
 │   │       │       └── out/kafka/     # KafkaOutboxPublisher, OutboxPollerLifecycle
 │   │       └── resources/
 │   │           ├── application.yml
-│   │           └── db/migration/V1__init_account_schema.sql
+│   │           └── db/migration/
+│   │               ├── V1__init_account_schema.sql
+│   │               ├── V2__add_lease_based_outbox.sql
+│   │               └── V3__add_customer_address_and_account_limits.sql
 │   │
 │   ├── transaction-service/           # Microsserviço de Movimentações Financeiras (Porta 8082)
 │   │   ├── build.gradle               # MVC, Virtual Threads, Starter Kafka, Flyway, HikariCP (30/10)
@@ -533,16 +547,20 @@ bank-ledger/
 │   │       ├── java/com/bankledger/transaction/
 │   │       │   ├── TransactionServiceApplication.java
 │   │       │   ├── config/            # KafkaConfig, SecurityConfig, OutboxPollerProperties
-│   │       │   ├── domain/            # FinancialTransaction, IdempotencyRecord, PostJournalCommand
-│   │       │   ├── application/       # CreateTransferService, TransactionOperationService, IdempotencyValidatorService
+│   │       │   ├── domain/            # FinancialTransaction, IdempotencyRecord, BankingProtocolGenerator (UUID)
+│   │       │   ├── application/       # CreateTransferService (validação dinâmica DB), TransactionOperationService
 │   │       │   └── adapters/
 │   │       │       ├── in/rest/       # TransactionController (endpoints 202 Accepted de transferências, depósitos, saques)
 │   │       │       ├── in/kafka/      # JournalResultKafkaConsumer (recebe resposta do Ledger)
-│   │       │       ├── out/persistence/# IdempotencyPersistenceAdapter (Tier 2), TransactionPersistenceAdapter
-│   │       │       └── out/kafka/     # KafkaOutboxPublisher (envia ledger.commands.v1)
+│   │       │       ├── out/persistence/# IdempotencyPersistenceAdapter (Tier 2), AccountLimitEntity, TransactionPersistenceAdapter
+│   │       │       └── out/kafka/     # KafkaOutboxPublisher (envia ledger.commands.v1 com contraparte e protocolo)
 │   │       └── resources/
 │   │           ├── application.yml
-│   │           └── db/migration/V1__init_transaction_schema.sql
+│   │           └── db/migration/
+│   │               ├── V1__init_transaction_schema.sql
+│   │               ├── V2__add_lease_based_outbox.sql
+│   │               ├── V3__add_account_limits_table.sql
+│   │               └── V4__expand_protocol_number_length.sql
 │   │
 │   ├── ledger-service/                # Core Bancário de Partidas Dobradas (Porta 8084 - Interno e Privado)
 │   │   ├── build.gradle               # MVC, Virtual Threads, Starter Kafka, Flyway, HikariCP (30/10)
@@ -552,7 +570,7 @@ bank-ledger/
 │   │       │   ├── LedgerServiceApplication.java
 │   │       │   ├── config/            # CashShardConfig (16 shards SYS-CASH), SecurityConfig
 │   │       │   ├── domain/            # Journal, Entry, LedgerAccount, AccountKind, NormalBalance, TrialBalanceTotals
-│   │       │   ├── application/       # PostJournalService, ProvisionAccountService, PostingStrategies (Deposit, Withdrawal, Transfer)
+│   │       │   ├── application/       # PostJournalService (propaga contraparte e protocolo), ProvisionAccountService
 │   │       │   └── adapters/
 │   │       │       ├── in/rest/       # InternalLedgerController (balancete e consultas protegidas por X-Internal-Service-Key)
 │   │       │       ├── in/kafka/      # AccountOpenedKafkaConsumer, LedgerCommandKafkaConsumer
@@ -561,7 +579,9 @@ bank-ledger/
 │   │       │       └── out/kafka/     # KafkaOutboxPublisher (publica journal-results e entries)
 │   │       └── resources/
 │   │           ├── application.yml
-│   │           └── db/migration/V1__init_ledger_schema.sql
+│   │           └── db/migration/
+│   │               ├── V1__init_ledger_schema.sql
+│   │               └── V2__add_lease_based_outbox.sql
 │   │
 │   ├── query-service/                 # Microsserviço de Leitura CQRS & Extrato (Porta 8083)
 │   │   ├── build.gradle               # MVC, Virtual Threads, Starter Kafka, Flyway, HikariCP (30/10)
@@ -571,13 +591,17 @@ bank-ledger/
 │   │       │   ├── QueryServiceApplication.java
 │   │       │   ├── config/            # SecurityConfig com mitigação estrita de BOLA/IDOR
 │   │       │   ├── domain/            # AccountBalance, StatementEntry (modelos de leitura desnormalizados)
+│   │       │   ├── application/service/# QueryService (cálculo de saldo diário e projeção de extrato com contraparte)
 │   │       │   └── adapters/
-│   │       │       ├── in/rest/       # QueryController (GET /api/v1/queries/balance e /statement)
+│   │       │       ├── in/rest/       # QueryController (GET /balance com usedTodayCents e /statement enriquecido)
 │   │       │       ├── in/kafka/      # QueryEventConsumer (ingestão contínua de account.events e ledger.entries)
-│   │       │       └── out/persistence/# AccountBalanceEntity, StatementEntryEntity
+│   │       │       └── out/persistence/# AccountBalanceEntity, StatementEntryEntity, AccountLimitEntity
 │   │       └── resources/
 │   │           ├── application.yml
-│   │           └── db/migration/V1__init_query_schema.sql
+│   │           └── db/migration/
+│   │               ├── V1__init_query_schema.sql
+│   │               ├── V3__add_account_limits_and_statement_protocol.sql
+│   │               └── V4__expand_protocol_number_length.sql
 │   │
 │   └── notification-service/          # Microsserviço de Notificações & E-mail (Porta 8087)
 │       ├── build.gradle               # WebFlux, Starter Mail, Starter Kafka, Starter Actuator
@@ -602,16 +626,9 @@ bank-ledger/
     │   │   └── dashboard/             # Área logada do cliente
     │   │       ├── page.tsx           # Visão Geral: saldo em tempo real e atalhos rápidos
     │   │       ├── operations/page.tsx# Depósitos e saques simulados
-    │   │       ├── statement/page.tsx # Extrato Bancário com filtros e exportação CSV
-    │   │       └── transfer/page.tsx  # Transferência entre contas com confirmação segura
-    │   ├── components/                # Componentes visuais modulares
-    │   │   ├── banking/               # AuthGuard, BankingHeader, BankingFooter
-    │   │   ├── forms/                 # OpenAccountForm
-    │   │   ├── landing/               # HeroSection, CoreFeatures, OmnichannelSection, Simulator
-    │   │   └── ui/                    # CpfInput, Stepper, NexusBlackCard, NexusBlackCardPreview
-    │   ├── hooks/                     # useBanking (gerenciamento centralizado de autenticação e contas)
-    │   ├── services/                  # Clientes de API (authService, accountService, transactionService, queryService)
-    │   └── utils/                     # Utilitários de formatação (cpf, currency, date, exportStatement, uuid)
+    │   │       ├── profile/page.tsx   # Gestão de Perfil: dados cadastrais protegidos e endereço com ViaCEP
+    │   │       ├── statement/page.tsx # Extrato Bancário humanizado, De/Para e Comprovante Oficial com impressão
+    │   │       └── transfer/page.tsx  # Transferência segura: POST /lookup (Conta/CPF) e barra reativa de limite diário
 ```
 
 ---
@@ -707,6 +724,32 @@ Qualquer IA, desenvolvedor ou agente autônomo que continuar o desenvolvimento d
 - **Centralização e Boas Práticas:**
   - Configurado centralizadamente em `services/platform-commons/src/main/resources/logback-spring.xml` (carregado automaticamente por todos os serviços).
   - **Proibição de sobrescrita local:** É proibido declarar `logging.pattern.level` nos arquivos `application.yml` locais de cada microsserviço, garantindo que o padrão visual permaneça idêntico e consistente em todo o ecossistema.
+
+### 5.8 Governança de Limites Financeiros e Validação Dinâmica no Banco de Dados
+- **Proibição Estrita de Validação Estática no Código:** É expressamente **proibido** utilizar anotações como `@Max(...)` ou constantes numéricas hardcoded no código-fonte Java ou TypeScript para validar limites transacionais de clientes.
+- **Padrão Obrigatório de Governança:**
+  - Cada conta bancária possui seu limite diário individual aprovado e persistido na tabela `account_limit` (`daily_transfer_limit_cents`), permitindo limites customizados por cliente (ex: R$ 5.000,00, R$ 50.000,00, R$ 250.000,00) parametrizáveis via banco de dados sem necessidade de novo deploy.
+  - O `transaction-service` valida o limite dinamicamente executando uma consulta SQL agregada no banco de dados (`SUM(amount)`) para todas as transferências com status `PENDING` ou `COMPLETED` originadas pela conta no dia corrente no fuso de Brasília (`America/Sao_Paulo`).
+  - Caso o somatório acumulado acrescido do valor solicitado exceda o limite aprovado no banco, a transação deve ser rejeitada imediatamente com HTTP `422 Unprocessable Entity` e RFC 7807 ProblemDetail (`DAILY_LIMIT_EXCEEDED`).
+  - O `query-service` calcula reativamente `usedTodayCents` e `availableLimitCents` no endpoint `GET /api/v1/queries/balance`, garantindo visibilidade precisa para o frontend e aplicativos clientes.
+
+### 5.9 Proteção de Dados Pessoais (LGPD/OWASP) em Consultas de Borda (POST Seguro)
+- **Proibição de Dados Pessoais (PII) em Query Strings HTTP:** É terminantemente **proibido trafegar CPF, número de conta bancária ou qualquer dado de identificação pessoal em parâmetros de query (`GET ?cpf=...` ou `GET ?account=...`)**.
+- **Justificativa de Segurança e Compliance:**
+  - URLs e query parameters ficam rotineiramente gravados em logs de texto puro em servidores web, gateways de borda (Nginx), proxies corporativos, históricos de navegadores e cabeçalhos `Referer`.
+  - Essa exposição viola as diretrizes de segurança do OWASP Top 10 e os requisitos de privacidade da Lei Geral de Proteção de Dados (LGPD).
+- **Padrão Obrigatório (`POST /lookup`):**
+  - Todas as consultas de contas e validação de favorecidos devem utilizar **`POST /api/v1/accounts/lookup`** com corpo JSON criptografado via TLS (`AccountLookupRequest`).
+  - O endpoint suporta alternância entre busca por `searchType = "ACCOUNT"` ou `searchType = "CPF"`.
+  - A resposta deve retornar o nome completo desmascarado do favorecido para verificação visual humana antes da confirmação da transferência financeira.
+
+### 5.10 Geração e Propagação de Protocolo Canônico Bancário UUID
+- **Padronização Nativa:** Para garantir unicidade global, rastreabilidade instantânea e ausência de contenção ou concorrência na geração de identificadores, todo protocolo de operação bancária deve ser gerado como um **UUIDv4 canônico** de 36 caracteres através da classe utilitária de domínio `BankingProtocolGenerator` (`UUID.randomUUID().toString()`).
+- **Persistência e Schema Migrations:**
+  - As colunas de protocolo no banco de dados (`transaction_record.protocol_number` e `statement_entry.protocol_number`) são dimensionadas como `VARCHAR(64)` através de migrações Flyway dedicadas (V4), mantendo integridade com bases pré-existentes.
+- **Rastreabilidade Ponta a Ponta:**
+  - O protocolo gerado no `transaction-service` é encapsulado no comando `PostJournalCommandPayload`, repassado pelo `ledger-service` para o evento `EntryPostedPayload` e gravado na projeção desnormalizada do `query-service`.
+  - O extrato bancário expõe o protocolo canônico individualmente em cada lançamento e no Comprovante Oficial de Operação Financeira com hash SHA-256 e suporte nativo a impressão limpa sem cabeçalhos do navegador (`window.print()` e `@media print`).
 
 ---
 

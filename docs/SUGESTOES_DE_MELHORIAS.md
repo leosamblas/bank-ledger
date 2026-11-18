@@ -65,6 +65,14 @@ Este documento reúne recomendações de engenharia e oportunidades de evoluçã
   - Tópico original -> Tópico de retry com backoff exponencial (1m, 5m, 15m) -> Tópico `.dlt` após esgotar tentativas.
   - Endpoint ou painel de gestão para reprocessamento manual/automático de mensagens da DLT após correção de bugs.
 
+### 2.5 ~~Proteção de Dados Pessoais (LGPD) na Consulta de Favorecidos (POST Seguro)~~ ✅ Implementado
+- **Status:** ✅ **Concluído e Implementado no Core** (Commit `0abf49f`)
+- **Implementação Realizada:**
+  - Substituição da consulta via query parameters (`GET /api/v1/accounts/lookup?agency=...` ou `cpf=...`) pelo endpoint seguro **`POST /api/v1/accounts/lookup`**.
+  - **Conformidade LGPD e OWASP:** Eliminação de dados sensíveis (PII como CPF e conta) na URL, prevenindo vazamentos em logs de acesso de servidores web, proxies reversos (Nginx), histórico de navegadores e cabeçalhos `Referer`.
+  - Suporte a busca flexível por chave CPF ou por par Agência/Conta com validação de payload JSON criptografado via TLS.
+  - Retorno do nome desmascarado do favorecido para verificação visual e confirmação segura antes da conclusão de transferências financeiras.
+
 ---
 
 ## 3. Funcionalidades de Negócio (Core Banking)
@@ -76,10 +84,16 @@ Este documento reúne recomendações de engenharia e oportunidades de evoluçã
     - Débito na conta do cliente $\leftrightarrow$ Crédito na Conta de Reserva Bancária / SPI do BACEN.
   - Webhook e mensageria assíncrona para conciliação em tempo real.
 
-### 3.2 Motor de Limites e Antifraude Reativo
-- **Funcionalidades:**
-  - Limites transacionais diferenciados: diurno vs. noturno (Resolução BACEN), limites diários e mensais cumulativos calculados via Redis.
-  - Avaliação de risco em tempo real no `transaction-service`: bloqueio de movimentações atípicas com pontuação de risco (*risk scoring*) antes de emitir o comando de débito para o `ledger-service`.
+### 3.2 ~~Motor de Limites Diários Parametrizáveis por Conta no Banco de Dados~~ ✅ Implementado
+- **Status:** ✅ **Concluído e Implementado no Core** (Commits `0abf49f`, `a6330e4`, `f2fdb6a`, `827b07a`, `65e45ce`, `75b423c`)
+- **Implementação Realizada:**
+  - **Governança no Banco de Dados:** Criada tabela `account_limit` em `account-service` e `transaction-service` (Flyway V3) com coluna `daily_transfer_limit_cents BIGINT NOT NULL DEFAULT 5000000` (R$ 50.000,00 inicial), parametrizável individualmente por conta.
+  - **Eliminação de Validação Estática no Código:** Removida a anotação estática `@Max(50000)` em `TransferRequest`. A validação é 100% dinâmica via consulta SQL em banco de dados (`AccountLimitRepositoryPort`), calculando a soma das transferências concluídas no dia corrente no fuso de Brasília (`America/Sao_Paulo`).
+  - **Cálculo Reativo em Consultas CQRS (`query-service`):** O endpoint `GET /api/v1/queries/balance` calcula e retorna dinamicamente `dailyLimitCents`, `usedTodayCents` e `availableLimitCents = max(0, dailyLimitCents - usedTodayCents)` com agregação diária dos lançamentos de débito.
+  - **Interface com Barra Reativa no Frontend (`web`):** Tela de transferência com monitoramento em tempo real do limite diário consumido e disponível, com transição dinâmica de cores semânticas (verde < 70%, âmbar 70-99%, vermelho >= 100%) e bloqueio preventivo de submissão quando o saldo diário for insuficiente.
+- **Evoluções Futuras do Pilar de Risco:**
+  - Limites diferenciados por faixa de horário (diurno vs. noturno conforme Resolução BACEN).
+  - Motor de antifraude e detecção de anomalias em tempo real com pontuação de risco (*risk scoring*) antes da emissão do comando contábil.
 
 ### 3.3 Boletos Bancários e Convênios
 - **Funcionalidades:**
@@ -105,6 +119,21 @@ Este documento reúne recomendações de engenharia e oportunidades de evoluçã
 - **Proposta de Melhoria:** Adicionar uma suíte de testes E2E com **Playwright** que sobe os containers via Docker e testa a jornada completa do cliente:
   - Criação de conta -> Validação do evento no Kafka -> Login com JWT -> Depósito -> Transferência entre contas -> Verificação do saldo e extrato atualizados.
 
+### 4.3 ~~Gestão Cadastral Completa de Perfil com Endereço e Auto-preenchimento por CEP~~ ✅ Implementado
+- **Status:** ✅ **Concluído e Implementado** (Commits `0abf49f`, `006d774`, `ce9c30d`)
+- **Implementação Realizada:**
+  - **Campos de Endereço no Backend:** Modelagem de `Address` e migração Flyway V3 em `account-service` com persistência na tabela `customer`.
+  - **Endpoints de Perfil:** `GET /api/v1/accounts/me` (enriquecido com endereço, limite e `birthDate`) e `PUT /api/v1/accounts/me/profile` (atualização de dados de contato e residência com regras de imutabilidade para Nome, CPF e Data de Nascimento).
+  - **Interface Web (`/dashboard/profile`):** Visualização de dados cadastrais protegidos e edição assistida de endereço com preenchimento automático integrado via API pública do ViaCEP e máscaras acessíveis (CEP, telefone celular).
+
+### 4.4 ~~Extrato Bancário Humanizado e Comprovante Oficial com Protocolo Canônico UUID~~ ✅ Implementado
+- **Status:** ✅ **Concluído e Implementado** (Commits `c0d9944`, `65e45ce`, `75b423c`, `36d7321`, `05e6950`)
+- **Implementação Realizada:**
+  - **Geração Canônica de Protocolo UUID:** `BankingProtocolGenerator` gerando UUID nativo (`UUID.randomUUID().toString()`) com persistência em coluna `protocol_number VARCHAR(64)` (Flyway V4) e propagação em toda a malha de eventos Kafka.
+  - **Humanização em Português:** Lançamentos com rótulos amigáveis (*Transferência enviada*, *Transferência recebida*, *Depósito em conta corrente*, *Saque em terminal*) e identificação clara de contraparte com prefixos "De: / Para:".
+  - **Comprovante Oficial Individual:** Modal de comprovante oficial com protocolo canônico UUID, hash de autenticação SHA-256 e suporte nativo a impressão limpa sem ruídos de tela (`window.print()` e `@media print`).
+  - **Sanitização de Dados:** Função `parseAccountDetails()` para decompor e sanitizar dados legados e compostos no Destino (Favorecido), eliminando duplicações de rótulos e quebras de linha indesejadas.
+
 ---
 
 ## 5. Matriz de Priorização Recomendada (Impacto vs. Esforço)
@@ -112,6 +141,10 @@ Este documento reúne recomendações de engenharia e oportunidades de evoluçã
 | Iniciativa | Impacto | Esforço | Prioridade Recomendada |
 | :--- | :---: | :---: | :---: |
 | ~~**Lease Timeout no Outbox Poller Multi-Instância**~~ | Alto | Médio | ✅ **Concluído (Commit `d00bb7d`)** |
+| ~~**Motor de Limites Diários Parametrizáveis no Banco**~~ | Alto | Médio | ✅ **Concluído (Commits `0abf49f`, `a6330e4`, `f2fdb6a`)** |
+| ~~**Consulta Segura de Favorecido (POST /lookup LGPD)**~~ | Alto | Baixo | ✅ **Concluído (Commit `0abf49f`)** |
+| ~~**Gestão de Perfil de Usuário com Endereço e CEP**~~ | Médio | Médio | ✅ **Concluído (Commits `0abf49f`, `006d774`, `ce9c30d`)** |
+| ~~**Protocolo Canônico UUID e Comprovante Oficial**~~ | Alto | Baixo | ✅ **Concluído (Commits `65e45ce`, `75b423c`, `05e6950`)** |
 | **Server-Sent Events (SSE) no Frontend/Query** | Alto | Baixo | 🟢 **Curto Prazo (P1)** |
 | **Cache de Saldo no Redis (`query-service`)** | Alto | Baixo | 🟢 **Curto Prazo (P1)** |
 | **DLQ com Reprocessamento no Spring Kafka** | Alto | Médio | 🟡 **Médio Prazo (P2)** |

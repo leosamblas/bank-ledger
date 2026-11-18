@@ -208,15 +208,16 @@ class TransferIntegrationTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.status").value(400));
 
-        // Amount exceeding R$ 50.000,00 (5_000_000 cents)
+        // Amount exceeding dynamic daily limit (default 50k / 5_000_000 cents) -> 422 Unprocessable Entity
         TransferRequest excessAmount = new TransferRequest(accountB, 5_000_001L, "Acima do limite");
         mockMvc.perform(post("/api/v1/transactions/transfers")
                         .header(HttpHeaderConstants.IDEMPOTENCY_KEY, UUID.randomUUID().toString())
                         .header(HttpHeaderConstants.AUTHORIZATION, HttpHeaderConstants.BEARER_PREFIX + tokenA)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(excessAmount)))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.status").value(400));
+                .andExpect(status().is(422))
+                .andExpect(jsonPath("$.status").value(422))
+                .andExpect(jsonPath("$.code").value("DAILY_LIMIT_EXCEEDED"));
 
         // Source and destination account identical
         TransferRequest sameAccount = new TransferRequest(accountA, 1000L, "Mesma conta");

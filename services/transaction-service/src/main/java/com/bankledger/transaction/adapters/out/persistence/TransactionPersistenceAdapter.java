@@ -4,9 +4,13 @@ import com.bankledger.transaction.adapters.out.persistence.entity.FinancialTrans
 import com.bankledger.transaction.adapters.out.persistence.repository.TransactionSpringDataRepository;
 import com.bankledger.transaction.application.port.out.TransactionRepositoryPort;
 import com.bankledger.transaction.domain.model.FinancialTransaction;
+import com.bankledger.transaction.domain.model.TransactionStatus;
+import com.bankledger.transaction.domain.model.TransactionType;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Repository;
 
+import java.time.Instant;
+import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
@@ -29,5 +33,17 @@ public class TransactionPersistenceAdapter implements TransactionRepositoryPort 
     public Optional<FinancialTransaction> findById(UUID id) {
         Objects.requireNonNull(id, "id must not be null");
         return repository.findById(id).map(FinancialTransactionEntity::toDomain);
+    }
+
+    @Override
+    public long sumDailyTransfers(UUID sourceAccountId, Instant startOfDay) {
+        Objects.requireNonNull(sourceAccountId, "sourceAccountId must not be null");
+        Objects.requireNonNull(startOfDay, "startOfDay must not be null");
+        return repository.sumDailyTransfers(
+                sourceAccountId,
+                TransactionType.TRANSFER,
+                List.of(TransactionStatus.PENDING, TransactionStatus.COMPLETED),
+                startOfDay
+        );
     }
 }

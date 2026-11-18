@@ -14,9 +14,25 @@ public record TransactionResponse(
         Long amount,
         String currency,
         String failureCode,
+        String protocolNumber,
         Instant createdAt,
         Instant completedAt
 ) {
+    public TransactionResponse(
+            UUID id,
+            String type,
+            String status,
+            UUID sourceAccountId,
+            UUID destinationAccountId,
+            Long amount,
+            String currency,
+            String failureCode,
+            Instant createdAt,
+            Instant completedAt
+    ) {
+        this(id, type, status, sourceAccountId, destinationAccountId, amount, currency, failureCode, null, createdAt, completedAt);
+    }
+
     public static TransactionResponse fromDomain(FinancialTransaction tx) {
         return new TransactionResponse(
                 tx.getId(),
@@ -27,6 +43,7 @@ public record TransactionResponse(
                 tx.getAmount(),
                 tx.getCurrency(),
                 tx.getFailureCode(),
+                tx.getProtocolNumber(),
                 tx.getCreatedAt(),
                 tx.getCompletedAt()
         );

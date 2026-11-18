@@ -4,6 +4,7 @@ import com.bankledger.commons.constant.BankingConstants;
 import com.bankledger.commons.constant.KafkaTopics;
 import com.bankledger.commons.outbox.OutboxEvent;
 import com.bankledger.transaction.application.port.in.CreateTransferCommand;
+import com.bankledger.transaction.application.port.out.AccountLimitRepositoryPort;
 import com.bankledger.transaction.application.port.out.OutboxPort;
 import com.bankledger.transaction.application.port.out.TransactionRepositoryPort;
 import com.bankledger.transaction.application.service.CreateTransferService;
@@ -11,6 +12,7 @@ import com.bankledger.transaction.domain.command.PostJournalCommand;
 import com.bankledger.transaction.domain.model.FinancialTransaction;
 import com.bankledger.transaction.domain.model.TransactionStatus;
 import com.bankledger.transaction.domain.model.TransactionType;
+import com.bankledger.transaction.domain.service.BankingProtocolGenerator;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -39,11 +41,15 @@ class CreateTransferServiceTest {
     private TransactionRepositoryPort transactionRepositoryPort;
 
     @Mock
+    private AccountLimitRepositoryPort accountLimitRepositoryPort;
+
+    @Mock
     private OutboxPort outboxPort;
 
     private ObjectMapper objectMapper;
     private Clock fixedClock;
     private Instant fixedInstant;
+    private BankingProtocolGenerator protocolGenerator;
 
     private CreateTransferService service;
 
@@ -57,9 +63,12 @@ class CreateTransferServiceTest {
         fixedInstant = Instant.parse("2026-11-13T20:30:00Z");
         fixedClock = Clock.fixed(fixedInstant, ZoneId.of("UTC"));
         objectMapper = JsonMapper.builder().build();
+        protocolGenerator = new BankingProtocolGenerator(fixedClock);
 
         service = new CreateTransferService(
                 transactionRepositoryPort,
+                accountLimitRepositoryPort,
+                protocolGenerator,
                 outboxPort,
                 objectMapper,
                 fixedClock
@@ -93,6 +102,7 @@ class CreateTransferServiceTest {
         assertThat(result.getRequestedBy()).isEqualTo(customerId);
         assertThat(result.getCorrelationId()).isEqualTo(correlationId);
         assertThat(result.getCreatedAt()).isEqualTo(fixedInstant);
+        assertThat(result.getProtocolNumber()).isNotNull().startsWith("PRT-");
 
         // Verify transaction saved
         ArgumentCaptor<FinancialTransaction> txCaptor = ArgumentCaptor.forClass(FinancialTransaction.class);

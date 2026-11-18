@@ -2,6 +2,7 @@ package com.bankledger.transaction.application.port.out;
 
 import com.bankledger.transaction.domain.model.FinancialTransaction;
 
+import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -13,4 +14,6 @@ public interface TransactionRepositoryPort {
     FinancialTransaction save(FinancialTransaction transaction);
 
     Optional<FinancialTransaction> findById(UUID id);
+
+    long sumDailyTransfers(UUID sourceAccountId, Instant startOfDay);
 }

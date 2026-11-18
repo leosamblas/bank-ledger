@@ -39,6 +39,7 @@ public class FinancialTransaction implements Serializable {
     private String failureCode;
     private String failureReason;
     private final UUID correlationId;
+    private String protocolNumber;
     private final Instant createdAt;
     private Instant updatedAt;
     private Instant completedAt;
@@ -60,6 +61,7 @@ public class FinancialTransaction implements Serializable {
             String failureCode,
             String failureReason,
             UUID correlationId,
+            String protocolNumber,
             Instant createdAt,
             Instant updatedAt,
             Instant completedAt,
@@ -80,10 +82,36 @@ public class FinancialTransaction implements Serializable {
         this.failureCode = failureCode;
         this.failureReason = failureReason;
         this.correlationId = correlationId != null ? correlationId : UUID.randomUUID();
+        this.protocolNumber = protocolNumber;
         this.createdAt = Objects.requireNonNull(createdAt, "createdAt must not be null");
         this.updatedAt = Objects.requireNonNull(updatedAt, "updatedAt must not be null");
         this.completedAt = completedAt;
         this.version = version;
+    }
+
+    /**
+     * Backward-compatible constructor without protocolNumber.
+     */
+    public FinancialTransaction(
+            UUID id,
+            TransactionType type,
+            TransactionStatus status,
+            UUID sourceAccountId,
+            UUID destinationAccountId,
+            long amount,
+            String currency,
+            String description,
+            UUID requestedBy,
+            String failureCode,
+            String failureReason,
+            UUID correlationId,
+            Instant createdAt,
+            Instant updatedAt,
+            Instant completedAt,
+            long version
+    ) {
+        this(id, type, status, sourceAccountId, destinationAccountId, amount, currency, description,
+                requestedBy, failureCode, failureReason, correlationId, null, createdAt, updatedAt, completedAt, version);
     }
 
     /**
@@ -120,6 +148,7 @@ public class FinancialTransaction implements Serializable {
                 null,
                 null,
                 corrId,
+                null,
                 timestamp,
                 timestamp,
                 null,
@@ -161,6 +190,7 @@ public class FinancialTransaction implements Serializable {
                 null,
                 null,
                 corrId,
+                null,
                 timestamp,
                 timestamp,
                 null,
@@ -207,11 +237,31 @@ public class FinancialTransaction implements Serializable {
                 null,
                 null,
                 corrId,
+                null,
                 timestamp,
                 timestamp,
                 null,
                 0L
         );
+    }
+
+    /**
+     * Factory to instantiate a new TRANSFER transaction in PENDING status with protocol number.
+     */
+    public static FinancialTransaction createTransfer(
+            UUID id,
+            UUID sourceAccountId,
+            UUID destinationAccountId,
+            long amount,
+            String description,
+            UUID requestedBy,
+            UUID correlationId,
+            String protocolNumber,
+            Instant now
+    ) {
+        FinancialTransaction tx = createTransfer(id, sourceAccountId, destinationAccountId, amount, description, requestedBy, correlationId, now);
+        tx.assignProtocol(protocolNumber);
+        return tx;
     }
 
     /**
@@ -242,6 +292,18 @@ public class FinancialTransaction implements Serializable {
             throw new IllegalStateException("Illegal transaction transition from " + this.status + " to " + target);
         }
         this.status = target;
+    }
+
+    public void assignProtocol(String protocolNumber) {
+        this.protocolNumber = protocolNumber;
+    }
+
+    public void setProtocolNumber(String protocolNumber) {
+        this.protocolNumber = protocolNumber;
+    }
+
+    public String getProtocolNumber() {
+        return protocolNumber;
     }
 
     // Getters
@@ -337,6 +399,7 @@ public class FinancialTransaction implements Serializable {
                 ", failureCode='" + failureCode + '\'' +
                 ", failureReason='" + failureReason + '\'' +
                 ", correlationId=" + correlationId +
+                ", protocolNumber='" + protocolNumber + '\'' +
                 ", createdAt=" + createdAt +
                 ", updatedAt=" + updatedAt +
                 ", completedAt=" + completedAt +

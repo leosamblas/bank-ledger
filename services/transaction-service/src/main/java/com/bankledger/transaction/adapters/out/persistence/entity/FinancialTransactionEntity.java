@@ -76,6 +76,9 @@ public class FinancialTransactionEntity {
     @Column(name = "correlation_id", nullable = false)
     private UUID correlationId;
 
+    @Column(name = "protocol_number", length = 30)
+    private String protocolNumber;
+
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
 
@@ -104,6 +107,7 @@ public class FinancialTransactionEntity {
                 .failureCode(domain.getFailureCode())
                 .failureReason(domain.getFailureReason())
                 .correlationId(domain.getCorrelationId())
+                .protocolNumber(domain.getProtocolNumber())
                 .createdAt(domain.getCreatedAt())
                 .updatedAt(domain.getUpdatedAt())
                 .completedAt(domain.getCompletedAt())
@@ -125,6 +129,7 @@ public class FinancialTransactionEntity {
                 failureCode,
                 failureReason,
                 correlationId,
+                protocolNumber,
                 createdAt,
                 updatedAt,
                 completedAt,

@@ -1,5 +1,6 @@
 package com.bankledger.transaction.adapters.in.rest;
 
+import com.bankledger.transaction.domain.exception.DailyLimitExceededException;
 import com.bankledger.transaction.domain.exception.IdempotencyConflictException;
 import com.bankledger.transaction.domain.exception.IdempotencyKeyReusedException;
 import com.bankledger.transaction.domain.exception.TransactionNotFoundException;
@@ -137,6 +138,24 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(status, ex.getMessage());
         problem.setTitle("Unprocessable Entity");
         problem.setType(DEFAULT_TYPE);
+        return ResponseEntity.status(status)
+                .contentType(MediaType.APPLICATION_PROBLEM_JSON)
+                .body(problem);
+    }
+
+    @ExceptionHandler(DailyLimitExceededException.class)
+    public ResponseEntity<ProblemDetail> handleDailyLimitExceeded(DailyLimitExceededException ex) {
+        HttpStatus status = HttpStatus.valueOf(422);
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(status, ex.getMessage());
+        problem.setTitle("Unprocessable Entity");
+        problem.setType(DEFAULT_TYPE);
+        problem.setProperty("code", "DAILY_LIMIT_EXCEEDED");
+        problem.setProperty("accountId", ex.getAccountId());
+        problem.setProperty("approvedLimitCents", ex.getApprovedLimitCents());
+        problem.setProperty("usedTodayCents", ex.getUsedTodayCents());
+        problem.setProperty("requestedAmountCents", ex.getRequestedAmountCents());
+        long remaining = Math.max(0, ex.getApprovedLimitCents() - ex.getUsedTodayCents());
+        problem.setProperty("remainingLimitCents", remaining);
         return ResponseEntity.status(status)
                 .contentType(MediaType.APPLICATION_PROBLEM_JSON)
                 .body(problem);

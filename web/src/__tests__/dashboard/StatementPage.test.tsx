@@ -104,32 +104,18 @@ test('StatementPage - Static Architecture & Accessibility Quality Guardrails', (
     'Must include print stylesheet rules to isolate receipt during printing'
   );
 
-  // Consolidated Statement Modal requirements
+  // Verification that Consolidated Modal and Export Report were removed as requested
   assert.ok(
-    content.includes('Relatório Consolidado') || content.includes('Comprovante Consolidado'),
-    'Must support Consolidated Statement'
+    !content.includes('Comprovante Consolidado'),
+    'Consolidated receipt button and modal must be removed from statement page'
   );
   assert.ok(
-    content.includes('Total de Entradas'),
-    'Consolidated modal must show Total de Entradas'
+    !content.includes('Exportar Relatório'),
+    'Export report button and modal must be removed from statement page'
   );
   assert.ok(
-    content.includes('Total de Saídas'),
-    'Consolidated modal must show Total de Saídas'
-  );
-  assert.ok(
-    content.includes('Saldo do Período'),
-    'Consolidated modal must show Saldo do Período'
-  );
-  assert.ok(
-    content.includes('Imprimir Relatório Consolidado') || content.includes('Imprimir Consolidado'),
-    'Consolidated modal must include real print button'
-  );
-
-  // Real Export Actions
-  assert.ok(
-    content.includes('exportStatementToCsv') && content.includes('exportStatementToOfx'),
-    'Must import and wire both CSV and OFX real export functions'
+    !content.includes('exportStatementToCsv') && !content.includes('exportStatementToOfx'),
+    'StatementPage should no longer import exportStatementToCsv / exportStatementToOfx'
   );
 });
 
@@ -139,10 +125,20 @@ test('StatementPage - parseAccountDetails decomposes composite and raw account s
   assert.strictEqual(composite.agency, '0001');
   assert.strictEqual(composite.account, '100001-2');
 
+  // Caso anômalo com prefixo Conta: duplicado na frente "Conta:Agência: 0001 | Conta: 100001-2"
+  const duplicatedPrefix = parseAccountDetails('Conta:Agência: 0001 | Conta: 100001-2');
+  assert.strictEqual(duplicatedPrefix.agency, '0001');
+  assert.strictEqual(duplicatedPrefix.account, '100001-2');
+
   // Caso com barra "0001 / 100001-2"
   const slash = parseAccountDetails('0001 / 100001-2');
   assert.strictEqual(slash.agency, '0001');
   assert.strictEqual(slash.account, '100001-2');
+
+  // Caso com apenas agência informada
+  const agencyOnly = parseAccountDetails('Agência: 0001');
+  assert.strictEqual(agencyOnly.agency, '0001');
+  assert.strictEqual(agencyOnly.account, 'Não informada');
 
   // Caso simples apenas com a conta "100001-2"
   const simple = parseAccountDetails('100001-2', '0002');

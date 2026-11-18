@@ -7,8 +7,6 @@ import { StatementItem, TransactionCategory } from '@/services/types';
 import { formatCentsToBrl } from '@/utils/currency';
 import { formatDateTimeBr } from '@/utils/date';
 import {
-  exportStatementToCsv,
-  exportStatementToOfx,
   getTransactionTypeLabel as getLabelFromUtil,
   getCanonicalProtocol,
 } from '@/utils/exportStatement';
@@ -60,20 +58,44 @@ export function parseAccountDetails(rawAccount?: string, fallbackAgency = '0001'
   if (!rawAccount || !rawAccount.trim()) {
     return { agency: fallbackAgency, account: 'Não informada' };
   }
-  const clean = rawAccount.trim();
+  let clean = rawAccount.trim();
 
-  // Caso: "Agência: 0001 | Conta: 100001-2" ou "Agência: 0001 / Conta: 100001-2"
-  const agencyMatch = clean.match(/ag[êe]ncia:?\s*([^|\s]+)/i);
-  const accountMatch = clean.match(/conta:?\s*([^|\s]+)/i);
+  // Se já vier com prefixo "Conta:" ou similar na frente do conjunto, remove
+  clean = clean.replace(/^conta:\s*/i, '');
 
-  if (accountMatch) {
-    return {
-      agency: agencyMatch ? agencyMatch[1].trim() : fallbackAgency,
-      account: accountMatch[1].trim(),
-    };
+  // Caso composto com agência e conta explícitos:
+  // Ex: "Agência: 0001 | Conta: 100001-2" ou "Agência: 0001 / Conta: 100001-2"
+  if (/ag[êe]ncia/i.test(clean) && /conta/i.test(clean)) {
+    const parts = clean.split(/[|/]/);
+    let agency = fallbackAgency;
+    let account = 'Não informada';
+    for (const part of parts) {
+      const p = part.trim();
+      const agMatch = p.match(/ag[êe]ncia:?\s*([^|\s/]+)/i);
+      if (agMatch) {
+        agency = agMatch[1].trim();
+      }
+      const accMatch = p.match(/conta:?\s*([^|\s/]+)/i);
+      if (accMatch) {
+        account = accMatch[1].trim();
+      }
+    }
+    return { agency, account };
   }
 
-  // Caso: "0001 / 100001-2" ou "0001/100001-2"
+  // Caso isolado com apenas agência: "Agência: 0001"
+  const singleAgencyMatch = clean.match(/^ag[êe]ncia:?\s*([^|\s/]+)/i);
+  if (singleAgencyMatch) {
+    return { agency: singleAgencyMatch[1].trim(), account: 'Não informada' };
+  }
+
+  // Caso isolado com apenas conta: "Conta: 100001-2"
+  const singleAccountMatch = clean.match(/^conta:?\s*([^|\s/]+)/i);
+  if (singleAccountMatch) {
+    return { agency: fallbackAgency, account: singleAccountMatch[1].trim() };
+  }
+
+  // Caso formatado com barra: "0001 / 100001-2" ou "0001/100001-2"
   if (clean.includes('/')) {
     const parts = clean.split('/');
     return {
@@ -82,7 +104,7 @@ export function parseAccountDetails(rawAccount?: string, fallbackAgency = '0001'
     };
   }
 
-  // Caso: "0001 - 100001-2"
+  // Caso formatado com traço de agência: "0001 - 100001-2"
   const dashPrefixMatch = clean.match(/^(\d{4})\s*-\s*(\d+.*)$/);
   if (dashPrefixMatch) {
     return {
@@ -189,10 +211,6 @@ export default function StatementPage() {
   const [selectedCategory, setSelectedCategory] = useState<TransactionCategory>('ALL');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedReceipt, setSelectedReceipt] = useState<StatementItem | null>(null);
-  const [consolidatedModalOpen, setConsolidatedModalOpen] = useState(false);
-  const [exportModalOpen, setExportModalOpen] = useState(false);
-  const [exportFormat, setExportFormat] = useState<'pdf' | 'csv' | 'ofx'>('pdf');
-  const [exportAlert, setExportAlert] = useState('');
 
   // Contadores para chips rápidos
   const counts = useMemo(() => {
@@ -272,25 +290,6 @@ export default function StatementPage() {
     );
   }, [selectedReceipt, account]);
 
-  const handleExport = () => {
-    setExportModalOpen(false);
-
-    if (exportFormat === 'csv') {
-      exportStatementToCsv(filteredStatement, account);
-      setExportAlert('Extrato em formato CSV baixado com sucesso!');
-    } else if (exportFormat === 'ofx') {
-      exportStatementToOfx(filteredStatement, account);
-      setExportAlert('Arquivo OFX para conciliação contábil baixado com sucesso!');
-    } else {
-      if (typeof window !== 'undefined') {
-        window.print();
-      }
-      setExportAlert('Comprovante enviado para a fila de impressão / PDF.');
-    }
-
-    setTimeout(() => setExportAlert(''), 4000);
-  };
-
   return (
     <div className="w-full px-4 sm:px-6 lg:px-8 max-w-[1600px] mx-auto flex flex-col gap-6">
       {/* Print isolation stylesheet */}
@@ -299,11 +298,10 @@ export default function StatementPage() {
           body * {
             visibility: hidden;
           }
-          #printable-receipt-modal, #printable-receipt-modal *,
-          #printable-consolidated-modal, #printable-consolidated-modal * {
+          #printable-receipt-modal, #printable-receipt-modal * {
             visibility: visible;
           }
-          #printable-receipt-modal, #printable-consolidated-modal {
+          #printable-receipt-modal {
             position: absolute;
             left: 0;
             top: 0;
@@ -352,25 +350,7 @@ export default function StatementPage() {
             Histórico completo e detalhado de todas as entradas, saídas e movimentações da sua conta.
           </p>
         </div>
-
-        <div className="flex items-center gap-3 w-full md:w-auto">
-          <button
-            onClick={() => setExportModalOpen(true)}
-            className="w-full md:w-auto px-4 py-2.5 rounded-xl bg-surface-container-high hover:bg-surface-variant text-on-surface font-headline-sm text-body-md font-semibold transition-colors flex items-center justify-center gap-2 shadow-xs cursor-pointer"
-            type="button"
-          >
-            <span className="material-symbols-outlined text-[18px]">download</span>
-            Exportar Relatório
-          </button>
-        </div>
       </div>
-
-      {exportAlert && (
-        <div className="p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-xl text-emerald-800 text-body-md flex items-center gap-2 animate-fadeIn no-print">
-          <span className="material-symbols-outlined text-[18px]">check_circle</span>
-          <span>{exportAlert}</span>
-        </div>
-      )}
 
       {/* Summary Stats Strip */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 no-print">
@@ -787,28 +767,18 @@ export default function StatementPage() {
       )}
 
       {/* Notice Footer Callout */}
-      <div className="bg-surface-container-lowest p-5 rounded-2xl shadow-sm border border-surface-container flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 no-print">
-        <div className="flex items-center gap-3">
-          <span className="p-2 rounded-xl bg-surface-container text-secondary flex items-center justify-center">
-            <span className="material-symbols-outlined text-[24px]">verified_user</span>
+      <div className="bg-surface-container-lowest p-5 rounded-2xl shadow-sm border border-surface-container flex items-center gap-3 no-print">
+        <span className="p-2 rounded-xl bg-surface-container text-secondary flex items-center justify-center">
+          <span className="material-symbols-outlined text-[24px]">verified_user</span>
+        </span>
+        <div className="flex flex-col">
+          <span className="font-headline-sm text-headline-sm text-on-surface font-semibold">
+            Segurança e Conformidade Bancária
           </span>
-          <div className="flex flex-col">
-            <span className="font-headline-sm text-headline-sm text-on-surface font-semibold">
-              Segurança e Conformidade Bancária
-            </span>
-            <p className="font-body-sm text-body-sm text-on-surface-variant">
-              Todos os registros são certificados e auditáveis conforme normas do Banco Central do Brasil.
-            </p>
-          </div>
+          <p className="font-body-sm text-body-sm text-on-surface-variant">
+            Todos os registros são certificados e auditáveis conforme normas do Banco Central do Brasil.
+          </p>
         </div>
-        <button
-          className="px-4 py-2 rounded-xl bg-surface-container-high text-on-surface hover:bg-surface-variant font-headline-sm text-[13px] font-semibold whitespace-nowrap transition-colors flex items-center gap-1.5 cursor-pointer"
-          onClick={() => setConsolidatedModalOpen(true)}
-          type="button"
-        >
-          <span className="material-symbols-outlined text-[18px]">description</span>
-          <span>Comprovante Consolidado</span>
-        </button>
       </div>
 
       {/* ========================================================================= */}
@@ -1040,253 +1010,6 @@ export default function StatementPage() {
                 className="py-2.5 px-5 rounded-xl bg-surface-container text-on-surface font-semibold text-sm hover:bg-surface-container-high transition-colors cursor-pointer"
               >
                 Fechar
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ========================================================================= */}
-      {/* Modal 2: Comprovante Consolidado Periódico (@media print)                 */}
-      {/* ========================================================================= */}
-      {consolidatedModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-fadeIn overflow-y-auto">
-          <div
-            id="printable-consolidated-modal"
-            className="bg-surface-container-lowest w-full max-w-2xl rounded-2xl p-6 sm:p-8 shadow-2xl border border-surface-container flex flex-col gap-5 my-auto"
-          >
-            {/* Header Relatório Consolidado */}
-            <div className="flex items-start justify-between border-b border-surface-container pb-4">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-primary text-on-primary flex items-center justify-center font-bold text-lg">
-                  NB
-                </div>
-                <div>
-                  <h3 className="font-headline-md text-base sm:text-lg text-on-surface font-bold tracking-tight">
-                    Nexus Bank S.A. - Banco 001
-                  </h3>
-                  <p className="text-xs text-on-surface-variant font-medium">
-                    Relatório Consolidado de Extrato Bancário
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setConsolidatedModalOpen(false)}
-                className="p-1.5 rounded-lg hover:bg-surface-container text-on-surface-variant cursor-pointer no-print"
-                aria-label="Fechar relatório consolidado"
-              >
-                <span className="material-symbols-outlined text-[20px]">close</span>
-              </button>
-            </div>
-
-            {/* Cabeçalho do Titular e Período */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-              <div className="p-3 rounded-xl bg-surface-container-low border border-surface-container space-y-1">
-                <span className="text-on-surface-variant font-medium block">Titular da Conta:</span>
-                <span className="font-bold text-on-surface text-sm block">{account.holderName}</span>
-                <span className="font-mono text-on-surface-variant block">
-                  Agência: {account.agency} · Conta: {account.accountNumber}-{account.digit}
-                </span>
-                <span className="font-mono text-on-surface-variant block">CPF: {account.cpfMasked}</span>
-              </div>
-
-              <div className="p-3 rounded-xl bg-surface-container-low border border-surface-container space-y-1">
-                <span className="text-on-surface-variant font-medium block">Período Avaliado:</span>
-                <span className="font-bold text-on-surface text-sm block">Últimos 30 dias (Período Atual)</span>
-                <span className="text-on-surface-variant block">Data de Emissão:</span>
-                <span className="font-mono text-on-surface block">{formatDateTimeBr(new Date().toISOString()).full}</span>
-              </div>
-            </div>
-
-            {/* Resumo Contábil do Período */}
-            <div className="grid grid-cols-3 gap-2 sm:gap-3 text-center">
-              <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
-                <span className="text-[11px] font-semibold text-emerald-800 uppercase block">Total de Entradas</span>
-                <span className="font-mono font-bold text-sm sm:text-base text-emerald-700 block mt-1">
-                  +{formatCentsToBrl(totals.creditTotal)}
-                </span>
-                <span className="text-[10px] text-on-surface-variant">{counts.credit} operações</span>
-              </div>
-
-              <div className="p-3 rounded-xl bg-error-container/20 border border-error-container/40">
-                <span className="text-[11px] font-semibold text-error uppercase block">Total de Saídas</span>
-                <span className="font-mono font-bold text-sm sm:text-base text-error block mt-1">
-                  -{formatCentsToBrl(totals.debitTotal)}
-                </span>
-                <span className="text-[10px] text-on-surface-variant">{counts.debit} operações</span>
-              </div>
-
-              <div className="p-3 rounded-xl bg-surface-container-low border border-surface-container">
-                <span className="text-[11px] font-semibold text-on-surface-variant uppercase block">Saldo do Período</span>
-                <span
-                  className={`font-mono font-bold text-sm sm:text-base block mt-1 ${
-                    totals.creditTotal >= totals.debitTotal ? 'text-emerald-700' : 'text-error'
-                  }`}
-                >
-                  {totals.creditTotal >= totals.debitTotal ? '+' : '-'}
-                  {formatCentsToBrl(Math.abs(totals.creditTotal - totals.debitTotal))}
-                </span>
-                <span className="text-[10px] text-on-surface-variant">Balanço líquido</span>
-              </div>
-            </div>
-
-            {/* Tabela Sintética de Lançamentos */}
-            <div className="border border-surface-container rounded-xl overflow-hidden max-h-56 overflow-y-auto">
-              <table className="w-full text-left text-xs border-collapse">
-                <thead className="bg-surface-container-low font-label-caps uppercase text-on-surface-variant border-b border-surface-container sticky top-0">
-                  <tr>
-                    <th className="p-2 font-semibold">Data</th>
-                    <th className="p-2 font-semibold">Protocolo</th>
-                    <th className="p-2 font-semibold">Operação</th>
-                    <th className="p-2 font-semibold">Contraparte</th>
-                    <th className="p-2 font-semibold text-right">Valor</th>
-                    <th className="p-2 font-semibold text-right">Saldo</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-surface-container-low font-mono">
-                  {filteredStatement.slice(0, 15).map((item) => (
-                    <tr key={item.id} className="hover:bg-surface-container-low">
-                      <td className="p-2 whitespace-nowrap">{formatDateTimeBr(item.timestamp).date}</td>
-                      <td className="p-2 text-secondary whitespace-nowrap">{getCanonicalProtocolNumber(item)}</td>
-                      <td className="p-2 font-sans">{getTransactionTypeLabel(item.type)}</td>
-                      <td className="p-2 font-sans truncate max-w-[120px]">{item.counterpartyName}</td>
-                      <td
-                        className={`p-2 text-right whitespace-nowrap font-bold ${
-                          item.nature === 'CREDIT' ? 'text-emerald-700' : 'text-error'
-                        }`}
-                      >
-                        {item.nature === 'CREDIT' ? '+' : '-'}
-                        {formatCentsToBrl(item.amountCents)}
-                      </td>
-                      <td className="p-2 text-right whitespace-nowrap text-on-surface">
-                        {formatCentsToBrl(item.balanceAfterCents)}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            <div className="p-3 rounded-xl bg-surface-container-low/70 border border-surface-container text-xs text-on-surface-variant space-y-1">
-              <span className="font-semibold block text-on-surface">Certificação e Conciliação Patrimonial</span>
-              <p className="text-[11px]">
-                Este documento consolida o histórico de transações e a posição de liquidez da conta para fins de
-                comprovação fiscal, contábil e auditoria nos termos do Banco Central do Brasil.
-              </p>
-            </div>
-
-            {/* Ações do Modal Consolidado */}
-            <div className="flex gap-2.5 pt-3 border-t border-surface-container no-print">
-              <button
-                type="button"
-                onClick={() => {
-                  if (typeof window !== 'undefined') {
-                    window.print();
-                  }
-                }}
-                className="flex-1 py-2.5 rounded-xl bg-primary text-on-primary font-semibold text-sm hover:opacity-90 transition-all cursor-pointer flex items-center justify-center gap-2 shadow-xs"
-              >
-                <span className="material-symbols-outlined text-[18px]">print</span>
-                Imprimir Relatório Consolidado
-              </button>
-              <button
-                type="button"
-                onClick={() => setConsolidatedModalOpen(false)}
-                className="py-2.5 px-5 rounded-xl bg-surface-container text-on-surface font-semibold text-sm hover:bg-surface-container-high transition-colors cursor-pointer"
-              >
-                Fechar
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ========================================================================= */}
-      {/* Modal 3: Exportar Extrato (CSV / OFX / PDF)                              */}
-      {/* ========================================================================= */}
-      {exportModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-fadeIn no-print">
-          <div className="bg-surface-container-lowest w-full max-w-md rounded-2xl p-6 shadow-2xl border border-surface-container flex flex-col gap-4">
-            <div className="flex items-center justify-between border-b border-surface-container pb-3">
-              <h3 className="font-headline-md text-headline-md text-on-surface font-bold">
-                Exportar Extrato
-              </h3>
-              <button
-                type="button"
-                onClick={() => setExportModalOpen(false)}
-                className="p-1 rounded-lg hover:bg-surface-container text-on-surface-variant cursor-pointer"
-                aria-label="Fechar exportação"
-              >
-                <span className="material-symbols-outlined">close</span>
-              </button>
-            </div>
-
-            <p className="text-body-sm text-on-surface-variant">
-              Selecione o formato desejado para download do relatório de conciliação:
-            </p>
-
-            <div className="space-y-2">
-              <label className="flex items-center gap-3 p-3 rounded-xl bg-surface-container-low cursor-pointer border border-transparent hover:border-secondary transition-all">
-                <input
-                  type="radio"
-                  name="exportFmt"
-                  value="csv"
-                  checked={exportFormat === 'csv'}
-                  onChange={() => setExportFormat('csv')}
-                  className="accent-primary w-4 h-4 cursor-pointer"
-                />
-                <div>
-                  <span className="font-semibold text-sm block text-on-surface">CSV Estruturado (Excel BR)</span>
-                  <span className="text-xs text-on-surface-variant">Delimitador ponto e vírgula com BOM UTF-8</span>
-                </div>
-              </label>
-
-              <label className="flex items-center gap-3 p-3 rounded-xl bg-surface-container-low cursor-pointer border border-transparent hover:border-secondary transition-all">
-                <input
-                  type="radio"
-                  name="exportFmt"
-                  value="ofx"
-                  checked={exportFormat === 'ofx'}
-                  onChange={() => setExportFormat('ofx')}
-                  className="accent-primary w-4 h-4 cursor-pointer"
-                />
-                <div>
-                  <span className="font-semibold text-sm block text-on-surface">OFX (Open Financial Exchange)</span>
-                  <span className="text-xs text-on-surface-variant">Padrão contábil para sistemas ERP e contabilidade</span>
-                </div>
-              </label>
-
-              <label className="flex items-center gap-3 p-3 rounded-xl bg-surface-container-low cursor-pointer border border-transparent hover:border-secondary transition-all">
-                <input
-                  type="radio"
-                  name="exportFmt"
-                  value="pdf"
-                  checked={exportFormat === 'pdf'}
-                  onChange={() => setExportFormat('pdf')}
-                  className="accent-primary w-4 h-4 cursor-pointer"
-                />
-                <div>
-                  <span className="font-semibold text-sm block text-on-surface">PDF / Impressão Consolidada</span>
-                  <span className="text-xs text-on-surface-variant">Relatório executivo formatado para impressão A4</span>
-                </div>
-              </label>
-            </div>
-
-            <div className="flex gap-2 pt-2 border-t border-surface-container">
-              <button
-                type="button"
-                onClick={handleExport}
-                className="flex-1 py-2.5 rounded-xl bg-primary text-on-primary font-semibold text-sm hover:opacity-90 transition-all cursor-pointer"
-              >
-                Confirmar e Baixar
-              </button>
-              <button
-                type="button"
-                onClick={() => setExportModalOpen(false)}
-                className="py-2.5 px-4 rounded-xl bg-surface-container text-on-surface font-semibold text-sm hover:bg-surface-container-high transition-colors cursor-pointer"
-              >
-                Cancelar
               </button>
             </div>
           </div>

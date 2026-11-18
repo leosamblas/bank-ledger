@@ -212,7 +212,6 @@ export function useBanking() {
         const newBalanceCents = globalBalance.availableCents + params.amountCents;
         globalBalance = {
           ...globalBalance,
-          balance: newBalanceCents,
           availableCents: newBalanceCents,
           updatedAt: new Date().toISOString(),
         };
@@ -247,7 +246,6 @@ export function useBanking() {
         const newBalanceCents = Math.max(0, globalBalance.availableCents - params.amountCents);
         globalBalance = {
           ...globalBalance,
-          balance: newBalanceCents,
           availableCents: newBalanceCents,
           updatedAt: new Date().toISOString(),
         };
@@ -303,7 +301,6 @@ export function useBanking() {
 
         globalBalance = {
           ...globalBalance,
-          balance: newBalanceCents,
           availableCents: newBalanceCents,
           usedTodayCents: newUsedToday,
           availableLimitCents: newAvailableLimit,

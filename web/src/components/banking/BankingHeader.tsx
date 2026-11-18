@@ -98,20 +98,25 @@ export function BankingHeader() {
             <span className="w-2 h-2 rounded-full bg-error absolute top-2 right-2"></span>
           </button>
 
-          {/* User Avatar & Name */}
-          <div className="flex items-center gap-2 pl-2 border-l border-surface-container ml-1">
-            <div className="w-9 h-9 rounded-full bg-[#0e1c2f] text-white flex items-center justify-center font-bold text-xs ring-2 ring-surface-container shadow-xs">
+          {/* User Avatar & Name - Clickable Link to Profile */}
+          <Link
+            href="/dashboard/profile"
+            className="flex items-center gap-2 pl-2 border-l border-surface-container ml-1 group no-underline transition-opacity hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-emerald-500 rounded-lg p-1"
+            title="Meu Perfil"
+            aria-label="Meu Perfil - Acessar dados cadastrais"
+          >
+            <div className="w-9 h-9 rounded-full bg-primary-container text-white flex items-center justify-center font-bold text-xs ring-2 ring-surface-container shadow-xs group-hover:ring-emerald-500 transition-all">
               {userInitials}
             </div>
             <div className="hidden lg:flex flex-col text-left">
-              <span className="font-headline-sm text-headline-sm text-[13px] text-on-surface font-semibold leading-tight">
+              <span className="font-headline-sm text-headline-sm text-[13px] text-on-surface font-semibold leading-tight group-hover:text-emerald-700 transition-colors">
                 {account.holderName}
               </span>
               <span className="font-label-caps text-label-caps text-on-surface-variant">
                 {account.companyName}
               </span>
             </div>
-          </div>
+          </Link>
 
           {/* Logout Button */}
           <button
@@ -159,6 +164,18 @@ export function BankingHeader() {
                 </Link>
               );
             })}
+            <Link
+              href="/dashboard/profile"
+              onClick={() => setMobileOpen(false)}
+              className={`px-4 py-2.5 font-body-md text-body-md rounded-lg no-underline transition-colors flex items-center gap-2 ${
+                pathname === '/dashboard/profile'
+                  ? 'bg-surface-container-high text-on-surface font-semibold'
+                  : 'text-on-surface-variant hover:bg-surface-container-low'
+              }`}
+            >
+              <span className="material-symbols-outlined text-[18px]">person</span>
+              Meu Perfil
+            </Link>
             <div className="pt-3 mt-1 border-t border-surface-container flex items-center justify-between">
               <span className="text-body-sm text-on-surface-variant font-medium">
                 Agência {account.agency} · C/C {account.accountNumber}-{account.digit}

@@ -38,6 +38,29 @@ export interface AccountCreationRequest {
   password: string;
 }
 
+export interface CustomerAddress {
+  postalCode?: string;
+  street?: string;
+  number?: string;
+  complement?: string;
+  neighborhood?: string;
+  city?: string;
+  state?: string;
+}
+
+export interface UpdateProfileRequest {
+  phone?: string;
+  email?: string;
+  postalCode?: string;
+  street?: string;
+  number?: string;
+  complement?: string;
+  neighborhood?: string;
+  city?: string;
+  state?: string;
+  address?: CustomerAddress;
+}
+
 export interface AccountResponse {
   id: string;
   customerId: string;
@@ -47,15 +70,35 @@ export interface AccountResponse {
   status: 'ACTIVE' | 'PENDING_ACTIVATION' | 'BLOCKED' | 'CLOSED';
   openedAt: string;
   holderName?: string;
+  address?: CustomerAddress;
+  dailyTransferLimitCents?: number;
+  email?: string;
+  phone?: string;
+  cpf?: string;
+  birthDate?: string;
+}
+
+export interface AccountLookupRequest {
+  searchType: 'ACCOUNT' | 'CPF';
+  cpf?: string;
+  agency?: string;
+  accountNumber?: string;
 }
 
 export interface AccountLookupResponse {
   accountId: string;
-  agency: string;
-  number: string;
-  holderNameMasked: string;
-  documentMasked?: string;
+  branch?: string;
+  agency?: string;
+  number?: string;
+  accountNumber?: string;
+  checkDigit?: string;
+  digit?: string;
+  holderName: string;
+  holderNameMasked?: string;
+  cpf?: string;
+  bankCode?: string;
   bankName?: string;
+  documentMasked?: string;
   accountType?: string;
 }
 
@@ -102,16 +145,42 @@ export interface StatementItem {
   type: TransactionType;
   description: string;
   counterpartyName: string;
+  counterpartyDocument?: string;
   counterpartyDocumentMasked: string;
   counterpartyAccount: string;
   nature: TransactionNature;
   amountCents: number; // Sempre positivo, natureza define crédito/débito
   balanceAfterCents: number;
   idempotencyKey: string;
+  protocolNumber?: string;
   failureReason?: string;
   debitAccount?: string;
   creditAccount?: string;
   hashSignature?: string;
+}
+
+export interface StatementEntry {
+  id?: string;
+  sequence?: number;
+  transactionId?: string;
+  journalId?: string;
+  timestamp?: string;
+  category?: 'TRANSFER' | 'DEPOSIT' | 'WITHDRAWAL' | 'FAILED';
+  type?: TransactionType;
+  description?: string;
+  counterpartyName?: string;
+  counterpartyDocument?: string;
+  counterpartyDocumentMasked?: string;
+  counterpartyAccount?: string;
+  nature?: TransactionNature;
+  amountCents?: number;
+  balanceAfterCents?: number;
+  idempotencyKey?: string;
+  failureReason?: string;
+  debitAccount?: string;
+  creditAccount?: string;
+  hashSignature?: string;
+  protocolNumber?: string;
 }
 
 export interface BankingAccountInfo {
@@ -123,6 +192,11 @@ export interface BankingAccountInfo {
   companyName: string;
   cpfMasked: string;
   status: 'ACTIVE' | 'BLOCKED' | 'PENDING';
+  cpf?: string;
+  birthDate?: string;
+  email?: string;
+  phone?: string;
+  address?: CustomerAddress;
 }
 
 export interface BalanceInfo {

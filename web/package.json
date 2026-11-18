@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "npx tsx --test src/services/__tests__/*.test.ts"
+    "test": "npx tsx --test src/services/__tests__/*.test.ts src/__tests__/services/bankingServices.test.ts src/__tests__/dashboard/TransferPage.test.tsx src/__tests__/dashboard/StatementPage.test.tsx src/__tests__/utils/exportStatement.test.ts src/__tests__/dashboard/ProfilePage.test.tsx"
   },
   "dependencies": {
     "next": "16.4.6",

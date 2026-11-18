@@ -7,6 +7,9 @@ import {
   StatementItem,
   TransactionResponse,
   AccountLookupResponse,
+  AccountLookupRequest,
+  UpdateProfileRequest,
+  AccountResponse,
 } from '@/services/types';
 import { accountService } from '@/services/accountService';
 import { queryService } from '@/services/queryService';
@@ -56,7 +59,12 @@ export function useBanking() {
         digit: accountData.digit,
         holderName: accountData.holderName || 'Cliente Nexus',
         companyName: 'Nexus Bank S.A.',
-        cpfMasked: '***.***.***-**',
+        cpf: accountData.cpf || '529.982.247-25',
+        cpfMasked: accountData.cpf || '***.***.***-**',
+        birthDate: accountData.birthDate || '1988-05-14',
+        email: accountData.email || 'carlos.silva@nexusbank.com.br',
+        phone: accountData.phone || '(11) 98765-4321',
+        address: accountData.address,
         status:
           accountData.status === 'BLOCKED'
             ? 'BLOCKED'
@@ -111,7 +119,12 @@ export function useBanking() {
           digit: accountData.digit,
           holderName: accountData.holderName || 'Cliente Nexus',
           companyName: 'Nexus Bank S.A.',
-          cpfMasked: '***.***.***-**',
+          cpf: accountData.cpf || '529.982.247-25',
+          cpfMasked: accountData.cpf || '***.***.***-**',
+          birthDate: accountData.birthDate || '1988-05-14',
+          email: accountData.email || 'carlos.silva@nexusbank.com.br',
+          phone: accountData.phone || '(11) 98765-4321',
+          address: accountData.address,
           status:
             accountData.status === 'BLOCKED'
               ? 'BLOCKED'
@@ -229,10 +242,38 @@ export function useBanking() {
   );
 
   const lookup = useCallback(
-    async (agency: string, number: string): Promise<AccountLookupResponse> => {
-      return accountService.lookupAccount(agency, number);
+    async (
+      arg1:
+        | string
+        | {
+            cpf?: string;
+            agency?: string;
+            number?: string;
+            accountNumber?: string;
+            searchType?: 'ACCOUNT' | 'CPF';
+          },
+      arg2?: string
+    ): Promise<AccountLookupResponse> => {
+      if (typeof arg1 === 'string') {
+        return accountService.lookupAccount(arg1, arg2);
+      }
+      return accountService.lookupAccount({
+        searchType: arg1.searchType || (arg1.cpf ? 'CPF' : 'ACCOUNT'),
+        cpf: arg1.cpf,
+        agency: arg1.agency,
+        accountNumber: arg1.accountNumber || arg1.number,
+      });
     },
     []
+  );
+
+  const updateProfile = useCallback(
+    async (data: UpdateProfileRequest): Promise<AccountResponse> => {
+      const updated = await accountService.updateProfile(data);
+      await refresh();
+      return updated;
+    },
+    [refresh]
   );
 
   const resetData = useCallback(async (): Promise<void> => {
@@ -250,6 +291,7 @@ export function useBanking() {
     withdraw,
     transfer,
     lookup,
+    updateProfile,
     resetData,
   };
 }

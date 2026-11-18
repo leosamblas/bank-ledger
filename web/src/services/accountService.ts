@@ -3,6 +3,8 @@ import {
   AccountCreationRequest,
   AccountResponse,
   AccountLookupResponse,
+  AccountLookupRequest,
+  UpdateProfileRequest,
 } from './types';
 import { cleanCpf } from '@/utils/cpf';
 import { generateUUID } from '@/utils/uuid';
@@ -112,29 +114,74 @@ export const accountService = {
   },
 
   /**
-   * Consulta conta por agência e número para exibir nome mascarado
+   * Consulta conta por agência/número ou por CPF via POST seguro (evita exposição de PII em URL)
    */
   async lookupAccount(
-    agency: string,
-    number: string
+    requestOrAgency: AccountLookupRequest | string,
+    accountNumber?: string
   ): Promise<AccountLookupResponse> {
-    if (IS_MOCK_ENABLED) {
-      await new Promise((resolve) => setTimeout(resolve, 300));
-      return {
-        accountId: generateUUID(),
-        agency,
-        number,
-        holderNameMasked: 'C*** E*** S***',
-      };
-    }
+    const payload: AccountLookupRequest =
+      typeof requestOrAgency === 'string'
+        ? {
+            searchType: 'ACCOUNT',
+            agency: requestOrAgency,
+            accountNumber,
+          }
+        : {
+            searchType: requestOrAgency.searchType || (requestOrAgency.cpf ? 'CPF' : 'ACCOUNT'),
+            cpf: requestOrAgency.cpf ? cleanCpf(requestOrAgency.cpf) : undefined,
+            agency: requestOrAgency.agency,
+            accountNumber:
+              requestOrAgency.accountNumber ||
+              (requestOrAgency as { number?: string }).number,
+          };
 
-    return request<AccountLookupResponse>(
-      `/accounts/lookup?agency=${encodeURIComponent(
-        agency
-      )}&number=${encodeURIComponent(number)}`,
-      {
-        method: 'GET',
+    try {
+      const response = await request<AccountLookupResponse>('/accounts/lookup', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      });
+
+      return response;
+    } catch (error) {
+      if (
+        IS_MOCK_ENABLED &&
+        error instanceof TypeError &&
+        error.message.includes('fetch')
+      ) {
+        await new Promise((resolve) => setTimeout(resolve, 300));
+        return {
+          accountId: generateUUID(),
+          branch: payload.agency || '0001',
+          agency: payload.agency || '0001',
+          number: payload.accountNumber || '104829',
+          accountNumber: payload.accountNumber || '104829',
+          checkDigit: '3',
+          digit: '3',
+          holderName: 'Carlos Eduardo Silva',
+          holderNameMasked: 'C*** E*** S***',
+          cpf: payload.cpf || '529.982.247-25',
+          bankCode: '001',
+          bankName: 'Nexus Bank S.A.',
+        };
       }
-    );
+      throw error;
+    }
+  },
+
+  /**
+   * Atualiza dados cadastrais de contato e endereço do correntista
+   */
+  async updateProfile(data: UpdateProfileRequest): Promise<AccountResponse> {
+    const payload: UpdateProfileRequest = {
+      ...data,
+      phone: data.phone ? data.phone.replace(/\D/g, '') : undefined,
+      postalCode: data.postalCode ? data.postalCode.replace(/\D/g, '') : undefined,
+    };
+
+    return request<AccountResponse>('/accounts/me/profile', {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    });
   },
 };

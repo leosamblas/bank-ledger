@@ -1,18 +1,82 @@
 "use client";
 
-import React, { useState, Suspense } from 'react';
+import React, { useState, useCallback, Suspense } from 'react';
 import Link from 'next/link';
 import { useBanking } from '@/hooks/useBanking';
 import { formatCentsToBrl, parseBrlToCents } from '@/utils/currency';
+import { cleanCpf, formatCpf, isValidCpf } from '@/utils/cpf';
 import { generateUUID } from '@/utils/uuid';
 import { AccountLookupResponse, StatementItem } from '@/services/types';
 import { CopyButton } from '@/components/ui/CopyButton';
 
+export type SearchMode = 'ACCOUNT' | 'CPF';
+
+export function calculateAvailableLimit(dailyLimitCents: number, usedTodayCents: number): number {
+  return Math.max(0, dailyLimitCents - usedTodayCents);
+}
+
+export function calculateLimitUsage(
+  dailyLimitCents: number,
+  usedTodayCents: number,
+  amountCents: number
+) {
+  const availableLimitCents = calculateAvailableLimit(dailyLimitCents, usedTodayCents);
+  const projectedUsedCents = usedTodayCents + amountCents;
+  const rawPercentage = dailyLimitCents > 0 ? (projectedUsedCents / dailyLimitCents) * 100 : 0;
+  const isExceeded = amountCents > availableLimitCents;
+
+  let colorState: 'green' | 'amber' | 'red';
+  if (isExceeded || rawPercentage > 90) {
+    colorState = 'red';
+  } else if (rawPercentage >= 70) {
+    colorState = 'amber';
+  } else {
+    colorState = 'green';
+  }
+
+  return {
+    availableLimitCents,
+    projectedUsedCents,
+    percentage: Math.min(Math.max(rawPercentage, 0), 100),
+    colorState,
+    isExceeded,
+  };
+}
+
+export function formatRecipientDetails(counterparty: AccountLookupResponse) {
+  const holderName = counterparty.holderName || counterparty.holderNameMasked || 'Titular Não Informado';
+  const clean = counterparty.cpf ? counterparty.cpf.replace(/\D/g, '') : '';
+  const formattedCpf = clean.length === 11 ? formatCpf(clean) : (counterparty.cpf || counterparty.documentMasked || '');
+  const bankCode = counterparty.bankCode || '001';
+  let institution = counterparty.bankName || '001 - Nexus Bank S.A.';
+  if (!institution.includes(bankCode)) {
+    institution = `${bankCode} - ${institution}`;
+  }
+  const branch = counterparty.branch || counterparty.agency || '0001';
+  const accNum = counterparty.accountNumber || counterparty.number || '';
+  const checkDigit = counterparty.checkDigit || counterparty.digit || '';
+  const accountString = `Agência: ${branch} | Conta: ${accNum}${checkDigit ? `-${checkDigit}` : ''}`;
+
+  return {
+    holderName,
+    formattedCpf,
+    institution,
+    accountString,
+  };
+}
+
+export function formatCpfInput(value: string): string {
+  const digits = cleanCpf(value).slice(0, 11);
+  return formatCpf(digits);
+}
+
 function TransferContent() {
   const { balance, transfer, lookup } = useBanking();
 
+  const [searchMode, setSearchMode] = useState<SearchMode>('ACCOUNT');
   const [agency, setAgency] = useState('0001');
   const [accountNumber, setAccountNumber] = useState('');
+  const [cpfInput, setCpfInput] = useState('');
   const [amountStr, setAmountStr] = useState('');
   const [description, setDescription] = useState('');
   const [idempotencyKey, setIdempotencyKey] = useState<string>('');
@@ -24,7 +88,14 @@ function TransferContent() {
   const [errorMessage, setErrorMessage] = useState('');
   const [successItem, setSuccessItem] = useState<StatementItem | null>(null);
 
-  const handleLookup = async (ag: string, acc: string) => {
+  const amountCents = parseBrlToCents(amountStr);
+  const isOverBalance = amountCents > balance.availableCents;
+  const limitUsage = calculateLimitUsage(balance.dailyLimitCents, balance.usedTodayCents, amountCents);
+  const availableLimitCents = limitUsage.availableLimitCents;
+  const isOverLimit = limitUsage.isExceeded;
+  const projectedBalanceCents = balance.availableCents - amountCents;
+
+  const handleLookupAccount = useCallback(async (ag: string, acc: string) => {
     if (!acc.trim()) {
       setErrorMessage('Informe o número da conta com dígito para pesquisar.');
       return;
@@ -32,7 +103,11 @@ function TransferContent() {
     setIsLookingUp(true);
     setErrorMessage('');
     try {
-      const res = await lookup(ag, acc);
+      const res = await lookup({
+        searchType: 'ACCOUNT',
+        agency: ag.trim() || '0001',
+        number: acc.trim(),
+      });
       setCounterparty(res);
     } catch (err: unknown) {
       setCounterparty(null);
@@ -41,13 +116,50 @@ function TransferContent() {
     } finally {
       setIsLookingUp(false);
     }
+  }, [lookup]);
+
+  const handleLookupCpf = useCallback(async (cpfToSearch: string) => {
+    const clean = cleanCpf(cpfToSearch);
+    if (clean.length !== 11) {
+      setErrorMessage('Informe um CPF válido com 11 dígitos.');
+      return;
+    }
+    setIsLookingUp(true);
+    setErrorMessage('');
+    try {
+      const res = await lookup({
+        searchType: 'CPF',
+        cpf: clean,
+      });
+      setCounterparty(res);
+    } catch (err: unknown) {
+      setCounterparty(null);
+      const msg = err instanceof Error ? err.message : 'Favorecido não encontrado para este CPF.';
+      setErrorMessage(msg);
+    } finally {
+      setIsLookingUp(false);
+    }
+  }, [lookup]);
+
+  const handleCpfChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const formatted = formatCpfInput(e.target.value);
+    setCpfInput(formatted);
+    const clean = cleanCpf(formatted);
+
+    // Auto lookup if valid 11 digits
+    if (clean.length === 11 && isValidCpf(clean)) {
+      void handleLookupCpf(clean);
+    } else if (counterparty) {
+      setCounterparty(null);
+    }
   };
 
-  const amountCents = parseBrlToCents(amountStr);
-  const projectedBalanceCents = balance.availableCents - amountCents;
-  const isOverBalance = amountCents > balance.availableCents;
-  const availableLimitCents = Math.max(0, balance.dailyLimitCents - balance.usedTodayCents);
-  const isOverLimit = amountCents > availableLimitCents;
+  const handleModeChange = (mode: SearchMode) => {
+    if (mode === searchMode) return;
+    setSearchMode(mode);
+    setCounterparty(null);
+    setErrorMessage('');
+  };
 
   const handleAmountChip = (centsToAdd: number) => {
     const nextCents = amountCents + centsToAdd;
@@ -69,7 +181,9 @@ function TransferContent() {
     }
 
     if (isOverLimit) {
-      setErrorMessage(`Limite diário excedido. Limite disponível: ${formatCentsToBrl(availableLimitCents)}.`);
+      setErrorMessage(
+        `O valor informado ultrapassa o limite diário disponível (${formatCentsToBrl(availableLimitCents)}).`
+      );
       return;
     }
 
@@ -88,14 +202,15 @@ function TransferContent() {
 
       const tx = await transfer({
         destinationAccountId: counterparty.accountId,
-        destinationAgency: agency,
-        destinationAccount: accountNumber,
+        destinationAgency: counterparty.branch || counterparty.agency || agency,
+        destinationAccount: counterparty.accountNumber || counterparty.number || accountNumber,
         amountCents,
         description: description.trim() || undefined,
         idempotencyKey: activeIdempotencyKey,
       });
 
       if (tx.status === 'COMPLETED') {
+        const details = formatRecipientDetails(counterparty);
         const receiptItem: StatementItem = {
           id: tx.id,
           sequence: 0,
@@ -104,9 +219,10 @@ function TransferContent() {
           category: 'TRANSFER',
           type: 'TRANSFER_OUT',
           description: description || 'Transferência entre contas Nexus',
-          counterpartyName: counterparty.holderNameMasked || 'Destinatário',
-          counterpartyDocumentMasked: counterparty.documentMasked || '',
-          counterpartyAccount: `${agency} / ${accountNumber}`,
+          counterpartyName: details.holderName,
+          counterpartyDocument: details.formattedCpf,
+          counterpartyDocumentMasked: details.formattedCpf,
+          counterpartyAccount: details.accountString,
           nature: 'DEBIT',
           amountCents: tx.amount || amountCents,
           balanceAfterCents: balance.availableCents - amountCents,
@@ -117,8 +233,10 @@ function TransferContent() {
       } else if (tx.status === 'FAILED') {
         if (tx.failureCode === 'INSUFFICIENT_FUNDS') {
           setErrorMessage('Saldo insuficiente para realizar esta transferência.');
-        } else if (tx.failureCode === 'LIMIT_EXCEEDED') {
-          setErrorMessage('Limite diário de transferências excedido.');
+        } else if (tx.failureCode === 'LIMIT_EXCEEDED' || tx.failureCode === 'DAILY_LIMIT_EXCEEDED') {
+          setErrorMessage(
+            `O valor informado ultrapassa o limite diário disponível (${formatCentsToBrl(availableLimitCents)}).`
+          );
         } else if (tx.failureCode === 'ACCOUNT_BLOCKED') {
           setErrorMessage('Conta bloqueada para movimentações.');
         } else {
@@ -138,8 +256,21 @@ function TransferContent() {
     setSuccessItem(null);
     setIdempotencyKey('');
     setAmountStr('');
+    setAccountNumber('');
+    setCpfInput('');
+    setCounterparty(null);
     setErrorMessage('');
   };
+
+  const recipientDetails = counterparty ? formatRecipientDetails(counterparty) : null;
+
+  // Progress Bar styling
+  const progressBarColor =
+    limitUsage.colorState === 'red'
+      ? 'bg-red-500'
+      : limitUsage.colorState === 'amber'
+      ? 'bg-amber-500'
+      : 'bg-emerald-500';
 
   return (
     <div className="w-full px-4 sm:px-6 lg:px-8 max-w-[1600px] mx-auto flex flex-col gap-6">
@@ -171,7 +302,7 @@ function TransferContent() {
             </span>
           </div>
           <p className="font-body-md text-body-md text-on-surface-variant mt-1">
-            Transfira valores para outras contas com liquidação instantânea e total segurança.
+            Transfira valores para outras contas com liquidação instantânea e proteção total de dados (LGPD).
           </p>
         </div>
 
@@ -183,6 +314,91 @@ function TransferContent() {
             <span className="material-symbols-outlined text-[18px]">receipt_long</span>
             Ver Extrato
           </Link>
+        </div>
+      </div>
+
+      {/* Painel Reativo de Limite Diário Individual */}
+      <div className="w-full bg-surface-container-lowest p-5 md:p-6 rounded-2xl shadow-sm border border-surface-container flex flex-col gap-4">
+        <div className="flex items-center justify-between flex-wrap gap-2">
+          <div className="flex items-center gap-2">
+            <span className="material-symbols-outlined text-secondary text-[22px]">speed</span>
+            <h2 className="font-headline-sm text-headline-sm text-on-surface font-bold">
+              Governança de Limite Diário
+            </h2>
+          </div>
+          <span className="text-body-sm text-on-surface-variant">
+            Limite aprovado individualmente no banco para sua conta
+          </span>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="p-4 rounded-xl bg-surface-container-low border border-surface-container flex flex-col gap-1">
+            <span className="font-label-caps text-label-caps uppercase text-on-surface-variant font-semibold">
+              Limite Total Diário
+            </span>
+            <span className="font-code-lg text-code-lg font-bold text-on-surface">
+              {formatCentsToBrl(balance.dailyLimitCents)}
+            </span>
+            <span className="text-xs text-on-surface-variant">Teto autorizado para 24h</span>
+          </div>
+
+          <div className="p-4 rounded-xl bg-surface-container-low border border-surface-container flex flex-col gap-1">
+            <span className="font-label-caps text-label-caps uppercase text-on-surface-variant font-semibold">
+              Consumido Hoje
+            </span>
+            <span className="font-code-lg text-code-lg font-bold text-on-surface">
+              {formatCentsToBrl(balance.usedTodayCents)}
+            </span>
+            <span className="text-xs text-on-surface-variant">Transferências realizadas hoje</span>
+          </div>
+
+          <div className="p-4 rounded-xl bg-surface-container-low border border-surface-container flex flex-col gap-1">
+            <span className="font-label-caps text-label-caps uppercase text-on-surface-variant font-semibold">
+              Disponível para Transferir
+            </span>
+            <span className="font-code-lg text-code-lg font-bold text-emerald-800">
+              {formatCentsToBrl(availableLimitCents)}
+            </span>
+            <span className="text-xs text-emerald-700">Saldo remanescente de transferências</span>
+          </div>
+        </div>
+
+        {/* Dynamic Progress Bar */}
+        <div className="flex flex-col gap-1.5 pt-1">
+          <div className="flex items-center justify-between text-xs font-semibold text-on-surface-variant">
+            <span>
+              Consumo do limite diário: {Math.round(limitUsage.percentage)}%
+              {amountCents > 0 && ` (projetado com esta transferência: ${formatCentsToBrl(limitUsage.projectedUsedCents)})`}
+            </span>
+            <span
+              className={
+                limitUsage.colorState === 'red'
+                  ? 'text-red-700 font-bold'
+                  : limitUsage.colorState === 'amber'
+                  ? 'text-amber-800 font-bold'
+                  : 'text-emerald-800 font-bold'
+              }
+            >
+              {isOverLimit
+                ? 'Limite Diário Ultrapassado'
+                : limitUsage.colorState === 'amber'
+                ? 'Atenção: Limite Próximo'
+                : 'Dentro do Limite Seguro'}
+            </span>
+          </div>
+          <div
+            role="progressbar"
+            aria-valuenow={Math.min(100, Math.round(limitUsage.percentage))}
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-label="Progresso de consumo do limite diário de transferências"
+            className="w-full h-3 bg-surface-container-high rounded-full overflow-hidden p-0.5"
+          >
+            <div
+              className={`h-full rounded-full transition-all duration-300 ${progressBarColor}`}
+              style={{ width: `${Math.min(100, Math.max(0, limitUsage.percentage))}%` }}
+            />
+          </div>
         </div>
       </div>
 
@@ -205,7 +421,10 @@ function TransferContent() {
             <div>
               <span className="text-on-surface-variant text-xs uppercase font-semibold block">Favorecido (Destino)</span>
               <span className="font-bold text-base text-on-surface block mt-0.5">{successItem.counterpartyName}</span>
-              <span className="text-xs text-on-surface-variant block">{successItem.counterpartyAccount}</span>
+              <span className="text-xs text-on-surface-variant block mt-0.5">
+                CPF: {successItem.counterpartyDocument || successItem.counterpartyDocumentMasked}
+              </span>
+              <span className="text-xs text-on-surface-variant block mt-0.5">{successItem.counterpartyAccount}</span>
             </div>
             <div>
               <span className="text-on-surface-variant text-xs uppercase font-semibold block">Valor Transferido</span>
@@ -264,71 +483,160 @@ function TransferContent() {
           {/* Coluna Principal: Formulário (8 cols) */}
           <div className="lg:col-span-8 bg-surface-container-lowest p-6 md:p-8 rounded-2xl shadow-sm border border-surface-container flex flex-col gap-6">
             {errorMessage && (
-              <div className="p-4 rounded-xl bg-error/10 border border-error/30 text-error text-body-md flex items-center gap-3 animate-fadeIn">
+              <div role="alert" className="p-4 rounded-xl bg-error/10 border border-error/30 text-error text-body-md flex items-center gap-3 animate-fadeIn">
                 <span className="material-symbols-outlined text-error shrink-0">error</span>
                 <p className="text-sm font-medium">{errorMessage}</p>
               </div>
             )}
 
+            {/* Alerta reativo de estouro de limite disponível */}
+            {isOverLimit && !errorMessage.includes('limite diário') && (
+              <div role="alert" className="p-4 rounded-xl bg-error/10 border border-error/30 text-error text-body-md flex items-center gap-3 animate-fadeIn">
+                <span className="material-symbols-outlined text-error shrink-0">warning</span>
+                <p className="text-sm font-semibold">
+                  O valor informado ultrapassa o limite diário disponível ({formatCentsToBrl(availableLimitCents)}).
+                </p>
+              </div>
+            )}
+
             <form onSubmit={handleSubmit} className="flex flex-col gap-5">
               {/* Field Group 1: Identificação da Conta Destino */}
-              <div className="space-y-2">
-                <span className="font-label-caps text-label-caps uppercase text-secondary font-bold tracking-wider block">
-                  1. Conta de Destino (Nexus Bank)
-                </span>
-                <div className="grid grid-cols-1 sm:grid-cols-12 gap-3">
-                  <div className="sm:col-span-4 flex flex-col gap-1">
-                    <label className="font-label-caps text-label-caps uppercase text-on-surface-variant font-semibold" htmlFor="agencyInput">
-                      Agência
-                    </label>
-                    <div className="relative flex items-center">
-                      <input
-                        id="agencyInput"
-                        value={agency}
-                        onChange={(e) => setAgency(e.target.value)}
-                        maxLength={4}
-                        placeholder="0001"
-                        type="text"
-                        className="w-full h-11 px-3 bg-surface-container-low text-on-surface font-code-md text-code-md rounded-xl border border-transparent focus:border-secondary focus:outline-none transition-colors"
-                      />
-                      <span className="absolute right-3 font-code-sm text-code-sm text-on-surface-variant">Nexus</span>
+              <div className="space-y-3">
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <span className="font-label-caps text-label-caps uppercase text-secondary font-bold tracking-wider block">
+                    1. Identificação do Favorecido (Nexus Bank)
+                  </span>
+
+                  {/* Tab Switcher: Agência/Conta vs CPF */}
+                  <div
+                    role="tablist"
+                    aria-label="Modo de busca do favorecido"
+                    className="flex items-center gap-1 p-1 bg-surface-container rounded-xl text-xs font-semibold"
+                  >
+                    <button
+                      type="button"
+                      role="tab"
+                      id="tab-account"
+                      aria-selected={searchMode === 'ACCOUNT'}
+                      aria-controls="panel-account"
+                      onClick={() => handleModeChange('ACCOUNT')}
+                      className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
+                        searchMode === 'ACCOUNT'
+                          ? 'bg-[#0e1c2f] text-white shadow-xs font-bold'
+                          : 'text-on-surface-variant hover:text-on-surface'
+                      }`}
+                    >
+                      Por Agência e Conta
+                    </button>
+                    <button
+                      type="button"
+                      role="tab"
+                      id="tab-cpf"
+                      aria-selected={searchMode === 'CPF'}
+                      aria-controls="panel-cpf"
+                      onClick={() => handleModeChange('CPF')}
+                      className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
+                        searchMode === 'CPF'
+                          ? 'bg-[#0e1c2f] text-white shadow-xs font-bold'
+                          : 'text-on-surface-variant hover:text-on-surface'
+                      }`}
+                    >
+                      Por CPF
+                    </button>
+                  </div>
+                </div>
+
+                {searchMode === 'ACCOUNT' ? (
+                  /* Modo Agência e Conta */
+                  <div id="panel-account" role="tabpanel" aria-labelledby="tab-account" className="grid grid-cols-1 sm:grid-cols-12 gap-3 animate-fadeIn">
+                    <div className="sm:col-span-4 flex flex-col gap-1">
+                      <label className="font-label-caps text-label-caps uppercase text-on-surface-variant font-semibold" htmlFor="agencyInput">
+                        Agência
+                      </label>
+                      <div className="relative flex items-center">
+                        <input
+                          id="agencyInput"
+                          value={agency}
+                          onChange={(e) => setAgency(e.target.value)}
+                          maxLength={4}
+                          placeholder="0001"
+                          type="text"
+                          className="w-full h-11 px-3 bg-surface-container-low text-on-surface font-code-md text-code-md rounded-xl border border-transparent focus:border-secondary focus:outline-none transition-colors"
+                        />
+                        <span className="absolute right-3 font-code-sm text-code-sm text-on-surface-variant">Nexus</span>
+                      </div>
+                    </div>
+
+                    <div className="sm:col-span-8 flex flex-col gap-1">
+                      <label className="font-label-caps text-label-caps uppercase text-on-surface-variant font-semibold" htmlFor="accountInput">
+                        Conta Corrente com Dígito
+                      </label>
+                      <div className="flex gap-2">
+                        <input
+                          id="accountInput"
+                          value={accountNumber}
+                          onChange={(e) => setAccountNumber(e.target.value)}
+                          placeholder="000000-0"
+                          type="text"
+                          className="w-full h-11 px-3 bg-surface-container-low text-on-surface font-code-md text-code-md rounded-xl border border-transparent focus:border-secondary focus:outline-none transition-colors"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => handleLookupAccount(agency, accountNumber)}
+                          className="h-11 px-4 bg-surface-container-high hover:bg-secondary-container text-on-surface font-body-md text-body-md font-semibold rounded-xl flex items-center gap-1.5 transition-colors shadow-xs cursor-pointer shrink-0"
+                        >
+                          <span className="material-symbols-outlined text-[18px]">person_search</span>
+                          <span>Verificar Conta</span>
+                        </button>
+                      </div>
                     </div>
                   </div>
-
-                  <div className="sm:col-span-8 flex flex-col gap-1">
-                    <label className="font-label-caps text-label-caps uppercase text-on-surface-variant font-semibold" htmlFor="accountInput">
-                      Conta Corrente com Dígito
+                ) : (
+                  /* Modo CPF */
+                  <div id="panel-cpf" role="tabpanel" aria-labelledby="tab-cpf" className="flex flex-col gap-1 animate-fadeIn">
+                    <label className="font-label-caps text-label-caps uppercase text-on-surface-variant font-semibold" htmlFor="cpfInput">
+                      CPF do Titular Favorecido (Chave Nexus)
                     </label>
                     <div className="flex gap-2">
-                      <input
-                        id="accountInput"
-                        value={accountNumber}
-                        onChange={(e) => setAccountNumber(e.target.value)}
-                        placeholder="000000-0"
-                        type="text"
-                        className="w-full h-11 px-3 bg-surface-container-low text-on-surface font-code-md text-code-md rounded-xl border border-transparent focus:border-secondary focus:outline-none transition-colors"
-                      />
+                      <div className="relative flex items-center flex-1">
+                        <input
+                          id="cpfInput"
+                          value={cpfInput}
+                          onChange={handleCpfChange}
+                          maxLength={14}
+                          placeholder="000.000.000-00"
+                          type="text"
+                          inputMode="numeric"
+                          className="w-full h-11 px-3 bg-surface-container-low text-on-surface font-code-md text-code-md rounded-xl border border-transparent focus:border-secondary focus:outline-none transition-colors"
+                        />
+                        <span className="absolute right-3 font-code-sm text-code-sm text-on-surface-variant">
+                          {cleanCpf(cpfInput).length}/11
+                        </span>
+                      </div>
                       <button
                         type="button"
-                        onClick={() => handleLookup(agency, accountNumber)}
+                        onClick={() => handleLookupCpf(cpfInput)}
                         className="h-11 px-4 bg-surface-container-high hover:bg-secondary-container text-on-surface font-body-md text-body-md font-semibold rounded-xl flex items-center gap-1.5 transition-colors shadow-xs cursor-pointer shrink-0"
                       >
                         <span className="material-symbols-outlined text-[18px]">person_search</span>
-                        <span>Verificar</span>
+                        <span>Verificar Conta</span>
                       </button>
                     </div>
+                    <span className="text-xs text-on-surface-variant">
+                      A verificação é realizada com segurança via requisição cifrada TLS (POST).
+                    </span>
                   </div>
-                </div>
+                )}
               </div>
 
-              {/* Feedback de Contraparte Mascarada (Privacidade Garantida) */}
+              {/* Feedback de Contraparte Desmascarada para Conferência Segura */}
               {isLookingUp ? (
                 <div className="p-4 rounded-xl bg-surface-container-low flex items-center gap-3">
                   <span className="inline-block w-4 h-4 border-2 border-secondary border-t-transparent rounded-full animate-spin"></span>
-                  <span className="text-body-sm text-on-surface-variant">Verificando dados da conta...</span>
+                  <span className="text-body-sm text-on-surface-variant">Consultando dados do favorecido no Nexus Bank...</span>
                 </div>
-              ) : counterparty ? (
-                <div className="bg-surface-container-low p-4 rounded-xl border border-surface-container transition-all">
+              ) : recipientDetails ? (
+                <div className="bg-surface-container-low p-5 rounded-xl border border-surface-container transition-all">
                   <div className="flex items-start justify-between gap-3 flex-wrap">
                     <div className="flex items-start gap-3">
                       <div className="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-800 flex items-center justify-center shrink-0 mt-0.5">
@@ -336,17 +644,17 @@ function TransferContent() {
                       </div>
                       <div>
                         <span className="font-label-caps text-label-caps uppercase text-emerald-800 font-semibold block">
-                          Titular Confirmado
+                          Favorecido Confirmado
                         </span>
-                        <div className="font-headline-sm text-headline-sm text-on-surface font-semibold tracking-tight mt-0.5">
-                          {counterparty.holderNameMasked}
+                        <div className="font-headline-sm text-headline-sm text-on-surface font-bold tracking-tight mt-0.5">
+                          {recipientDetails.holderName}
                         </div>
                         <div className="font-body-sm text-body-sm text-on-surface-variant flex flex-wrap gap-x-2 mt-1">
-                          <span>CPF: {counterparty.documentMasked}</span>
+                          <span className="font-semibold text-on-surface">CPF: {recipientDetails.formattedCpf}</span>
                           <span>·</span>
-                          <span>{counterparty.bankName}</span>
+                          <span>{recipientDetails.institution}</span>
                           <span>·</span>
-                          <span className="text-emerald-700 font-medium">{counterparty.accountType}</span>
+                          <span className="text-emerald-700 font-medium">{recipientDetails.accountString}</span>
                         </div>
                       </div>
                     </div>
@@ -428,14 +736,14 @@ function TransferContent() {
                     id="descInput"
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
-                    placeholder="Ex: Pagamento de fornecedor, honorários, etc."
+                    placeholder="Ex: Pagamento de honorários, fornecedor, etc."
                     type="text"
                     className="w-full h-11 px-3 bg-surface-container-low text-on-surface font-body-md text-body-md rounded-xl border border-transparent focus:border-secondary focus:outline-none transition-colors"
                   />
                 </div>
               </div>
 
-              {/* Drawer de Parâmetros e Segurança */}
+              {/* Drawer de Parâmetros e Protocolo de Segurança */}
               <div className="bg-surface-container-low rounded-xl p-3 border border-surface-container">
                 <button
                   type="button"
@@ -477,7 +785,7 @@ function TransferContent() {
                     </div>
                     <div className="flex items-center justify-between">
                       <span className="font-semibold text-on-surface">Canal Protegido:</span>
-                      <span>Conexão Criptografada Segura</span>
+                      <span>Conexão Segura Cifrada (POST TLS)</span>
                     </div>
                   </div>
                 )}
@@ -559,15 +867,15 @@ function TransferContent() {
               <div className="flex items-center gap-2">
                 <span className="material-symbols-outlined text-secondary text-[22px]">shield</span>
                 <h4 className="font-headline-sm text-headline-sm text-on-surface font-bold">
-                  Transferência Segura
+                  Transferência Segura Nexus
                 </h4>
               </div>
               <p className="font-body-sm text-body-sm text-on-surface-variant leading-relaxed">
-                Todas as transferências contam com confirmação prévia dos dados do titular e liquidação em tempo real. Os valores saem da sua conta e entram diretamente na conta do favorecido de forma instantânea e comprovada.
+                Todas as consultas e transferências são executadas sob conformidade estrita com a LGPD e Banco Central. O destinatário tem seus dados conferidos e os valores contam com liquidação imediata e garantia contábil de partidas dobradas.
               </p>
               <div className="p-3 bg-emerald-500/10 rounded-xl border border-emerald-500/20 text-xs text-emerald-800 flex items-center gap-2">
                 <span className="material-symbols-outlined text-[18px]">verified</span>
-                <span>Conformidade e segurança autorizadas pelo Banco Central.</span>
+                <span>Conformidade e segurança autorizadas pelo Banco Central do Brasil.</span>
               </div>
             </div>
           </div>

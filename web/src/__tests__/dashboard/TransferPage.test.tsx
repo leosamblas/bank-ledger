@@ -125,3 +125,13 @@ test('TransferPage - Static Architecture, WCAG AAA and Security Guardrails', () 
     'Must never contain GET query params for /accounts/lookup'
   );
 });
+
+test('TransferPage - transfer payload includes counterparty details and protocol receipt', () => {
+  const pagePath = path.resolve(process.cwd(), 'src/app/dashboard/transfer/page.tsx');
+  const content = fs.readFileSync(pagePath, 'utf-8');
+
+  assert.ok(content.includes('destinationHolderName: details.holderName'), 'Must forward recipient name');
+  assert.ok(content.includes('destinationDocument: details.formattedCpf'), 'Must forward recipient document');
+  assert.ok(content.includes('destinationAccountFormatted: details.accountString'), 'Must forward recipient account details');
+  assert.ok(content.includes('protocolNumber: `PRT-${todayStr}-${suffix}`'), 'Must produce canonical protocol number on receipt');
+});

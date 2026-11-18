@@ -25,7 +25,10 @@ public interface StatementEntryRepository extends JpaRepository<StatementEntryEn
         FROM StatementEntryEntity s
         WHERE s.accountId = :accountId
           AND UPPER(s.direction) = UPPER(:direction)
-          AND UPPER(s.category) = UPPER(:category)
+          AND (
+              UPPER(s.category) = UPPER(:category)
+              OR (UPPER(:category) = 'TRANSFER' AND UPPER(s.type) LIKE 'TRANSFER%')
+          )
           AND s.postedAt >= :startOfDay
     """)
     Long sumAmountByAccountIdAndDirectionAndCategoryAndPostedAtGreaterThanEqual(

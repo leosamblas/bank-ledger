@@ -70,13 +70,19 @@ export const transactionService = {
    * @param amountCents Valor em centavos (inteiro positivo)
    * @param idempotencyKey Chave UUID de idempotência única por operação
    * @param description Descrição opcional da transferência
+   * @param counterpartyMeta Metadados opcionais da contraparte (nome, documento, conta)
    * @returns Promessa com a resposta da transação (inicialmente PENDING)
    */
   async createTransfer(
     destinationAccountId: string,
     amountCents: number,
     idempotencyKey: string,
-    description?: string
+    description?: string,
+    counterpartyMeta?: {
+      destinationHolderName?: string;
+      destinationDocument?: string;
+      destinationAccount?: string;
+    }
   ): Promise<TransactionResponse> {
     return request<TransactionResponse>('/transactions/transfers', {
       method: 'POST',
@@ -87,6 +93,9 @@ export const transactionService = {
         destinationAccountId,
         amount: amountCents,
         ...(description ? { description } : {}),
+        ...(counterpartyMeta?.destinationHolderName ? { destinationHolderName: counterpartyMeta.destinationHolderName } : {}),
+        ...(counterpartyMeta?.destinationDocument ? { destinationDocument: counterpartyMeta.destinationDocument } : {}),
+        ...(counterpartyMeta?.destinationAccount ? { destinationAccount: counterpartyMeta.destinationAccount } : {}),
       }),
     });
   },

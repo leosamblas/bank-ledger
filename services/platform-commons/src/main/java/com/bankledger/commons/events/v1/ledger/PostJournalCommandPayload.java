@@ -21,8 +21,28 @@ public record PostJournalCommandPayload(
         UUID destinationAccountId,
         String terminalId,
         UUID correlationId,
-        Instant timestamp
+        Instant timestamp,
+        String description,
+        String protocolNumber,
+        String counterpartyHolderName,
+        String counterpartyDocument,
+        String counterpartyAccount
 ) implements Serializable {
+
+    public PostJournalCommandPayload(
+            UUID commandId,
+            UUID transactionId,
+            String type,
+            long amount,
+            String currency,
+            UUID sourceAccountId,
+            UUID destinationAccountId,
+            String terminalId,
+            UUID correlationId,
+            Instant timestamp
+    ) {
+        this(commandId, transactionId, type, amount, currency, sourceAccountId, destinationAccountId, terminalId, correlationId, timestamp, null, null, null, null, null);
+    }
 
     public PostJournalCommandPayload {
         if (commandId == null) {

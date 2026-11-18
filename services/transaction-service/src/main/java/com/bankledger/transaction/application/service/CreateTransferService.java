@@ -110,7 +110,12 @@ public class CreateTransferService implements CreateTransferUseCase {
                 command.destinationAccountId(),
                 command.terminalId(),
                 command.correlationId(),
-                now
+                now,
+                command.description(),
+                protocolNumber,
+                command.destinationHolderName(),
+                command.destinationDocument(),
+                command.destinationAccount()
         );
 
         String payload;

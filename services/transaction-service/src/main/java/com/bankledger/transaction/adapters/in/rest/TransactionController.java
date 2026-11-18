@@ -228,7 +228,10 @@ public class TransactionController {
                 request.description(),
                 "API",
                 user.customerId(),
-                UUID.randomUUID()
+                UUID.randomUUID(),
+                request.destinationHolderName(),
+                request.destinationDocument(),
+                request.destinationAccount()
         );
 
         FinancialTransaction tx = createTransferUseCase.createTransfer(command);

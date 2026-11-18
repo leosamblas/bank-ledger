@@ -267,8 +267,15 @@ public class QueryEventConsumer {
 
         String category = dto.category() != null ? dto.category().trim() : "";
         String type = dto.type() != null ? dto.type().trim() : "";
+        String description = dto.description() != null ? dto.description().trim() : "";
+
         if (category.isBlank()) {
-            if ("CREDIT".equalsIgnoreCase(direction)) {
+            if (type.toUpperCase().contains("TRANSFER") || description.toLowerCase().contains("transfer")) {
+                category = "TRANSFER";
+                if (type.isBlank()) {
+                    type = "CREDIT".equalsIgnoreCase(direction) ? "TRANSFER_IN" : "TRANSFER_OUT";
+                }
+            } else if ("CREDIT".equalsIgnoreCase(direction)) {
                 category = "DEPOSIT";
                 type = type.isBlank() ? "DEPOSIT" : type;
             } else {
@@ -280,9 +287,12 @@ public class QueryEventConsumer {
             type = category;
         }
 
-        String description = dto.description() != null ? dto.description().trim() : "";
         if (description.isBlank()) {
-            description = "CREDIT".equalsIgnoreCase(direction) ? "Depósito em conta" : "Saque em conta";
+            if ("TRANSFER".equalsIgnoreCase(category)) {
+                description = "CREDIT".equalsIgnoreCase(direction) ? "Transferência recebida" : "Transferência enviada";
+            } else {
+                description = "CREDIT".equalsIgnoreCase(direction) ? "Depósito em conta" : "Saque em conta";
+            }
         }
 
         String counterpartyName = dto.counterpartyName();

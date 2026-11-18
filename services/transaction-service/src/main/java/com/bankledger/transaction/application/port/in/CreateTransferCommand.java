@@ -13,8 +13,22 @@ public record CreateTransferCommand(
         String description,
         String terminalId,
         UUID requestedBy,
-        UUID correlationId
+        UUID correlationId,
+        String destinationHolderName,
+        String destinationDocument,
+        String destinationAccount
 ) {
+    public CreateTransferCommand(
+            UUID sourceAccountId,
+            UUID destinationAccountId,
+            long amount,
+            String description,
+            String terminalId,
+            UUID requestedBy,
+            UUID correlationId
+    ) {
+        this(sourceAccountId, destinationAccountId, amount, description, terminalId, requestedBy, correlationId, null, null, null);
+    }
     public CreateTransferCommand {
         Objects.requireNonNull(sourceAccountId, "sourceAccountId must not be null");
         Objects.requireNonNull(destinationAccountId, "destinationAccountId must not be null");

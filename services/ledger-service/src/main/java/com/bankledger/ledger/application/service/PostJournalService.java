@@ -14,6 +14,7 @@ import com.bankledger.ledger.domain.event.JournalPostedEvent;
 import com.bankledger.ledger.domain.event.JournalRejectedEvent;
 import com.bankledger.ledger.domain.exception.LedgerAccountNotFoundException;
 import com.bankledger.ledger.domain.model.Entry;
+import com.bankledger.ledger.domain.model.EntryDirection;
 import com.bankledger.ledger.domain.model.Journal;
 import com.bankledger.ledger.domain.model.LedgerAccount;
 import lombok.RequiredArgsConstructor;
@@ -109,7 +110,7 @@ public class PostJournalService implements PostJournalUseCase {
         Journal savedJournal = journalRepositoryPort.save(journal);
 
         // 8. Publish outbox events (JournalPostedEvent & EntryPostedEvents)
-        publishPostedOutboxEvents(savedJournal, result.entries());
+        publishPostedOutboxEvents(savedJournal, result.entries(), command);
 
         return savedJournal;
     }
@@ -160,7 +161,7 @@ public class PostJournalService implements PostJournalUseCase {
         return savedJournal;
     }
 
-    private void publishPostedOutboxEvents(Journal journal, List<Entry> entries) {
+    private void publishPostedOutboxEvents(Journal journal, List<Entry> entries, PostJournalCommand command) {
         JournalPostedEvent postedEvent = new JournalPostedEvent(
                 journal.getId(),
                 journal.getTransactionId(),
@@ -185,6 +186,45 @@ public class PostJournalService implements PostJournalUseCase {
         outboxEvents.add(journalOutbox);
 
         for (Entry entry : entries) {
+            String category = journal.getType();
+            String type;
+            String description;
+            String counterpartyName = null;
+            String counterpartyDocument = null;
+            String counterpartyAccount = null;
+
+            if ("TRANSFER".equalsIgnoreCase(category)) {
+                if (entry.direction() == EntryDirection.DEBIT) {
+                    type = "TRANSFER_OUT";
+                    description = (command != null && command.description() != null && !command.description().isBlank())
+                            ? command.description()
+                            : "Transferência enviada";
+                    if (command != null) {
+                        counterpartyName = command.counterpartyHolderName();
+                        counterpartyDocument = command.counterpartyDocument();
+                        counterpartyAccount = command.counterpartyAccount();
+                    }
+                } else {
+                    type = "TRANSFER_IN";
+                    description = (command != null && command.description() != null && !command.description().isBlank())
+                            ? command.description()
+                            : "Transferência recebida";
+                    counterpartyName = "Remetente";
+                    counterpartyAccount = (command != null && command.sourceAccountId() != null)
+                            ? command.sourceAccountId().toString()
+                            : null;
+                }
+            } else if ("DEPOSIT".equalsIgnoreCase(category)) {
+                type = "DEPOSIT";
+                description = "Depósito em conta";
+            } else if ("WITHDRAWAL".equalsIgnoreCase(category)) {
+                type = "WITHDRAWAL";
+                description = "Saque em terminal";
+            } else {
+                type = category;
+                description = journal.getDescription();
+            }
+
             EntryPostedEvent entryEvent = new EntryPostedEvent(
                     entry.id(),
                     entry.journalId(),
@@ -194,7 +234,14 @@ public class PostJournalService implements PostJournalUseCase {
                     entry.amount(),
                     entry.balanceAfter(),
                     entry.sequence(),
-                    entry.createdAt()
+                    entry.createdAt(),
+                    category,
+                    type,
+                    description,
+                    command != null ? command.protocolNumber() : null,
+                    counterpartyName,
+                    counterpartyDocument,
+                    counterpartyAccount
             );
             OutboxEvent entryOutbox = OutboxEvent.pending(
                     "Entry",

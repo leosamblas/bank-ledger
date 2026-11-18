@@ -15,8 +15,26 @@ public record EntryPostedPayload(
         UUID accountId,
         String entryType,
         long amount,
-        Instant timestamp
+        Instant timestamp,
+        String category,
+        String type,
+        String description,
+        String protocolNumber,
+        String counterpartyName,
+        String counterpartyDocument,
+        String counterpartyAccount
 ) implements Serializable {
+
+    public EntryPostedPayload(
+            UUID entryId,
+            UUID journalId,
+            UUID accountId,
+            String entryType,
+            long amount,
+            Instant timestamp
+    ) {
+        this(entryId, journalId, accountId, entryType, amount, timestamp, null, null, null, null, null, null, null);
+    }
 
     public EntryPostedPayload {
         Objects.requireNonNull(entryId, "entryId must not be null");

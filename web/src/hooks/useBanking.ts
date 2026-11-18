@@ -17,6 +17,22 @@ import { transactionService } from '@/services/transactionService';
 import { generateUUID } from '@/utils/uuid';
 import { maskCpf } from '@/utils/cpf';
 
+export interface TransferParams {
+  destinationAccountId?: string;
+  destinationAgency?: string;
+  destinationAccount?: string;
+  amountCents: number;
+  description?: string;
+  idempotencyKey?: string;
+  destinationHolderName?: string;
+  destinationDocument?: string;
+  destinationAccountFormatted?: string;
+}
+
+interface OptimisticEntry extends StatementItem {
+  createdAtMs: number;
+}
+
 const INITIAL_ACCOUNT: BankingAccountInfo = {
   id: '',
   agency: '0001',
@@ -38,18 +54,56 @@ const INITIAL_BALANCE: BalanceInfo = {
   updatedAt: new Date().toISOString(),
 };
 
+// Module-level reactive store shared across all components and pages
+let globalAccount: BankingAccountInfo = INITIAL_ACCOUNT;
+let globalBalance: BalanceInfo = INITIAL_BALANCE;
+let globalStatement: StatementItem[] = [];
+let globalLoading: boolean = true;
+let globalError: string | null = null;
+let optimisticEntries: OptimisticEntry[] = [];
+let hasInitialLoaded = false;
+const listeners = new Set<() => void>();
+
+function notifyListeners() {
+  listeners.forEach((listener) => {
+    try {
+      listener();
+    } catch (e) {
+      console.error('[useBanking] listener error:', e);
+    }
+  });
+}
+
 export function useBanking() {
-  const [account, setAccount] = useState<BankingAccountInfo>(INITIAL_ACCOUNT);
-  const [balance, setBalance] = useState<BalanceInfo>(INITIAL_BALANCE);
-  const [statement, setStatement] = useState<StatementItem[]>([]);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string | null>(null);
+  const [account, setAccount] = useState<BankingAccountInfo>(globalAccount);
+  const [balance, setBalance] = useState<BalanceInfo>(globalBalance);
+  const [statement, setStatement] = useState<StatementItem[]>(globalStatement);
+  const [isLoading, setIsLoading] = useState<boolean>(globalLoading);
+  const [error, setError] = useState<string | null>(globalError);
+
+  useEffect(() => {
+    const handleChange = () => {
+      setAccount(globalAccount);
+      setBalance(globalBalance);
+      setStatement(globalStatement);
+      setIsLoading(globalLoading);
+      setError(globalError);
+    };
+
+    listeners.add(handleChange);
+    handleChange();
+
+    return () => {
+      listeners.delete(handleChange);
+    };
+  }, []);
 
   const fetchBankingData = useCallback(async (): Promise<void> => {
     try {
       const accountData = await accountService.getCurrentUserAccount();
       if (!accountData || !accountData.id) {
-        setIsLoading(false);
+        globalLoading = false;
+        notifyListeners();
         return;
       }
 
@@ -73,12 +127,11 @@ export function useBanking() {
             ? 'PENDING'
             : 'ACTIVE',
       };
-      setAccount(mappedAccount);
 
       const [balanceData, statementData] = await Promise.all([
         queryService.getBalance(accountData.id).catch((err) => {
           console.warn('[useBanking] Erro ao consultar saldo:', err);
-          return INITIAL_BALANCE;
+          return globalBalance;
         }),
         queryService.getStatement(accountData.id).catch((err) => {
           console.warn('[useBanking] Erro ao consultar extrato:', err);
@@ -86,86 +139,60 @@ export function useBanking() {
         }),
       ]);
 
-      setBalance(balanceData);
-      setStatement(statementData);
-      setError(null);
+      const nowMs = Date.now();
+      optimisticEntries = optimisticEntries.filter((e) => nowMs - e.createdAtMs < 120_000);
+
+      // Reconcile optimistic entries against server statementData
+      optimisticEntries = optimisticEntries.filter(
+        (opt) =>
+          !statementData.some(
+            (srv) =>
+              srv.id === opt.id ||
+              srv.transactionId === opt.transactionId ||
+              (opt.protocolNumber && srv.protocolNumber === opt.protocolNumber)
+          )
+      );
+
+      const pendingDebits = optimisticEntries
+        .filter((e) => e.nature === 'DEBIT' && e.category === 'TRANSFER')
+        .reduce((sum, e) => sum + e.amountCents, 0);
+
+      const reconciledUsedToday = Math.max(balanceData.usedTodayCents, pendingDebits);
+      const reconciledBalance: BalanceInfo = {
+        ...balanceData,
+        usedTodayCents: reconciledUsedToday,
+        availableLimitCents: Math.max(0, balanceData.dailyLimitCents - reconciledUsedToday),
+      };
+
+      const mergedStatement = [...optimisticEntries, ...statementData];
+
+      globalAccount = mappedAccount;
+      globalBalance = reconciledBalance;
+      globalStatement = mergedStatement;
+      globalError = null;
+      globalLoading = false;
+      hasInitialLoaded = true;
+      notifyListeners();
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Falha ao sincronizar dados bancários.';
-      setError(msg);
+      globalError = msg;
+      globalLoading = false;
+      notifyListeners();
       console.error('[useBanking] Falha no refresh:', err);
-    } finally {
-      setIsLoading(false);
     }
   }, []);
 
   const refresh = useCallback(async (): Promise<void> => {
-    setIsLoading(true);
+    globalLoading = true;
+    notifyListeners();
     await fetchBankingData();
   }, [fetchBankingData]);
 
   useEffect(() => {
-    let active = true;
-    void (async () => {
-      try {
-        const accountData = await accountService.getCurrentUserAccount();
-        if (!active || !accountData?.id) {
-          if (active) setIsLoading(false);
-          return;
-        }
-
-        const mappedAccount: BankingAccountInfo = {
-          id: accountData.id,
-          agency: accountData.agency || '0001',
-          accountNumber: accountData.number,
-          digit: accountData.digit,
-          holderName: accountData.holderName || 'Cliente Nexus',
-          companyName: 'Nexus Bank S.A.',
-          cpf: accountData.cpf || '',
-          cpfMasked: accountData.cpf ? maskCpf(accountData.cpf) : '***.***.***-**',
-          birthDate: accountData.birthDate || '',
-          email: accountData.email || '',
-          phone: accountData.phone || '',
-          address: accountData.address,
-          status:
-            accountData.status === 'BLOCKED'
-              ? 'BLOCKED'
-              : accountData.status === 'PENDING_ACTIVATION'
-              ? 'PENDING'
-              : 'ACTIVE',
-        };
-        if (active) setAccount(mappedAccount);
-
-        const [balanceData, statementData] = await Promise.all([
-          queryService.getBalance(accountData.id).catch((err) => {
-            console.warn('[useBanking] Erro ao consultar saldo:', err);
-            return INITIAL_BALANCE;
-          }),
-          queryService.getStatement(accountData.id).catch((err) => {
-            console.warn('[useBanking] Erro ao consultar extrato:', err);
-            return [] as StatementItem[];
-          }),
-        ]);
-
-        if (active) {
-          setBalance(balanceData);
-          setStatement(statementData);
-          setError(null);
-        }
-      } catch (err: unknown) {
-        if (active) {
-          const msg = err instanceof Error ? err.message : 'Falha ao sincronizar dados bancários.';
-          setError(msg);
-          console.error('[useBanking] Falha no carregamento inicial:', err);
-        }
-      } finally {
-        if (active) setIsLoading(false);
-      }
-    })();
-
-    return () => {
-      active = false;
-    };
-  }, []);
+    if (!hasInitialLoaded) {
+      void fetchBankingData();
+    }
+  }, [fetchBankingData]);
 
   const deposit = useCallback(
     async (params: {
@@ -180,10 +207,26 @@ export function useBanking() {
         params.terminalId
       );
       const resolvedTx = await transactionService.pollTransactionUntilResolved(initialTx.id);
-      await refresh();
+
+      if (resolvedTx.status === 'COMPLETED') {
+        const newBalanceCents = globalBalance.availableCents + params.amountCents;
+        globalBalance = {
+          ...globalBalance,
+          balance: newBalanceCents,
+          availableCents: newBalanceCents,
+          updatedAt: new Date().toISOString(),
+        };
+        notifyListeners();
+        setTimeout(() => {
+          void fetchBankingData();
+        }, 300);
+      } else {
+        await refresh();
+      }
+
       return resolvedTx;
     },
-    [refresh]
+    [fetchBankingData, refresh]
   );
 
   const withdraw = useCallback(
@@ -199,21 +242,30 @@ export function useBanking() {
         params.terminalId
       );
       const resolvedTx = await transactionService.pollTransactionUntilResolved(initialTx.id);
-      await refresh();
+
+      if (resolvedTx.status === 'COMPLETED') {
+        const newBalanceCents = Math.max(0, globalBalance.availableCents - params.amountCents);
+        globalBalance = {
+          ...globalBalance,
+          balance: newBalanceCents,
+          availableCents: newBalanceCents,
+          updatedAt: new Date().toISOString(),
+        };
+        notifyListeners();
+        setTimeout(() => {
+          void fetchBankingData();
+        }, 300);
+      } else {
+        await refresh();
+      }
+
       return resolvedTx;
     },
-    [refresh]
+    [fetchBankingData, refresh]
   );
 
   const transfer = useCallback(
-    async (params: {
-      destinationAccountId?: string;
-      destinationAgency?: string;
-      destinationAccount?: string;
-      amountCents: number;
-      description?: string;
-      idempotencyKey?: string;
-    }): Promise<TransactionResponse> => {
+    async (params: TransferParams): Promise<TransactionResponse> => {
       let destinationAccountId = params.destinationAccountId;
 
       if (!destinationAccountId && params.destinationAgency && params.destinationAccount) {
@@ -233,13 +285,68 @@ export function useBanking() {
         destinationAccountId,
         params.amountCents,
         key,
-        params.description
+        params.description,
+        {
+          destinationHolderName: params.destinationHolderName,
+          destinationDocument: params.destinationDocument,
+          destinationAccount: params.destinationAccountFormatted || params.destinationAccount,
+        }
       );
       const resolvedTx = await transactionService.pollTransactionUntilResolved(initialTx.id);
-      await refresh();
+
+      if (resolvedTx.status === 'COMPLETED') {
+        const todayStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+        const suffix = resolvedTx.id.replace(/-/g, '').slice(0, 6).toUpperCase();
+        const protocol = `PRT-${todayStr}-${suffix}`;
+
+        const newUsedToday = globalBalance.usedTodayCents + params.amountCents;
+        const newAvailableLimit = Math.max(0, globalBalance.dailyLimitCents - newUsedToday);
+        const newBalanceCents = Math.max(0, globalBalance.availableCents - params.amountCents);
+
+        globalBalance = {
+          ...globalBalance,
+          balance: newBalanceCents,
+          availableCents: newBalanceCents,
+          usedTodayCents: newUsedToday,
+          availableLimitCents: newAvailableLimit,
+          updatedAt: new Date().toISOString(),
+        };
+
+        const optimisticItem: OptimisticEntry = {
+          id: resolvedTx.id,
+          sequence: (globalBalance.asOfSequence || 0) + 1,
+          transactionId: resolvedTx.id,
+          timestamp: resolvedTx.completedAt || resolvedTx.createdAt || new Date().toISOString(),
+          category: 'TRANSFER',
+          type: 'TRANSFER_OUT',
+          description: params.description || 'Transferência enviada',
+          counterpartyName: params.destinationHolderName || 'Destinatário',
+          counterpartyDocument: params.destinationDocument || '',
+          counterpartyDocumentMasked: params.destinationDocument || '',
+          counterpartyAccount: params.destinationAccountFormatted || params.destinationAccount || '',
+          nature: 'DEBIT',
+          amountCents: resolvedTx.amount || params.amountCents,
+          balanceAfterCents: newBalanceCents,
+          idempotencyKey: key,
+          protocolNumber: protocol,
+          createdAtMs: Date.now(),
+        };
+
+        optimisticEntries = [optimisticItem, ...optimisticEntries.filter((e) => e.id !== optimisticItem.id)];
+        globalStatement = [optimisticItem, ...globalStatement.filter((e) => e.id !== optimisticItem.id && e.transactionId !== optimisticItem.transactionId)];
+        notifyListeners();
+
+        // Give Kafka consumer a moment before refreshing from query-service
+        setTimeout(() => {
+          void fetchBankingData();
+        }, 300);
+      } else {
+        await refresh();
+      }
+
       return resolvedTx;
     },
-    [refresh]
+    [fetchBankingData, refresh]
   );
 
   const lookup = useCallback(

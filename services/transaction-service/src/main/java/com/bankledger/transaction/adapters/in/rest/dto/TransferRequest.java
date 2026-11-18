@@ -13,6 +13,13 @@ public record TransferRequest(
         @Positive(message = "amount must be greater than zero")
         Long amount,
 
-        String description
+        String description,
+
+        String destinationHolderName,
+        String destinationDocument,
+        String destinationAccount
 ) {
+    public TransferRequest(UUID destinationAccountId, Long amount, String description) {
+        this(destinationAccountId, amount, description, null, null, null);
+    }
 }

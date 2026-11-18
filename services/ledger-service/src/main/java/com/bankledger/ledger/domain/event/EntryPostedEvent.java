@@ -23,11 +23,32 @@ public record EntryPostedEvent(
         long amount,
         long balanceAfter,
         long sequence,
-        Instant postedAt
+        Instant postedAt,
+        String category,
+        String type,
+        String description,
+        String protocolNumber,
+        String counterpartyName,
+        String counterpartyDocument,
+        String counterpartyAccount
 ) implements Serializable {
 
     public static final String TOPIC = KafkaTopics.LEDGER_ENTRIES_V1;
     public static final String EVENT_TYPE = "EntryPosted";
+
+    public EntryPostedEvent(
+            UUID entryId,
+            UUID journalId,
+            UUID transactionId,
+            UUID accountId,
+            EntryDirection direction,
+            long amount,
+            long balanceAfter,
+            long sequence,
+            Instant postedAt
+    ) {
+        this(entryId, journalId, transactionId, accountId, direction, amount, balanceAfter, sequence, postedAt, null, null, null, null, null, null, null);
+    }
 
     public EntryPostedEvent {
         Objects.requireNonNull(entryId, "entryId must not be null");
@@ -45,7 +66,14 @@ public record EntryPostedEvent(
                 accountId,
                 direction.name(),
                 amount,
-                postedAt
+                postedAt,
+                category,
+                type,
+                description,
+                protocolNumber,
+                counterpartyName,
+                counterpartyDocument,
+                counterpartyAccount
         );
     }
 }

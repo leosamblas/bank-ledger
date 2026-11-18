@@ -22,10 +22,30 @@ public record PostJournalCommand(
         UUID destinationAccountId,
         String terminalId,
         UUID correlationId,
-        Instant timestamp
+        Instant timestamp,
+        String description,
+        String protocolNumber,
+        String counterpartyHolderName,
+        String counterpartyDocument,
+        String counterpartyAccount
 ) implements Serializable {
 
     public static final String DEFAULT_CURRENCY = BankingConstants.DEFAULT_CURRENCY;
+
+    public PostJournalCommand(
+            UUID commandId,
+            UUID transactionId,
+            String type,
+            long amount,
+            String currency,
+            UUID sourceAccountId,
+            UUID destinationAccountId,
+            String terminalId,
+            UUID correlationId,
+            Instant timestamp
+    ) {
+        this(commandId, transactionId, type, amount, currency, sourceAccountId, destinationAccountId, terminalId, correlationId, timestamp, null, null, null, null, null);
+    }
 
     public PostJournalCommand {
         if (commandId == null) {
@@ -58,7 +78,12 @@ public record PostJournalCommand(
                 destinationAccountId,
                 terminalId,
                 correlationId,
-                timestamp
+                timestamp,
+                description,
+                protocolNumber,
+                counterpartyHolderName,
+                counterpartyDocument,
+                counterpartyAccount
         );
     }
 
@@ -74,7 +99,12 @@ public record PostJournalCommand(
                 payload.destinationAccountId(),
                 payload.terminalId(),
                 payload.correlationId(),
-                payload.timestamp()
+                payload.timestamp(),
+                payload.description(),
+                payload.protocolNumber(),
+                payload.counterpartyHolderName(),
+                payload.counterpartyDocument(),
+                payload.counterpartyAccount()
         );
     }
 }

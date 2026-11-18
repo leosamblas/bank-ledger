@@ -200,6 +200,8 @@ function TransferContent() {
         setIdempotencyKey(activeIdempotencyKey);
       }
 
+      const details = formatRecipientDetails(counterparty);
+
       const tx = await transfer({
         destinationAccountId: counterparty.accountId,
         destinationAgency: counterparty.branch || counterparty.agency || agency,
@@ -207,10 +209,14 @@ function TransferContent() {
         amountCents,
         description: description.trim() || undefined,
         idempotencyKey: activeIdempotencyKey,
+        destinationHolderName: details.holderName,
+        destinationDocument: details.formattedCpf,
+        destinationAccountFormatted: details.accountString,
       });
 
       if (tx.status === 'COMPLETED') {
-        const details = formatRecipientDetails(counterparty);
+        const todayStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+        const suffix = tx.id.replace(/-/g, '').slice(0, 6).toUpperCase();
         const receiptItem: StatementItem = {
           id: tx.id,
           sequence: 0,
@@ -218,15 +224,16 @@ function TransferContent() {
           timestamp: tx.completedAt || tx.createdAt || new Date().toISOString(),
           category: 'TRANSFER',
           type: 'TRANSFER_OUT',
-          description: description || 'Transferência entre contas Nexus',
+          description: description || 'Transferência enviada',
           counterpartyName: details.holderName,
           counterpartyDocument: details.formattedCpf,
           counterpartyDocumentMasked: details.formattedCpf,
           counterpartyAccount: details.accountString,
           nature: 'DEBIT',
           amountCents: tx.amount || amountCents,
-          balanceAfterCents: balance.availableCents - amountCents,
+          balanceAfterCents: Math.max(0, balance.availableCents - amountCents),
           idempotencyKey: activeIdempotencyKey,
+          protocolNumber: `PRT-${todayStr}-${suffix}`,
         };
 
         setSuccessItem(receiptItem);

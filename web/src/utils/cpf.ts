@@ -22,6 +22,12 @@ export function formatCpf(value: string): string {
   return digits;
 }
 
+export function maskCpf(value: string): string {
+  const digits = cleanCpf(value);
+  if (digits.length !== 11) return '***.***.***-**';
+  return `${digits.slice(0, 3)}.***.***-${digits.slice(9, 11)}`;
+}
+
 /**
  * Validação algorítmica matemática oficial do CPF (Módulo 11)
  * Verifica os dois dígitos verificadores e rejeita sequências repetidas.

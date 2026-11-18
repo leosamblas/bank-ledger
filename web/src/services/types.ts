@@ -159,29 +159,7 @@ export interface StatementItem {
   hashSignature?: string;
 }
 
-export interface StatementEntry {
-  id?: string;
-  sequence?: number;
-  transactionId?: string;
-  journalId?: string;
-  timestamp?: string;
-  category?: 'TRANSFER' | 'DEPOSIT' | 'WITHDRAWAL' | 'FAILED';
-  type?: TransactionType;
-  description?: string;
-  counterpartyName?: string;
-  counterpartyDocument?: string;
-  counterpartyDocumentMasked?: string;
-  counterpartyAccount?: string;
-  nature?: TransactionNature;
-  amountCents?: number;
-  balanceAfterCents?: number;
-  idempotencyKey?: string;
-  failureReason?: string;
-  debitAccount?: string;
-  creditAccount?: string;
-  hashSignature?: string;
-  protocolNumber?: string;
-}
+export type StatementEntry = Partial<StatementItem>;
 
 export interface BankingAccountInfo {
   id: string;
@@ -204,6 +182,7 @@ export interface BalanceInfo {
   blockedCents: number;
   dailyLimitCents: number;
   usedTodayCents: number;
+  availableLimitCents?: number;
   monthlyVariationPercent: number;
   asOfSequence: number;
   updatedAt: string;

@@ -346,52 +346,16 @@ class AccountControllerTest {
     }
 
     @Nested
-    @DisplayName("GET /api/v1/accounts/lookup")
-    class LookupAccountTests {
+    @DisplayName("GET /api/v1/accounts/lookup (Disabled for Security)")
+    class DisabledGetLookupTests {
 
         @Test
-        @DisplayName("200 OK with masked holder name when account exists")
-        void shouldReturn200WithMaskedNameWhenAccountExists() throws Exception {
-            UUID accountId = UUID.randomUUID();
-            UUID customerId = UUID.randomUUID();
-
-            AccountLookupResult lookupResult = new AccountLookupResult(
-                    accountId,
-                    "0001",
-                    "123456",
-                    "7",
-                    "C*** E*** S***"
-            );
-            when(lookupAccountUseCase.lookup("0001", "123456")).thenReturn(lookupResult);
-
+        @DisplayName("GET /api/v1/accounts/lookup is rejected (cannot be queried via GET)")
+        void shouldRejectGetLookup() throws Exception {
             mockMvc.perform(get("/api/v1/accounts/lookup")
-                            .principal(createAuthToken(customerId, accountId))
                             .param("agency", "0001")
                             .param("number", "123456"))
-                    .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.accountId").value(accountId.toString()))
-                    .andExpect(jsonPath("$.agency").value("0001"))
-                    .andExpect(jsonPath("$.number").value("123456"))
-                    .andExpect(jsonPath("$.holderNameMasked").value("C*** E*** S***"));
-        }
-
-        @Test
-        @DisplayName("404 Not Found with ProblemDetail when account does not exist")
-        void shouldReturn404WhenAccountNotFound() throws Exception {
-            UUID accountId = UUID.randomUUID();
-            UUID customerId = UUID.randomUUID();
-
-            when(lookupAccountUseCase.lookup("0001", "999999"))
-                    .thenThrow(new AccountNotFoundException("Account not found for 0001/999999"));
-
-            mockMvc.perform(get("/api/v1/accounts/lookup")
-                            .principal(createAuthToken(customerId, accountId))
-                            .param("agency", "0001")
-                            .param("number", "999999"))
-                    .andExpect(status().isNotFound())
-                    .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
-                    .andExpect(jsonPath("$.status").value(404))
-                    .andExpect(jsonPath("$.title").value("Not Found"));
+                    .andExpect(status().isBadRequest());
         }
     }
 

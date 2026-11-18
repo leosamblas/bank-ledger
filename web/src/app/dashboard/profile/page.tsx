@@ -43,6 +43,19 @@ export function validateEmail(email: string): boolean {
   return emailRegex.test(email.trim());
 }
 
+export function formatDisplayDate(dateStr?: string): string {
+  if (!dateStr) return '-';
+  const clean = dateStr.trim();
+  if (clean.includes('-')) {
+    const parts = clean.split('-');
+    if (parts.length === 3) {
+      const [y, m, d] = parts;
+      return `${d.padStart(2, '0')}/${m.padStart(2, '0')}/${y}`;
+    }
+  }
+  return clean;
+}
+
 export interface ViaCepResult {
   street: string;
   neighborhood: string;
@@ -369,7 +382,7 @@ export default function ProfilePage() {
                   type="text"
                   readOnly
                   aria-readonly="true"
-                  value={account.cpf || account.cpfMasked || '529.982.247-25'}
+                  value={account.cpf || account.cpfMasked || '-'}
                   className="w-full px-3.5 py-2.5 bg-surface-container-low text-on-surface-variant font-body-md text-sm rounded-xl border border-surface-container cursor-not-allowed select-none"
                 />
                 <span className="material-symbols-outlined text-[16px] text-outline absolute right-3 top-3">
@@ -392,7 +405,7 @@ export default function ProfilePage() {
                   type="text"
                   readOnly
                   aria-readonly="true"
-                  value={account.birthDate ? '14/05/1988' : '14/05/1988'}
+                  value={formatDisplayDate(account.birthDate)}
                   className="w-full px-3.5 py-2.5 bg-surface-container-low text-on-surface-variant font-body-md text-sm rounded-xl border border-surface-container cursor-not-allowed select-none"
                 />
                 <span className="material-symbols-outlined text-[16px] text-outline absolute right-3 top-3">

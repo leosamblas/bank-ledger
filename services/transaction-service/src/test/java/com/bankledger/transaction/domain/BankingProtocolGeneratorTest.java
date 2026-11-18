@@ -55,14 +55,15 @@ class BankingProtocolGeneratorTest {
     }
 
     @Test
-    @DisplayName("generateProtocol alias should produce matching format")
-    void shouldSupportGenerateProtocolAlias() {
+    @DisplayName("Should generate deterministic protocol when seeded with UUID")
+    void shouldSupportSeededGeneration() {
         BankingProtocolGenerator generator = new BankingProtocolGenerator();
         LocalDate fixedDate = LocalDate.of(2026, 5, 4);
+        java.util.UUID seed = java.util.UUID.fromString("12345678-abcd-1234-c000-000000000000");
 
-        String protocol = generator.generateProtocol(fixedDate);
+        String protocol = generator.generate(fixedDate, seed);
 
-        assertThat(protocol).startsWith("PRT-20260504-");
+        assertThat(protocol).isEqualTo("PRT-20260504-123456");
         assertThat(protocol).matches(PROTOCOL_PATTERN);
     }
 

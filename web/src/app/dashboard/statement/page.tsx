@@ -54,31 +54,89 @@ export function getCanonicalProtocolNumber(item: {
 }
 
 /**
+ * Implementação padrão de SHA-256 (FIPS 180-4) para geração síncrona de hash criptográfico
+ */
+function sha256Hex(ascii: string): string {
+  function r(v: number, a: number): number {
+    return (v >>> a) | (v << (32 - a));
+  }
+  const P = Math.pow;
+  const M = P(2, 32);
+  let l = ascii.length;
+  let i: number;
+  let j: number;
+  let res = '';
+  const w: number[] = [];
+  const bL = l * 8;
+  let h: number[] = [];
+  const k: number[] = [];
+  let p = 0;
+  const comp: Record<number, boolean> = {};
+
+  for (let c = 2; p < 64; c++) {
+    if (!comp[c]) {
+      for (i = 0; i < 313; i += c) comp[i] = true;
+      h[p] = (P(c, 0.5) * M) | 0;
+      k[p++] = (P(c, 1 / 3) * M) | 0;
+    }
+  }
+
+  ascii += '\x80';
+  while ((ascii.length % 64) - 56) ascii += '\x00';
+  for (i = 0; i < ascii.length; i++) {
+    j = ascii.charCodeAt(i);
+    w[i >> 2] |= j << (((3 - i) % 4) * 8);
+  }
+  w[w.length] = (bL / M) | 0;
+  w[w.length] = bL;
+
+  for (j = 0; j < w.length; ) {
+    const s = w.slice(j, (j += 16));
+    const oH = h.slice(0);
+    for (i = 0; i < 64; i++) {
+      const a = h[0];
+      const e = h[4];
+      const w15 = s[i - 15];
+      const w2 = s[i - 2];
+      const t1 =
+        (h[7] +
+          (r(e, 6) ^ r(e, 11) ^ r(e, 25)) +
+          ((e & h[5]) ^ (~e & h[6])) +
+          k[i] +
+          (s[i] =
+            i < 16
+              ? s[i]
+              : (s[i - 16] +
+                  (r(w15, 7) ^ r(w15, 18) ^ (w15 >>> 3)) +
+                  s[i - 7] +
+                  (r(w2, 17) ^ r(w2, 19) ^ (w2 >>> 10))) |
+                0)) |
+        0;
+      const t2 =
+        ((r(a, 2) ^ r(a, 13) ^ r(a, 22)) +
+          ((a & h[1]) ^ (a & h[2]) ^ (h[1] & h[2]))) |
+        0;
+      h = [(t1 + t2) | 0, a, h[1], h[2], (h[3] + t1) | 0, e, h[5], h[6]];
+    }
+    for (i = 0; i < 8; i++) h[i] = (h[i] + oH[i]) | 0;
+  }
+
+  for (i = 0; i < 8; i++) {
+    for (j = 3; j >= 0; j--) {
+      const b = (h[i] >> (8 * j)) & 255;
+      res += (b < 16 ? '0' : '') + b.toString(16);
+    }
+  }
+  return res;
+}
+
+/**
  * Gera hash SHA-256 de autenticação eletrônica determinístico para auditoria
  */
 export function getReceiptAuthHash(item: Partial<StatementItem>): string {
-  if (item.hashSignature) return item.hashSignature;
+  if (item.hashSignature) return item.hashSignature.toUpperCase();
   const seed = `${item.sequence ?? 0}-${item.idempotencyKey ?? ''}-${item.timestamp ?? ''}-${item.amountCents ?? 0}`;
-  let hash1 = 0x811c9dc5;
-  let hash2 = 0x9e3779b9;
-  let hash3 = 0x5bd1e995;
-  let hash4 = 0x27d4eb2f;
-  for (let i = 0; i < seed.length; i++) {
-    const ch = seed.charCodeAt(i);
-    hash1 = Math.imul(hash1 ^ ch, 0x01000193) >>> 0;
-    hash2 = Math.imul(hash2 ^ (ch << 3), 0x5bd1e995) >>> 0;
-    hash3 = Math.imul(hash3 ^ (ch << 7), 0x27d4eb2f) >>> 0;
-    hash4 = Math.imul(hash4 ^ (ch << 11), 0x811c9dc5) >>> 0;
-  }
-  const part1 = hash1.toString(16).padStart(8, '0');
-  const part2 = hash2.toString(16).padStart(8, '0');
-  const part3 = hash3.toString(16).padStart(8, '0');
-  const part4 = hash4.toString(16).padStart(8, '0');
-  const part5 = (hash1 ^ hash3).toString(16).padStart(8, '0');
-  const part6 = (hash2 ^ hash4).toString(16).padStart(8, '0');
-  const part7 = ((hash1 + hash4) >>> 0).toString(16).padStart(8, '0');
-  const part8 = ((hash2 + hash3) >>> 0).toString(16).padStart(8, '0');
-  return `${part1}${part2}${part3}${part4}${part5}${part6}${part7}${part8}`.toUpperCase();
+  return sha256Hex(seed).toUpperCase();
 }
 
 export default function StatementPage() {

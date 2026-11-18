@@ -81,10 +81,10 @@ public class CreateTransferService implements CreateTransferUseCase {
             );
         }
 
-        // 4. Generate canonical banking protocol
-        String protocolNumber = protocolGenerator.generate(now.atZone(ZONE_SAO_PAULO).toLocalDate());
-
         UUID txId = UUID.randomUUID();
+
+        // 4. Generate canonical banking protocol seeded with transaction ID to prevent collisions
+        String protocolNumber = protocolGenerator.generate(now.atZone(ZONE_SAO_PAULO).toLocalDate(), txId);
 
         FinancialTransaction tx = FinancialTransaction.createTransfer(
                 txId,

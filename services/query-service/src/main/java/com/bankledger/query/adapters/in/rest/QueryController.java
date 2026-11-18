@@ -11,8 +11,8 @@ import com.bankledger.query.adapters.out.persistence.StatementEntryEntity;
 import com.bankledger.query.adapters.out.persistence.StatementEntryRepository;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ProblemDetail;
@@ -38,6 +38,7 @@ import java.util.UUID;
  */
 @Slf4j
 @RestController
+@RequiredArgsConstructor
 @RequestMapping("/api/v1/queries")
 @Tag(name = "Query Service", description = "CQRS Read projections for account balances and bank statements")
 public class QueryController {
@@ -48,24 +49,6 @@ public class QueryController {
     private final AccountBalanceRepository accountBalanceRepository;
     private final StatementEntryRepository statementEntryRepository;
     private final Clock clock;
-
-    @Autowired
-    public QueryController(
-            AccountBalanceRepository accountBalanceRepository,
-            StatementEntryRepository statementEntryRepository,
-            Clock clock
-    ) {
-        this.accountBalanceRepository = accountBalanceRepository;
-        this.statementEntryRepository = statementEntryRepository;
-        this.clock = clock != null ? clock : Clock.systemUTC();
-    }
-
-    public QueryController(
-            AccountBalanceRepository accountBalanceRepository,
-            StatementEntryRepository statementEntryRepository
-    ) {
-        this(accountBalanceRepository, statementEntryRepository, Clock.systemUTC());
-    }
 
     @Operation(summary = "Get account balance", description = "Returns available balance, limits, and projection sequence")
     @GetMapping("/accounts/{accountId}/balance")

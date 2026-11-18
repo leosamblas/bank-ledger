@@ -11,6 +11,7 @@ public record BalanceResponse(
         long blockedCents,
         long dailyLimitCents,
         long usedTodayCents,
+        long availableLimitCents,
         double monthlyVariationPercent,
         String currency,
         long asOfSequence,
@@ -28,13 +29,16 @@ public record BalanceResponse(
             long dailyLimitCents,
             long usedTodayCents
     ) {
+        long effectiveLimit = dailyLimitCents > 0 ? dailyLimitCents : DEFAULT_DAILY_LIMIT_CENTS;
+        long availableLimit = Math.max(0L, effectiveLimit - usedTodayCents);
         return new BalanceResponse(
                 accountId,
                 balance,
                 balance,
                 0L,
-                dailyLimitCents > 0 ? dailyLimitCents : DEFAULT_DAILY_LIMIT_CENTS,
+                effectiveLimit,
                 usedTodayCents,
+                availableLimit,
                 0.0,
                 currency != null ? currency : "BRL",
                 sequence,

@@ -23,6 +23,7 @@ import java.net.URI;
 import java.util.UUID;
 
 @RestController
+@RequiredArgsConstructor
 @RequestMapping("/api/v1/accounts")
 public class AccountController {
 
@@ -30,18 +31,6 @@ public class AccountController {
     private final GetAccountMeUseCase getAccountMeUseCase;
     private final LookupAccountUseCase lookupAccountUseCase;
     private final UpdateProfileUseCase updateProfileUseCase;
-
-    public AccountController(
-            CreateAccountUseCase createAccountUseCase,
-            GetAccountMeUseCase getAccountMeUseCase,
-            LookupAccountUseCase lookupAccountUseCase,
-            UpdateProfileUseCase updateProfileUseCase
-    ) {
-        this.createAccountUseCase = createAccountUseCase;
-        this.getAccountMeUseCase = getAccountMeUseCase;
-        this.lookupAccountUseCase = lookupAccountUseCase;
-        this.updateProfileUseCase = updateProfileUseCase;
-    }
 
     @PostMapping
     public ResponseEntity<AccountResponse> createAccount(@Valid @RequestBody AccountCreationRequest request) {
@@ -141,20 +130,6 @@ public class AccountController {
                 result.cpf(),
                 result.bankCode(),
                 result.bankName(),
-                result.holderNameMasked()
-        ));
-    }
-
-    @GetMapping("/lookup")
-    public ResponseEntity<AccountLookupResponse> lookupAccount(
-            @RequestParam("agency") String agency,
-            @RequestParam("number") String number
-    ) {
-        AccountLookupResult result = lookupAccountUseCase.lookup(agency, number);
-        return ResponseEntity.ok(new AccountLookupResponse(
-                result.accountId(),
-                result.agency(),
-                result.number(),
                 result.holderNameMasked()
         ));
     }

@@ -37,6 +37,9 @@ public class QueryEventConsumer {
     public static final String HANDLER_ACCOUNT_OPENED = "QueryAccountOpenedConsumer";
     public static final String HANDLER_ENTRY_POSTED = "QueryEntryPostedConsumer";
 
+    private static final java.time.ZoneId ZONE_SAO_PAULO = java.time.ZoneId.of("America/Sao_Paulo");
+    private static final java.time.format.DateTimeFormatter DATE_FORMATTER = java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd");
+
     private final AccountBalanceRepository accountBalanceRepository;
     private final StatementEntryRepository statementEntryRepository;
     private final InboxHandler inboxHandler;
@@ -287,6 +290,13 @@ public class QueryEventConsumer {
         String counterpartyDocument = dto.counterpartyDocument();
         String counterpartyAccount = dto.counterpartyAccount();
         String protocolNumber = dto.protocolNumber();
+        if (protocolNumber == null || protocolNumber.isBlank()) {
+            java.time.LocalDate date = postedAt.atZone(ZONE_SAO_PAULO).toLocalDate();
+            String suffix = transactionId != null
+                    ? transactionId.toString().replace("-", "").substring(0, 6).toUpperCase()
+                    : String.format("%06X", entryId != null ? (entryId.hashCode() & 0xFFFFFF) : (sequence & 0xFFFFFF));
+            protocolNumber = String.format("PRT-%s-%s", date.format(DATE_FORMATTER), suffix);
+        }
         String idempotencyKey = dto.idempotencyKey();
         String failureReason = dto.failureReason();
 

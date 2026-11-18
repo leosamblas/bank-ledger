@@ -15,6 +15,7 @@ import { accountService } from '@/services/accountService';
 import { queryService } from '@/services/queryService';
 import { transactionService } from '@/services/transactionService';
 import { generateUUID } from '@/utils/uuid';
+import { maskCpf } from '@/utils/cpf';
 
 const INITIAL_ACCOUNT: BankingAccountInfo = {
   id: '',
@@ -59,11 +60,11 @@ export function useBanking() {
         digit: accountData.digit,
         holderName: accountData.holderName || 'Cliente Nexus',
         companyName: 'Nexus Bank S.A.',
-        cpf: accountData.cpf || '529.982.247-25',
-        cpfMasked: accountData.cpf || '***.***.***-**',
-        birthDate: accountData.birthDate || '1988-05-14',
-        email: accountData.email || 'carlos.silva@nexusbank.com.br',
-        phone: accountData.phone || '(11) 98765-4321',
+        cpf: accountData.cpf || '',
+        cpfMasked: accountData.cpf ? maskCpf(accountData.cpf) : '***.***.***-**',
+        birthDate: accountData.birthDate || '',
+        email: accountData.email || '',
+        phone: accountData.phone || '',
         address: accountData.address,
         status:
           accountData.status === 'BLOCKED'
@@ -119,11 +120,11 @@ export function useBanking() {
           digit: accountData.digit,
           holderName: accountData.holderName || 'Cliente Nexus',
           companyName: 'Nexus Bank S.A.',
-          cpf: accountData.cpf || '529.982.247-25',
-          cpfMasked: accountData.cpf || '***.***.***-**',
-          birthDate: accountData.birthDate || '1988-05-14',
-          email: accountData.email || 'carlos.silva@nexusbank.com.br',
-          phone: accountData.phone || '(11) 98765-4321',
+          cpf: accountData.cpf || '',
+          cpfMasked: accountData.cpf ? maskCpf(accountData.cpf) : '***.***.***-**',
+          birthDate: accountData.birthDate || '',
+          email: accountData.email || '',
+          phone: accountData.phone || '',
           address: accountData.address,
           status:
             accountData.status === 'BLOCKED'

@@ -6,6 +6,7 @@ import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.Objects;
+import java.util.UUID;
 
 /**
  * Domain service responsible for generating canonical banking audit protocol numbers.
@@ -42,22 +43,26 @@ public class BankingProtocolGenerator {
      * @return Formatted protocol string
      */
     public String generate(LocalDate date) {
+        return generate(date, null);
+    }
+
+    /**
+     * Generates a protocol number for a specified date, optionally seeded with a unique UUID
+     * to prevent concurrency collisions and enable deterministic cross-service correlation.
+     *
+     * @param date Date for the protocol timestamp
+     * @param seed Optional UUID seed (e.g. transactionId)
+     * @return Formatted protocol string
+     */
+    public String generate(LocalDate date, UUID seed) {
         Objects.requireNonNull(date, "date must not be null");
-        int randomVal = RANDOM.nextInt(0x1000000); // 24 bits -> 6 hex chars
-        return String.format("PRT-%s-%06X", date.format(DATE_FORMATTER), randomVal);
-    }
-
-    /**
-     * Convenience alias for generate().
-     */
-    public String generateProtocol() {
-        return generate();
-    }
-
-    /**
-     * Convenience alias for generate(date).
-     */
-    public String generateProtocol(LocalDate date) {
-        return generate(date);
+        String suffix;
+        if (seed != null) {
+            suffix = seed.toString().replace("-", "").substring(0, 6).toUpperCase();
+        } else {
+            int randomVal = RANDOM.nextInt(0x1000000); // 24 bits -> 6 hex chars
+            suffix = String.format("%06X", randomVal);
+        }
+        return String.format("PRT-%s-%s", date.format(DATE_FORMATTER), suffix);
     }
 }

@@ -5,29 +5,24 @@ import com.bankledger.account.application.port.out.AccountRepositoryPort;
 import com.bankledger.account.application.port.out.CustomerRepositoryPort;
 import com.bankledger.account.domain.exception.AccountNotFoundException;
 import com.bankledger.account.domain.exception.CustomerNotFoundException;
-import com.bankledger.account.domain.exception.EmailAlreadyExistsException;
 import com.bankledger.account.domain.model.Account;
 import com.bankledger.account.domain.model.Customer;
-import com.bankledger.account.domain.vo.Address;
 import com.bankledger.account.domain.vo.Cpf;
-import com.bankledger.account.domain.vo.Email;
-import com.bankledger.account.domain.vo.Phone;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.Instant;
 import java.util.Objects;
 import java.util.UUID;
 
 /**
- * Application service implementing GetAccountMeUseCase, LookupAccountUseCase, and UpdateProfileUseCase.
- * Handles deterministic name masking and query retrieval.
+ * Application service implementing GetAccountMeUseCase and LookupAccountUseCase.
+ * Handles deterministic name masking and read-only query retrieval adhering to CQRS principles.
  */
 @Service
 @Transactional(readOnly = true)
 @RequiredArgsConstructor
-public class AccountQueryService implements GetAccountMeUseCase, LookupAccountUseCase, UpdateProfileUseCase {
+public class AccountQueryService implements GetAccountMeUseCase, LookupAccountUseCase {
 
     private final AccountRepositoryPort accountRepositoryPort;
     private final CustomerRepositoryPort customerRepositoryPort;
@@ -43,22 +38,11 @@ public class AccountQueryService implements GetAccountMeUseCase, LookupAccountUs
         Objects.requireNonNull(branch, "branch must not be null");
         Objects.requireNonNull(accountNumber, "accountNumber must not be null");
 
-        String targetBranch = branch.trim().isEmpty() ? Account.DEFAULT_BRANCH : branch.trim();
-        String cleanNumber = accountNumber.trim();
-
-        if (cleanNumber.contains("/")) {
-            String[] parts = cleanNumber.split("/", 2);
-            targetBranch = parts[0].trim();
-            cleanNumber = parts[1].trim();
-        }
-
-        if (targetBranch.isEmpty()) {
-            targetBranch = Account.DEFAULT_BRANCH;
-        }
-
-        if (cleanNumber.contains("-")) {
-            cleanNumber = cleanNumber.split("-", 2)[0].trim();
-        }
+        final String targetBranch = branch.trim().isEmpty() ? Account.DEFAULT_BRANCH : branch.trim();
+        String trimmedNumber = accountNumber.trim();
+        final String cleanNumber = trimmedNumber.contains("-")
+                ? trimmedNumber.split("-", 2)[0].trim()
+                : trimmedNumber;
 
         Account account = accountRepositoryPort.findByBranchAndNumber(targetBranch, cleanNumber)
                 .orElseThrow(() -> new AccountNotFoundException("Account not found for " + branch + "/" + accountNumber));
@@ -66,15 +50,7 @@ public class AccountQueryService implements GetAccountMeUseCase, LookupAccountUs
         Customer customer = customerRepositoryPort.findById(account.getCustomerId())
                 .orElseThrow(() -> new CustomerNotFoundException("Customer not found for customerId: " + account.getCustomerId()));
 
-        String maskedName = maskHolderName(customer.getFullName());
-
-        return new AccountLookupResult(
-                account.getId(),
-                account.getBranch(),
-                account.getAccountNumber().number(),
-                account.getAccountNumber().checkDigit(),
-                maskedName
-        );
+        return buildLookupResult(account, customer);
     }
 
     @Override
@@ -97,61 +73,41 @@ public class AccountQueryService implements GetAccountMeUseCase, LookupAccountUs
             Account account = accountRepositoryPort.findByCustomerId(customer.getId())
                     .orElseThrow(() -> new AccountNotFoundException("Account not found for customerId: " + customer.getId()));
 
-            return new AccountLookupResult(
-                    account.getId(),
-                    account.getBranch(),
-                    account.getAccountNumber().number(),
-                    account.getAccountNumber().checkDigit(),
-                    customer.getFullName(),
-                    customer.getCpf().formatted(),
-                    "001",
-                    "Nexus Bank S.A.",
-                    maskHolderName(customer.getFullName())
-            );
+            return buildLookupResult(account, customer);
         } else if (isAccountSearch) {
             if (accountNumber == null || accountNumber.isBlank()) {
                 throw new IllegalArgumentException("Account number must be provided for ACCOUNT lookup");
             }
-            String targetBranch = (agency != null && !agency.isBlank()) ? agency.trim() : Account.DEFAULT_BRANCH;
-            String cleanNumber = accountNumber.trim();
+            final String targetBranch = (agency != null && !agency.isBlank()) ? agency.trim() : Account.DEFAULT_BRANCH;
+            String trimmedNumber = accountNumber.trim();
+            final String cleanNumber = trimmedNumber.contains("-")
+                    ? trimmedNumber.split("-", 2)[0].trim()
+                    : trimmedNumber;
 
-            if (cleanNumber.contains("/")) {
-                String[] parts = cleanNumber.split("/", 2);
-                targetBranch = parts[0].trim();
-                cleanNumber = parts[1].trim();
-            }
-
-            if (targetBranch.isEmpty()) {
-                targetBranch = Account.DEFAULT_BRANCH;
-            }
-
-            if (cleanNumber.contains("-")) {
-                cleanNumber = cleanNumber.split("-", 2)[0].trim();
-            }
-
-            final String effectiveBranch = targetBranch;
-            final String effectiveNumber = cleanNumber;
-
-            Account account = accountRepositoryPort.findByBranchAndNumber(effectiveBranch, effectiveNumber)
-                    .orElseThrow(() -> new AccountNotFoundException("Account not found for " + effectiveBranch + "/" + effectiveNumber));
+            Account account = accountRepositoryPort.findByBranchAndNumber(targetBranch, cleanNumber)
+                    .orElseThrow(() -> new AccountNotFoundException("Account not found for " + targetBranch + "/" + cleanNumber));
 
             Customer customer = customerRepositoryPort.findById(account.getCustomerId())
                     .orElseThrow(() -> new CustomerNotFoundException("Customer not found for customerId: " + account.getCustomerId()));
 
-            return new AccountLookupResult(
-                    account.getId(),
-                    account.getBranch(),
-                    account.getAccountNumber().number(),
-                    account.getAccountNumber().checkDigit(),
-                    customer.getFullName(),
-                    customer.getCpf().formatted(),
-                    "001",
-                    "Nexus Bank S.A.",
-                    maskHolderName(customer.getFullName())
-            );
+            return buildLookupResult(account, customer);
         } else {
             throw new IllegalArgumentException("Invalid search parameters: searchType must be CPF or ACCOUNT");
         }
+    }
+
+    private AccountLookupResult buildLookupResult(Account account, Customer customer) {
+        return new AccountLookupResult(
+                account.getId(),
+                account.getBranch(),
+                account.getAccountNumber().number(),
+                account.getAccountNumber().checkDigit(),
+                customer.getFullName(),
+                customer.getCpf().formatted(),
+                "001",
+                "Nexus Bank S.A.",
+                maskHolderName(customer.getFullName())
+        );
     }
 
     @Override
@@ -159,7 +115,7 @@ public class AccountQueryService implements GetAccountMeUseCase, LookupAccountUs
         Objects.requireNonNull(accountId, "accountId must not be null");
 
         Account account = accountRepositoryPort.findById(accountId)
-                .orElseThrow(() -> new AccountNotFoundException("Account not found: " + accountId));
+                .orElseThrow(() -> new AccountNotFoundException("Account not found for accountId: " + accountId));
 
         Customer customer = customerRepositoryPort.findById(account.getCustomerId())
                 .orElseThrow(() -> new CustomerNotFoundException("Customer not found for customerId: " + account.getCustomerId()));
@@ -204,56 +160,6 @@ public class AccountQueryService implements GetAccountMeUseCase, LookupAccountUs
                 customer.getEmail().value(),
                 customer.getPhone() != null ? customer.getPhone().value() : null,
                 customer.getAddress(),
-                account.getDailyTransferLimitCents()
-        );
-    }
-
-    @Override
-    @Transactional
-    public AccountMeResult updateProfile(UpdateProfileCommand command) {
-        Objects.requireNonNull(command, "command must not be null");
-
-        Account account = accountRepositoryPort.findById(command.accountId())
-                .orElseThrow(() -> new AccountNotFoundException("Account not found: " + command.accountId()));
-
-        Customer customer = customerRepositoryPort.findById(account.getCustomerId())
-                .orElseThrow(() -> new CustomerNotFoundException("Customer not found for customerId: " + account.getCustomerId()));
-
-        Email newEmail = Email.of(command.email());
-        customerRepositoryPort.findByEmail(newEmail).ifPresent(existingCustomer -> {
-            if (!existingCustomer.id().equals(customer.id())) {
-                throw new EmailAlreadyExistsException("Email already in use: " + command.email());
-            }
-        });
-
-        Phone newPhone = Phone.of(command.phone());
-        Address newAddress = Address.of(
-                command.postalCode(),
-                command.street(),
-                command.number(),
-                command.complement(),
-                command.neighborhood(),
-                command.city(),
-                command.state()
-        );
-
-        Instant now = Instant.now();
-        customer.updateProfile(newPhone, newEmail, newAddress, now);
-        Customer savedCustomer = customerRepositoryPort.save(customer);
-
-        return new AccountMeResult(
-                account.getId(),
-                savedCustomer.getId(),
-                account.getBranch(),
-                account.getAccountNumber().number(),
-                account.getAccountNumber().checkDigit(),
-                account.getStatus(),
-                account.getCreatedAt(),
-                savedCustomer.getFullName(),
-                savedCustomer.getCpf().value(),
-                savedCustomer.getEmail().value(),
-                savedCustomer.getPhone().value(),
-                savedCustomer.getAddress(),
                 account.getDailyTransferLimitCents()
         );
     }
